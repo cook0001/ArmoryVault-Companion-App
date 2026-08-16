@@ -8,6 +8,7 @@ export default function Home() {
   const router = useRouter();
   const [syncedIp, setSyncedIp] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [dashboardStats, setDashboardStats] = useState<{firearms: number, ammo: number, components: number} | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -23,6 +24,17 @@ export default function Home() {
       if (queue) {
         const parsed = JSON.parse(queue);
         setOfflineQueueCount(parsed.length || 0);
+      }
+      
+      if (ip) {
+        fetch(`${ip}/api/inventory/summary`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.success) {
+              setDashboardStats({ firearms: data.firearms, ammo: data.ammo, components: data.components });
+            }
+          })
+          .catch(err => console.error("Summary fetch error", err));
       }
     } catch (e) {
       console.error(e);
@@ -66,7 +78,17 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Desktop Connection</Text>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Desktop Connection</Text>
+          {syncedIp && (
+            <Pressable onPress={async () => {
+              await AsyncStorage.removeItem('server_ip');
+              setSyncedIp(null);
+            }}>
+              <Text style={styles.disconnectText}>Disconnect</Text>
+            </Pressable>
+          )}
+        </View>
         {syncedIp ? (
           <Text style={styles.statusSuccess}>Paired to {syncedIp}</Text>
         ) : (
@@ -75,7 +97,9 @@ export default function Home() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Offline Queue</Text>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Offline Queue</Text>
+        </View>
         <Text style={styles.queueCount}>{offlineQueueCount} items pending</Text>
         {offlineQueueCount > 0 && (
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -88,6 +112,28 @@ export default function Home() {
           </View>
         )}
       </View>
+
+      {dashboardStats && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Inventory Overview</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: '#94a3b8', fontSize: 14 }}>Firearms</Text>
+              <Text style={{ color: '#f8fafc', fontSize: 20, fontWeight: 'bold' }}>{dashboardStats.firearms}</Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: '#94a3b8', fontSize: 14 }}>Ammo</Text>
+              <Text style={{ color: '#f8fafc', fontSize: 20, fontWeight: 'bold' }}>{dashboardStats.ammo}</Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: '#94a3b8', fontSize: 14 }}>Components</Text>
+              <Text style={{ color: '#f8fafc', fontSize: 20, fontWeight: 'bold' }}>{dashboardStats.components}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       <Pressable style={styles.scanButton} onPress={() => router.push('/scanner')}>
         <Text style={styles.scanButtonText}>Open Scanner</Text>
@@ -113,11 +159,22 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
     color: '#f8fafc',
+  },
+  disconnectText: {
+    color: '#ef4444',
+    fontWeight: 'bold',
+    fontSize: 14,
+    padding: 4,
   },
   statusSuccess: {
     color: '#10b981',

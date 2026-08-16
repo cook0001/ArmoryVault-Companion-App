@@ -67,13 +67,14 @@ export default function Outbox() {
                 <View style={styles.badgeContainer}>
                   <Text style={styles.badgeText}>
                     {item.type === 'ammo_adjustment' ? 'Ammo Adjustment' : 
+                     item.type === 'component_adjustment' ? 'Component Adjustment' : 
                      item.type === 'firearm_log' ? 'Firearm Log' : 
                      item.type === 'firearm_photo' ? 'Firearm Photo' : 'Unknown'}
                   </Text>
                 </View>
                 
-                {item.type === 'ammo_adjustment' && (
-                  <Text style={styles.itemTitle}>{item.action === 'add' ? '+' : '-'}{item.count} Rounds</Text>
+                {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment') && (
+                  <Text style={styles.itemTitle}>{item.action === 'add' ? '+' : '-'}{item.count} Items</Text>
                 )}
                 
                 {item.type === 'firearm_log' && (

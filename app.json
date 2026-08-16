@@ -4,6 +4,12 @@
     "slug": "armoryvault-companion-app",
     "scheme": "armoryvault",
     "version": "2.1.17",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/130699e0-7b99-47c0-a677-0843dd4390ca"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
