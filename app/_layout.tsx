@@ -99,7 +99,8 @@ export default function Layout() {
           headerTintColor: '#fff',
         }} 
       />  
-      <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Inventory' }} />
+      <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Inventory', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+      <Stack.Screen name="component/[id]" options={{ title: 'Component Inventory', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
       <StatusBar style="light" />
     </>

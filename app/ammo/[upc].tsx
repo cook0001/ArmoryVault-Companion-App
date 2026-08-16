@@ -78,19 +78,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#0f172a',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#0f172a',
+    color: '#f8fafc',
   },
   tabContainer: {
     flexDirection: 'row',
     marginBottom: 20,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#1e293b',
     padding: 4,
   },
   tab: {
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
   },
   tabText: {
-    color: '#64748b',
+    color: '#94a3b8',
     fontWeight: '600',
   },
   activeTabText: {
@@ -115,11 +115,13 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#334155',
+    color: '#cbd5e1',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#334155',
+    backgroundColor: '#1e293b',
+    color: '#f8fafc',
     borderRadius: 8,
     padding: 12,
     marginBottom: 24,
