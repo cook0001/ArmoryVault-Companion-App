@@ -1,6 +1,6 @@
 {
   "name": "armoryvault_companion",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.10",
