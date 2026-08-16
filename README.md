@@ -22,7 +22,9 @@ This project uses Expo.
    ```
 
 ## Running on Android (Standalone APK)
-To build a standalone APK for your Android device locally:
+**Quick Install:** If you don't want to build the app yourself, you can download the latest pre-built `.apk` file directly from the [Releases](../../releases) tab and install it on your device!
+
+To build a standalone APK for your Android device locally from source:
 ```bash
 cd android
 ./gradlew assembleRelease
