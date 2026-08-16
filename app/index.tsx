@@ -61,7 +61,10 @@ export default function Home() {
         body: JSON.stringify({ items: queue }),
       });
 
-      if (!response.ok) throw new Error('Sync failed');
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'No response body');
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      }
 
       const data = await response.json();
       if (data.success) {
@@ -69,9 +72,13 @@ export default function Home() {
         setOfflineQueueCount(0);
         alert(`Successfully synced ${data.processed} items!`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to sync. Ensure you are on the same Wi-Fi and the desktop app is running.');
+      if (e.message && e.message.includes('Network request failed')) {
+        alert(`Network Error: Ensure you are on the same Wi-Fi and the desktop app is running at ${syncedIp}`);
+      } else {
+        alert(`Failed to sync: ${e.message}`);
+      }
     }
   };
 
