@@ -21,8 +21,22 @@ This project uses Expo.
    npx expo start
    ```
 
-## Compiling for Android
-To build a standalone APK for your Android device:
+## Running on Android (Standalone APK)
+To build a standalone APK for your Android device locally:
 ```bash
-npx eas-cli build -p android --profile preview
+cd android
+./gradlew assembleRelease
 ```
+*(The generated APK will be located at `android/app/build/outputs/apk/release/app-release.apk`)*
+
+## Running on iOS (iPhone)
+Because Apple restricts standalone app sideloading without a paid developer account, the easiest way to run the app on your iPhone is through **Expo Go**:
+
+1. Download the **Expo Go** app from the Apple App Store.
+2. Ensure your Mac and your iPhone are on the same Wi-Fi network.
+3. Open your terminal, navigate to this project folder, and run:
+   ```bash
+   npx expo start
+   ```
+4. Open the Camera app on your iPhone and scan the QR code shown in your terminal.
+5. Tap the prompt that appears to open the app directly inside Expo Go!
