@@ -1,6 +1,6 @@
 import { Stack, Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -38,12 +38,8 @@ export default function Layout() {
     }
   };
 
-  if (!isUnlocked && hasAuthHardware) {
-    return <LockedScreen onUnlock={handleAuthenticate} />;
-  }
-
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerStyle: {
@@ -105,7 +101,12 @@ export default function Layout() {
       <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Inventory', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       <Stack.Screen name="component/[id]" options={{ title: 'Component Inventory', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
+      {(!isUnlocked && hasAuthHardware) && (
+        <View style={StyleSheet.absoluteFill}>
+          <LockedScreen onUnlock={handleAuthenticate} />
+        </View>
+      )}
       <StatusBar style="light" />
-    </>
+    </View>
   );
 }

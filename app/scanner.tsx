@@ -1,13 +1,15 @@
 import { View, Text, StyleSheet, Button, TextInput, Pressable, Platform, Keyboard, Modal, Switch } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const router = useRouter();
+  const { type: expectedType } = useLocalSearchParams<{type: string}>();
   const [scanned, setScanned] = useState(false);
   const [manualUpc, setManualUpc] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -16,6 +18,10 @@ export default function ScannerScreen() {
   const [promptVisible, setPromptVisible] = useState(false);
   const [pendingScan, setPendingScan] = useState<{type: string, id: string} | null>(null);
   const [quantity, setQuantity] = useState('1');
+  const [measurement, setMeasurement] = useState('box');
+  const [genericUpcData, setGenericUpcData] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [undoToast, setUndoToast] = useState<{message: string, id: string | null} | null>(null);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -36,7 +42,16 @@ export default function ScannerScreen() {
 
   const handleManualEntry = () => {
     if (manualUpc.trim()) {
-      router.replace(`/ammo/${manualUpc.trim()}`);
+      const data = manualUpc.trim();
+      setManualUpc('');
+      Keyboard.dismiss();
+      if (expectedType === 'ammo') {
+        router.replace(`/ammo/${data}`);
+      } else if (expectedType === 'component') {
+        router.replace(`/component/${data}`);
+      } else {
+        setGenericUpcData(data);
+      }
     }
   };
 
@@ -47,8 +62,8 @@ export default function ScannerScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={{ textAlign: 'center', marginBottom: 20, color: '#fff' }}>We need your permission to show the camera</Text>
-        <Button onPress={requestPermission} title="Grant Permission" />
+        <Text style={{ textAlign: 'center', marginBottom: 20, color: '#fff', fontSize: 16 }}>Camera permission is required to scan barcodes.</Text>
+        <Button onPress={() => Linking.openSettings()} title="Open Settings" color="#3b82f6" />
       </View>
     );
   }
@@ -74,58 +89,54 @@ export default function ScannerScreen() {
         router.replace(`/firearm/${id}`);
         return;
       } else if (data.startsWith('armoryvault://component/')) {
-        const id = data.split('/').pop();
-        if (continuousMode && id) {
-          setPendingScan({ type: 'component_adjustment', id });
-          setPromptVisible(true);
-        } else {
-          router.replace(`/component/${id}`);
-          return;
-        }
+        const id = data.split('/').pop() || '';
+        setPendingScan({ type: 'component_adjustment', id });
+        setPromptVisible(true);
       } else if (data.startsWith('armoryvault://ammo/')) {
-        const id = data.split('/').pop();
-        if (continuousMode && id) {
-          setPendingScan({ type: 'ammo_adjustment', id });
-          setPromptVisible(true);
-        } else {
-          router.replace(`/ammo/${id}`);
-          return;
-        }
+        const id = data.split('/').pop() || '';
+        setPendingScan({ type: 'ammo_adjustment', id });
+        setPromptVisible(true);
       } else {
         // Assume UPC barcode
-        if (continuousMode) {
+        if (expectedType === 'ammo') {
           setPendingScan({ type: 'ammo_adjustment', id: data });
-          setPromptVisible(true);
+        } else if (expectedType === 'component') {
+          setPendingScan({ type: 'component_adjustment', id: data });
         } else {
-          router.replace(`/ammo/${data}`);
-          return;
+          setPendingScan({ type: 'universal_scan', id: data });
         }
+        setPromptVisible(true);
       }
     } catch (e) {
       console.error(e);
-      alert('Invalid barcode');
-      setTimeout(() => setScanned(false), 2000);
-    }
-
-    if (!continuousMode) {
-      setTimeout(() => setScanned(false), 2000);
+      setUndoToast({ message: 'Invalid barcode', id: '' });
+      setTimeout(() => { setUndoToast(null); setScanned(false); }, 2000);
     }
   };
 
-  const saveContinuousScan = async () => {
-    if (!pendingScan) return;
-    const parsedQuantity = parseInt(quantity) || 0;
-    if (parsedQuantity <= 0) {
-      alert("Invalid quantity");
-      return;
-    }
+  const handleGenericUpcSelection = (type: 'ammo' | 'component') => {
+    const data = genericUpcData;
+    setGenericUpcData(null);
+    if (!data) return;
 
+    if (continuousMode) {
+      autoSaveScan(type === 'ammo' ? 'ammo_adjustment' : 'component_adjustment', data);
+    } else {
+      if (type === 'ammo') {
+        router.replace(`/ammo/${data}`);
+      } else {
+        router.replace(`/component/${data}`);
+      }
+    }
+  };
+
+  const autoSaveScan = async (type: string, id: string) => {
     try {
       const newLog = {
-        type: pendingScan.type,
-        upcOrId: pendingScan.id,
+        type: type,
+        upcOrId: id,
         action: 'add',
-        count: parsedQuantity,
+        count: 1,
         timestamp: new Date().toISOString()
       };
 
@@ -135,9 +146,49 @@ export default function ScannerScreen() {
       await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      setUndoToast({ message: `Queued 1 item(s)`, id: id });
+      setTimeout(() => setUndoToast(null), 3000);
     } catch (e) {
       console.error(e);
-      alert("Failed to save scan");
+      setUndoToast({ message: 'Failed to save scan', id: '' });
+      setTimeout(() => setUndoToast(null), 2000);
+    }
+    setTimeout(() => setScanned(false), 2000);
+  };
+
+  const saveContinuousScan = async () => {
+    if (!pendingScan) return;
+    const parsedQuantity = parseInt(quantity) || 0;
+    if (parsedQuantity <= 0) {
+      setUndoToast({ message: 'Invalid quantity', id: '' });
+      setTimeout(() => setUndoToast(null), 2000);
+      return;
+    }
+
+    try {
+      const newLog = {
+        type: pendingScan.type,
+        upcOrId: pendingScan.id,
+        action: 'add',
+        count: parsedQuantity,
+        measurement: measurement,
+        timestamp: new Date().toISOString()
+      };
+
+      const queueStr = await AsyncStorage.getItem('offline_queue');
+      const queue = queueStr ? JSON.parse(queueStr) : [];
+      queue.push(newLog);
+      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      setUndoToast({ message: `Queued ${parsedQuantity} item(s)`, id: pendingScan.id });
+      setTimeout(() => setUndoToast(null), 5000);
+    } catch (e) {
+      console.error(e);
+      setUndoToast({ message: 'Failed to save scan', id: '' });
+      setTimeout(() => setUndoToast(null), 2000);
     }
 
     setPromptVisible(false);
@@ -153,11 +204,26 @@ export default function ScannerScreen() {
     setTimeout(() => setScanned(false), 1000);
   };
 
+  const handleUndo = async () => {
+    try {
+      const queueStr = await AsyncStorage.getItem('offline_queue');
+      const queue = queueStr ? JSON.parse(queueStr) : [];
+      if (queue.length > 0) {
+        queue.pop();
+        await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setUndoToast(null);
+  };
+
   return (
     <View style={styles.container}>
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
+        enableTorch={torchOn}
         barcodeScannerSettings={{
           barcodeTypes: ['qr', 'upc_a', 'upc_e', 'ean13', 'ean8', 'code39', 'code128'],
         }}
@@ -168,6 +234,9 @@ export default function ScannerScreen() {
       </View>
       
       <View style={styles.topBar}>
+        <Pressable onPress={() => setTorchOn(!torchOn)} style={{ marginRight: 15 }}>
+           <Text style={styles.topBarText}>{torchOn ? 'Torch OFF' : 'Torch ON'}</Text>
+        </Pressable>
         <Text style={styles.topBarText}>Continuous Mode</Text>
         <Switch 
           value={continuousMode} 
@@ -191,31 +260,64 @@ export default function ScannerScreen() {
         </Pressable>
       </View>
 
-      <Modal visible={promptVisible} transparent={true} animationType="fade">
+      
+
+      
+
+      <Modal visible={promptVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Scan Success!</Text>
-            <Text style={styles.modalSubtitle}>How many items to add?</Text>
-            <TextInput
-              style={styles.modalInput}
-              keyboardType="numeric"
-              value={quantity}
-              onChangeText={setQuantity}
-              selectTextOnFocus
-              autoFocus
-            />
+            <Text style={styles.modalTitle}>How much to add?</Text>
+            <Text style={styles.modalSubtitle}>Enter quantity and measurement</Text>
+            
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15, width: '100%' }}>
+              <TextInput 
+                style={[styles.modalInput, { flex: 1, marginBottom: 0 }]}
+                keyboardType="number-pad"
+                value={quantity}
+                onChangeText={setQuantity}
+                autoFocus
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 20 }}>
+              {['box', 'rds', 'lbs', 'brick'].map(unit => (
+                <Pressable 
+                  key={unit} 
+                  style={[
+                    styles.measurementChip, 
+                    measurement === unit && styles.measurementChipActive
+                  ]}
+                  onPress={() => setMeasurement(unit)}
+                >
+                  <Text style={[
+                    styles.measurementText,
+                    measurement === unit && styles.measurementTextActive
+                  ]}>{unit}</Text>
+                </Pressable>
+              ))}
+            </View>
+
             <View style={styles.modalButtons}>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#64748b' }]} onPress={cancelContinuousScan}>
+              <Pressable style={[styles.modalBtn, { backgroundColor: '#475569' }]} onPress={cancelContinuousScan}>
                 <Text style={styles.modalBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#10b981' }]} onPress={saveContinuousScan}>
-                <Text style={styles.modalBtnText}>Queue Addition</Text>
+              <Pressable style={[styles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={saveContinuousScan}>
+                <Text style={styles.modalBtnText}>Save Scan</Text>
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
 
+      {undoToast && (
+        <View style={styles.toastContainer}>
+          <Text style={styles.toastText}>{undoToast.message}</Text>
+          <Pressable onPress={handleUndo} style={styles.undoBtn}>
+            <Text style={styles.undoBtnText}>UNDO</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -340,5 +442,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 120,
+    alignSelf: 'center',
+    backgroundColor: '#334155',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  toastText: {
+    color: '#f8fafc',
+    marginRight: 15,
+  },
+  undoBtn: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  undoBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  measurementChip: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0f172a',
+  },
+  measurementChipActive: {
+    borderColor: '#3b82f6',
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  measurementText: {
+    color: '#94a3b8',
+    fontWeight: 'bold',
+  },
+  measurementTextActive: {
+    color: '#3b82f6',
   }
 });

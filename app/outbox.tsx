@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Image, Modal, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
@@ -6,6 +6,8 @@ import { useState, useCallback } from 'react';
 export default function Outbox() {
   const router = useRouter();
   const [queue, setQueue] = useState<any[]>([]);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editQuantity, setEditQuantity] = useState('1');
 
   useFocusEffect(
     useCallback(() => {
@@ -50,6 +52,36 @@ export default function Outbox() {
     );
   };
 
+  const openEditModal = (index: number) => {
+    const item = queue[index];
+    if (item.type === 'ammo_adjustment' || item.type === 'component_adjustment') {
+      setEditIndex(index);
+      setEditQuantity(String(item.count));
+    } else {
+      Alert.alert('Not Editable', 'Only quantity adjustments can be edited in the outbox.');
+    }
+  };
+
+  const saveEdit = async () => {
+    if (editIndex === null) return;
+    const parsed = parseInt(editQuantity);
+    if (isNaN(parsed) || parsed <= 0) {
+      Alert.alert('Invalid', 'Please enter a valid quantity greater than 0.');
+      return;
+    }
+
+    try {
+      const newQueue = [...queue];
+      newQueue[editIndex].count = parsed;
+      await AsyncStorage.setItem('offline_queue', JSON.stringify(newQueue));
+      setQueue(newQueue);
+      setEditIndex(null);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to save changes.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Pending Syncs</Text>
@@ -62,7 +94,7 @@ export default function Outbox() {
       ) : (
         <ScrollView style={{ flex: 1 }}>
           {queue.map((item, index) => (
-            <View key={index} style={styles.card}>
+            <Pressable key={index} style={styles.card} onPress={() => openEditModal(index)}>
               <View style={{ flex: 1 }}>
                 <View style={styles.badgeContainer}>
                   <Text style={styles.badgeText}>
@@ -99,7 +131,7 @@ export default function Outbox() {
               <Pressable style={styles.deleteButton} onPress={() => handleDelete(index)}>
                 <Text style={styles.deleteText}>✕</Text>
               </Pressable>
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
       )}
@@ -107,6 +139,30 @@ export default function Outbox() {
       <Pressable style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>Back to Dashboard</Text>
       </Pressable>
+
+      <Modal visible={editIndex !== null} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Quantity</Text>
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={editQuantity}
+              onChangeText={setEditQuantity}
+              selectTextOnFocus
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Pressable style={[styles.modalBtn, { backgroundColor: '#64748b' }]} onPress={() => setEditIndex(null)}>
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, { backgroundColor: '#10b981' }]} onPress={saveEdit}>
+                <Text style={styles.modalBtnText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -210,5 +266,52 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    padding: 20,
+    borderRadius: 12,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    marginBottom: 20,
+  },
+  modalInput: {
+    backgroundColor: '#0f172a',
+    color: '#fff',
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 24,
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });

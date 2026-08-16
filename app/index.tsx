@@ -9,6 +9,7 @@ export default function Home() {
   const [syncedIp, setSyncedIp] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [dashboardStats, setDashboardStats] = useState<{firearms: number, ammo: number, components: number} | null>(null);
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,12 +27,19 @@ export default function Home() {
         setOfflineQueueCount(parsed.length || 0);
       }
       
+      const cachedStats = await AsyncStorage.getItem('dashboard_cache');
+      if (cachedStats) {
+        setDashboardStats(JSON.parse(cachedStats));
+      }
+      
       if (ip) {
         fetch(`${ip}/api/inventory/summary`)
           .then(res => res.json())
           .then(data => {
             if (data && data.success) {
-              setDashboardStats({ firearms: data.firearms, ammo: data.ammo, components: data.components });
+              const stats = { firearms: data.firearms, ammo: data.ammo, components: data.components };
+              setDashboardStats(stats);
+              AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
             }
           })
           .catch(err => console.error("Summary fetch error", err));
@@ -49,31 +57,48 @@ export default function Home() {
     
     try {
       const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
+      let queue = queueStr ? JSON.parse(queueStr) : [];
       
       if (queue.length === 0) return;
 
-      const response = await fetch(`${syncedIp}/api/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: queue }),
-      });
+      const chunkSize = 20;
+      let processedCount = 0;
+      let chunksTotal = Math.ceil(queue.length / chunkSize);
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'No response body');
-        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      for (let i = 0; i < chunksTotal; i++) {
+        setSyncProgress(`Syncing chunk ${i + 1} of ${chunksTotal}...`);
+        const chunk = queue.slice(0, chunkSize);
+        
+        const response = await fetch(`${syncedIp}/api/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ items: chunk }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'No response body');
+          throw new Error(`Server returned ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          processedCount += data.processed || chunk.length;
+          queue = queue.slice(chunkSize);
+          await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
+          setOfflineQueueCount(queue.length);
+        } else {
+           throw new Error('Sync endpoint returned success: false');
+        }
       }
 
-      const data = await response.json();
-      if (data.success) {
-        await AsyncStorage.removeItem('offline_queue');
-        setOfflineQueueCount(0);
-        alert(`Successfully synced ${data.processed} items!`);
-      }
+      setSyncProgress(null);
+      alert(`Successfully synced ${processedCount} items!`);
+
     } catch (e: any) {
       console.error(e);
+      setSyncProgress(null);
       if (e.message && e.message.includes('Network request failed')) {
         alert(`Network Error: Ensure you are on the same Wi-Fi and the desktop app is running at ${syncedIp}`);
       } else {
@@ -113,8 +138,11 @@ export default function Home() {
             <Pressable style={[styles.syncButton, { flex: 1 }]} onPress={() => router.push('/outbox')}>
               <Text style={styles.buttonText}>View Outbox</Text>
             </Pressable>
-            <Pressable style={[styles.syncButton, { flex: 1, backgroundColor: '#10b981' }]} onPress={handleSyncNow}>
-              <Text style={styles.buttonText}>Sync Now</Text>
+            <Pressable 
+              style={[styles.syncButton, { flex: 1, backgroundColor: syncProgress ? '#64748b' : '#10b981' }]} 
+              onPress={syncProgress ? undefined : handleSyncNow}
+            >
+              <Text style={styles.buttonText}>{syncProgress ? syncProgress : 'Sync Now'}</Text>
             </Pressable>
           </View>
         )}
@@ -142,9 +170,11 @@ export default function Home() {
         </View>
       )}
 
-      <Pressable style={styles.scanButton} onPress={() => router.push('/scanner')}>
-        <Text style={styles.scanButtonText}>Open Scanner</Text>
-      </Pressable>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 'auto' }}>
+        <Pressable style={[styles.scanButton, { flex: 1, backgroundColor: '#3b82f6', marginTop: 0 }]} onPress={() => router.push('/scanner')}>
+          <Text style={styles.scanButtonText}>Universal Scan</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
