@@ -37,6 +37,12 @@ fi
 
 echo "Publishing APK to GitHub Release v$VERSION..."
 
+# Ensure the tag is pushed to the remote if it exists locally
+if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+    echo "Pushing tag v$VERSION to remote..."
+    git push origin "v$VERSION" || true
+fi
+
 # Strip trailing/leading blank lines checking if empty
 if [ -s "$NOTES_FILE" ] && [ "$(awk 'NF' "$NOTES_FILE" | wc -l | tr -d ' ')" -gt 0 ]; then
     echo "Found changelog notes for v$VERSION. Using them for the release."

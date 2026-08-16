@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
 import { Platform, Alert } from 'react-native';
@@ -53,7 +53,7 @@ export async function checkForUpdates(silent = true) {
 
 async function downloadAndInstallUpdate(downloadUrl: string) {
   try {
-    const apkFileUri = FileSystem.documentDirectory + 'update.apk';
+    const apkFileUri = FileSystem.cacheDirectory + 'update.apk';
     
     const downloadRes = await FileSystem.downloadAsync(downloadUrl, apkFileUri);
     
@@ -62,14 +62,14 @@ async function downloadAndInstallUpdate(downloadUrl: string) {
       
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: contentUri,
-        flags: 1, // Intent.FLAG_GRANT_READ_URI_PERMISSION
+        flags: 1 | 268435456, // Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK
         type: 'application/vnd.android.package-archive',
       });
     } else {
-      throw new Error('Failed to download APK');
+      throw new Error(`Failed to download APK. Status: ${downloadRes.status}`);
     }
   } catch (error) {
     console.error('Download/Install error:', error);
-    Alert.alert('Installation Failed', 'There was an error downloading or installing the update.');
+    Alert.alert('Installation Failed', `There was an error downloading or installing the update: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
