@@ -1,15 +1,18 @@
 {
   "expo": {
     "name": "ArmoryVault_Companion",
-    "slug": "ArmoryVault_Companion",
-    "version": "1.0.0",
+    "slug": "armoryvault-companion-app",
+    "scheme": "armoryvault",
+    "version": "2.1.17",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.armoryvault.companion"
     },
     "android": {
+      "package": "com.armoryvault.companion",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -20,6 +23,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "130699e0-7b99-47c0-a677-0843dd4390ca"
+      }
+    },
+    "owner": "cook0001s-team"
   }
 }
