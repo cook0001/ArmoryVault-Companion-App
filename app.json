@@ -32,7 +32,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraGradleProperties": {
+              "org.gradle.jvmargs": "-Xmx3072m -XX:MaxMetaspaceSize=1024m"
+            }
+          }
+        }
+      ],
       "expo-status-bar"
     ],
     "extra": {
