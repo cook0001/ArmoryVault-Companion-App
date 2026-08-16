@@ -17,6 +17,7 @@
     "expo-router": "~6.0.24",
     "expo-status-bar": "~3.0.9",
     "expo-updates": "~29.0.19",
+    "hermes-compiler": "^250829098.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
