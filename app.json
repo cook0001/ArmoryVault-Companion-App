@@ -32,14 +32,8 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "2.2.0"
-          }
-        }
-      ]
+      "expo-build-properties",
+      "expo-status-bar"
     ],
     "extra": {
       "router": {},
