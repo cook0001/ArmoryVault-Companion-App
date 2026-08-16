@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import LockedScreen from './locked';
+import { checkForUpdates } from '../utils/updater';
 
 export default function Layout() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -12,6 +13,8 @@ export default function Layout() {
 
   useEffect(() => {
     checkDeviceAuth();
+    // Silently check for updates on startup
+    checkForUpdates(true);
   }, []);
 
   const checkDeviceAuth = async () => {

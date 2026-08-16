@@ -2,6 +2,8 @@ import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { checkForUpdates } from '../utils/updater';
+import * as Application from 'expo-application';
 
 export default function Settings() {
   const router = useRouter();
@@ -72,7 +74,16 @@ export default function Settings() {
         </Pressable>
       </View>
 
-      <Text style={styles.versionText}>App Version 2.1.17</Text>
+      <Text style={styles.sectionTitle}>App Updates</Text>
+      <View style={styles.card}>
+        <Text style={styles.settingLabel}>Check for Updates</Text>
+        <Text style={styles.settingDescription}>Query GitHub to see if a newer version of the companion app is available.</Text>
+        <Pressable style={styles.primaryButton} onPress={() => checkForUpdates(false)}>
+          <Text style={styles.primaryButtonText}>Check Now</Text>
+        </Pressable>
+      </View>
+
+      <Text style={styles.versionText}>App Version {Application.nativeApplicationVersion || '2.2.18'}</Text>
     </View>
   );
 }
@@ -121,6 +132,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dangerButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  primaryButton: {
+    backgroundColor: '#3b82f6',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
