@@ -1,0 +1,6 @@
+This file is used for Version Control of the mobile app.
+My Version Control Flow is as follows:
+
+The first number is used for Major Updates (Significant Changes, New Features, etc.)
+The second number is used for Minor Updates (Small Changes, Bug Fixes, etc.)
+The third number is used for Patch Updates (Very Small Changes, Hotfixes, etc.)
