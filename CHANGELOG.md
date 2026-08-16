@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.3.2] - 2026-08-16
+### Fixed
+- Completely migrated APK auto-updater from the deprecated `downloadAsync` legacy API to the modern `File.downloadFileAsync` API from Expo SDK 57 to resolve the persist deprecation crash on Android.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

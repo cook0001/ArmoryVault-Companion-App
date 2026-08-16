@@ -1,4 +1,5 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
+import { getContentUriAsync } from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
 import { Platform, Alert } from 'react-native';
@@ -53,12 +54,14 @@ export async function checkForUpdates(silent = true) {
 
 async function downloadAndInstallUpdate(downloadUrl: string) {
   try {
-    const apkFileUri = FileSystem.cacheDirectory + 'update.apk';
+    const updateFile = new File(Paths.cache, 'update.apk');
     
-    const downloadRes = await FileSystem.downloadAsync(downloadUrl, apkFileUri);
+    // Download using the modern FileSystem API
+    const fileOutput = await File.downloadFileAsync(downloadUrl, updateFile);
     
-    if (downloadRes.status === 200) {
-      const contentUri = await FileSystem.getContentUriAsync(downloadRes.uri);
+    if (fileOutput.exists) {
+      // Must use legacy for getting Android content URIs (new API doesn't support this)
+      const contentUri = await getContentUriAsync(fileOutput.uri);
       
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: contentUri,
@@ -66,7 +69,7 @@ async function downloadAndInstallUpdate(downloadUrl: string) {
         type: 'application/vnd.android.package-archive',
       });
     } else {
-      throw new Error(`Failed to download APK. Status: ${downloadRes.status}`);
+      throw new Error('Failed to download APK. File does not exist.');
     }
   } catch (error) {
     console.error('Download/Install error:', error);
