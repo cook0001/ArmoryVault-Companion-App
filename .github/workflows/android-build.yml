@@ -10,6 +10,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: 📦 Checkout repository
@@ -44,3 +46,12 @@ jobs:
           name: ArmoryVault-Companion-APK
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 7
+
+      - name: 🚀 Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: "Automated build of the latest commit on main."
+          files: android/app/build/outputs/apk/release/app-release.apk
