@@ -31,6 +31,15 @@ cd android
 ```
 *(The generated APK will be located at `android/app/build/outputs/apk/release/app-release.apk`)*
 
+## Publishing Releases to GitHub
+You can use the provided scripts to automate GitHub releases:
+
+1. **Auto-Build & Publish**: `./publish-release.sh`
+   *(This script will automatically navigate into the `android/` folder, run the build command, and push the newly generated APK to GitHub)*
+
+2. **Publish Only**: `./publish-release-no-build.sh`
+   *(This script skips the build step and instantly uploads whatever APK is currently in your build output folder to GitHub)*
+
 ## Running on iOS (iPhone)
 Because Apple restricts standalone app sideloading without a paid developer account, the easiest way to run the app on your iPhone is through **Expo Go**:
 
