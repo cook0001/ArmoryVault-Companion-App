@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-source ~/.zshrc 2>/dev/null || true
+export ANDROID_HOME="/usr/local/share/android-commandlinetools"
 set -e
 
 APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
