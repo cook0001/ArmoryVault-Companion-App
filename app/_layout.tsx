@@ -90,16 +90,40 @@ export default function Layout() {
           headerTintColor: '#fff',
         }} 
       />
-      <Stack.Screen 
-        name="outbox" 
-        options={{ 
-          title: 'Pending Syncs',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />  
-      <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Inventory', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
-      <Stack.Screen name="component/[id]" options={{ title: 'Component Inventory', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen 
+          name="outbox" 
+          options={{ 
+            title: 'Pending Syncs',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />  
+        <Stack.Screen 
+          name="firearms/index" 
+          options={{ 
+            title: 'Firearms Vault',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen 
+          name="inventory/index" 
+          options={{ 
+            title: 'Ammo & Supplies',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen 
+          name="range/index" 
+          options={{ 
+            title: 'Range Companion',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="component/[id]" options={{ title: 'Component Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
       {(!isUnlocked && hasAuthHardware) && (
         <View style={StyleSheet.absoluteFill}>

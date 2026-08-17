@@ -22,6 +22,8 @@ export default function ScannerScreen() {
   const [genericUpcData, setGenericUpcData] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [undoToast, setUndoToast] = useState<{message: string, id: string | null} | null>(null);
+  const [itemMatchInfo, setItemMatchInfo] = useState<{ title: string; subtitle?: string; stock?: number } | null>(null);
+  const [scanAction, setScanAction] = useState<'add' | 'remove'>('add');
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -74,6 +76,7 @@ export default function ScannerScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
+      // 1. Pairing QR Code
       if (data.startsWith('armoryvault://sync')) {
         const url = new URL(data);
         const ip = url.searchParams.get('ip');
@@ -84,29 +87,106 @@ export default function ScannerScreen() {
           router.replace('/');
           return;
         }
-      } else if (data.startsWith('armoryvault://firearm/')) {
-        const id = data.split('/').pop();
+      }
+
+      // 2. Firearm QR Code (AV-FIREARM- or armoryvault://firearm/)
+      if (data.startsWith('AV-FIREARM-') || data.startsWith('armoryvault://firearm/')) {
+        const id = data.replace('AV-FIREARM-', '').split('/').pop();
         router.replace(`/firearm/${id}`);
         return;
-      } else if (data.startsWith('armoryvault://component/')) {
-        const id = data.split('/').pop() || '';
-        setPendingScan({ type: 'component_adjustment', id });
-        setPromptVisible(true);
-      } else if (data.startsWith('armoryvault://ammo/')) {
-        const id = data.split('/').pop() || '';
+      }
+
+      // 3. Load Offline Cache for Smart Matching
+      let cachedData: any = null;
+      try {
+        const cacheStr = await AsyncStorage.getItem('inventory_cache');
+        if (cacheStr) cachedData = JSON.parse(cacheStr);
+      } catch (e) {
+        console.error('Cache load error', e);
+      }
+
+      // 4. Ammo QR Code (AV-AMMO- or armoryvault://ammo/)
+      if (data.startsWith('AV-AMMO-') || data.startsWith('armoryvault://ammo/')) {
+        const id = data.replace('AV-AMMO-', '').split('/').pop() || '';
+        let matchTitle = `Ammo #${id}`;
+        let stockCount: number | undefined;
+
+        if (cachedData && cachedData.ammo) {
+          const found = cachedData.ammo.find((a: any) => String(a.id) === id);
+          if (found) {
+            matchTitle = `${found.manufacturer || ''} ${found.caliber || ''} ${found.grain ? found.grain + 'gr ' : ''}${found.projectile || ''}`.trim();
+            stockCount = found.count;
+          }
+        }
+
+        setItemMatchInfo({ title: matchTitle, subtitle: `Ammo ID: ${id}`, stock: stockCount });
         setPendingScan({ type: 'ammo_adjustment', id });
         setPromptVisible(true);
-      } else {
-        // Assume UPC barcode
-        if (expectedType === 'ammo') {
-          setPendingScan({ type: 'ammo_adjustment', id: data });
-        } else if (expectedType === 'component') {
-          setPendingScan({ type: 'component_adjustment', id: data });
-        } else {
-          setPendingScan({ type: 'universal_scan', id: data });
-        }
-        setPromptVisible(true);
+        return;
       }
+
+      // 5. Component QR Code (AV-COMP- or armoryvault://component/)
+      if (data.startsWith('AV-COMP-') || data.startsWith('armoryvault://component/')) {
+        const id = data.replace('AV-COMP-', '').split('/').pop() || '';
+        let matchTitle = `Component #${id}`;
+        let stockCount: number | undefined;
+
+        if (cachedData && cachedData.components) {
+          const found = cachedData.components.find((c: any) => String(c.id) === id);
+          if (found) {
+            matchTitle = `${found.manufacturer || ''} ${found.name || ''} (${found.type})`.trim();
+            stockCount = found.quantity;
+          }
+        }
+
+        setItemMatchInfo({ title: matchTitle, subtitle: `Component ID: ${id}`, stock: stockCount });
+        setPendingScan({ type: 'component_adjustment', id });
+        setPromptVisible(true);
+        return;
+      }
+
+      // 6. Generic UPC / Barcode / Custom SKU Matching
+      let matchedType = expectedType ? (expectedType === 'ammo' ? 'ammo_adjustment' : 'component_adjustment') : 'universal_scan';
+      let matchTitle = `Barcode: ${data}`;
+      let stockCount: number | undefined;
+      let targetId = data;
+
+      if (cachedData) {
+        // Check Custom SKUs first
+        if (cachedData.skus && cachedData.skus[data]) {
+          const skuInfo = cachedData.skus[data];
+          matchTitle = `${skuInfo.manufacturer || ''} ${skuInfo.name || ''} ${skuInfo.caliber || ''}`.trim();
+          if (skuInfo.type === 'Ammo') matchedType = 'ammo_adjustment';
+          else if (skuInfo.type === 'Component') matchedType = 'component_adjustment';
+        }
+
+        // Check Ammo by UPC or ID
+        if (cachedData.ammo) {
+          const foundAmmo = cachedData.ammo.find((a: any) => String(a.id) === data || a.upc_code === data);
+          if (foundAmmo) {
+            matchTitle = `${foundAmmo.manufacturer || ''} ${foundAmmo.caliber || ''} ${foundAmmo.grain ? foundAmmo.grain + 'gr ' : ''}${foundAmmo.projectile || ''}`.trim();
+            stockCount = foundAmmo.count;
+            matchedType = 'ammo_adjustment';
+            targetId = String(foundAmmo.id || data);
+          }
+        }
+
+        // Check Components by UPC or ID
+        if (matchedType === 'universal_scan' && cachedData.components) {
+          const foundComp = cachedData.components.find((c: any) => String(c.id) === data || c.upc_code === data);
+          if (foundComp) {
+            matchTitle = `${foundComp.manufacturer || ''} ${foundComp.name || ''} (${foundComp.type})`.trim();
+            stockCount = foundComp.quantity;
+            matchedType = 'component_adjustment';
+            targetId = String(foundComp.id || data);
+          }
+        }
+      }
+
+      setItemMatchInfo({ title: matchTitle, subtitle: `Scanned: ${data}`, stock: stockCount });
+      setPendingScan({ type: matchedType, id: targetId });
+      setPromptVisible(true);
+
     } catch (e) {
       console.error(e);
       setUndoToast({ message: 'Invalid barcode', id: '' });
@@ -170,7 +250,7 @@ export default function ScannerScreen() {
       const newLog = {
         type: pendingScan.type,
         upcOrId: pendingScan.id,
-        action: 'add',
+        action: scanAction,
         count: parsedQuantity,
         measurement: measurement,
         timestamp: new Date().toISOString()
@@ -183,7 +263,7 @@ export default function ScannerScreen() {
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      setUndoToast({ message: `Queued ${parsedQuantity} item(s)`, id: pendingScan.id });
+      setUndoToast({ message: `Queued ${scanAction === 'remove' ? '-' : '+'}${parsedQuantity} item(s)`, id: pendingScan.id });
       setTimeout(() => setUndoToast(null), 5000);
     } catch (e) {
       console.error(e);
@@ -193,6 +273,7 @@ export default function ScannerScreen() {
 
     setPromptVisible(false);
     setPendingScan(null);
+    setItemMatchInfo(null);
     setQuantity('1');
     setTimeout(() => setScanned(false), 1000);
   };
@@ -200,6 +281,7 @@ export default function ScannerScreen() {
   const cancelContinuousScan = () => {
     setPromptVisible(false);
     setPendingScan(null);
+    setItemMatchInfo(null);
     setQuantity('1');
     setTimeout(() => setScanned(false), 1000);
   };
@@ -260,17 +342,43 @@ export default function ScannerScreen() {
         </Pressable>
       </View>
 
-      
-
-      
-
       <Modal visible={promptVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>How much to add?</Text>
-            <Text style={styles.modalSubtitle}>Enter quantity and measurement</Text>
-            
+            {itemMatchInfo && (
+              <View style={{ marginBottom: 12, alignItems: 'center' }}>
+                <Text style={styles.modalTitle} numberOfLines={2}>{itemMatchInfo.title}</Text>
+                {itemMatchInfo.stock !== undefined && (
+                  <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13, marginTop: 2 }}>
+                    Current Stock: {itemMatchInfo.stock} rds
+                  </Text>
+                )}
+              </View>
+            )}
+            {!itemMatchInfo && (
+              <>
+                <Text style={styles.modalTitle}>Inventory Adjustment</Text>
+                <Text style={styles.modalSubtitle}>Enter quantity and measurement</Text>
+              </>
+            )}
+
+            {/* Action Toggle (Add vs Remove) */}
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15, width: '100%' }}>
+              <Pressable
+                style={[styles.actionToggleBtn, scanAction === 'add' && styles.actionToggleAddActive]}
+                onPress={() => setScanAction('add')}
+              >
+                <Text style={[styles.actionToggleText, scanAction === 'add' && styles.actionToggleTextActive]}>+ Add</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionToggleBtn, scanAction === 'remove' && styles.actionToggleRemoveActive]}
+                onPress={() => setScanAction('remove')}
+              >
+                <Text style={[styles.actionToggleText, scanAction === 'remove' && styles.actionToggleTextActive]}>- Deduct</Text>
+              </Pressable>
+            </View>
+            
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12, width: '100%' }}>
               <TextInput 
                 style={[styles.modalInput, { flex: 1, marginBottom: 0 }]}
                 keyboardType="number-pad"
@@ -278,6 +386,19 @@ export default function ScannerScreen() {
                 onChangeText={setQuantity}
                 autoFocus
               />
+            </View>
+
+            {/* Quick Steppers */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 14 }}>
+              {[20, 50, 100, 250, 500, 1400].map(amt => (
+                <Pressable
+                  key={amt}
+                  style={styles.stepperChip}
+                  onPress={() => setQuantity(String(amt))}
+                >
+                  <Text style={styles.stepperText}>{amt}</Text>
+                </Pressable>
+              ))}
             </View>
 
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 20 }}>
@@ -302,8 +423,11 @@ export default function ScannerScreen() {
               <Pressable style={[styles.modalBtn, { backgroundColor: '#475569' }]} onPress={cancelContinuousScan}>
                 <Text style={styles.modalBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={saveContinuousScan}>
-                <Text style={styles.modalBtnText}>Save Scan</Text>
+              <Pressable 
+                style={[styles.modalBtn, { backgroundColor: scanAction === 'remove' ? '#ef4444' : '#10b981' }]} 
+                onPress={saveContinuousScan}
+              >
+                <Text style={styles.modalBtnText}>{scanAction === 'remove' ? 'Deduct Stock' : 'Add Stock'}</Text>
               </Pressable>
             </View>
           </View>
@@ -489,5 +613,41 @@ const styles = StyleSheet.create({
   },
   measurementTextActive: {
     color: '#3b82f6',
+  },
+  actionToggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  actionToggleAddActive: {
+    backgroundColor: '#065f46',
+    borderColor: '#10b981',
+  },
+  actionToggleRemoveActive: {
+    backgroundColor: '#991b1b',
+    borderColor: '#ef4444',
+  },
+  actionToggleText: {
+    color: '#94a3b8',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  actionToggleTextActive: {
+    color: '#ffffff',
+  },
+  stepperChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#334155',
+  },
+  stepperText: {
+    color: '#f8fafc',
+    fontWeight: 'bold',
+    fontSize: 12,
   }
 });

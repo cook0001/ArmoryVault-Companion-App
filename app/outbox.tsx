@@ -54,11 +54,14 @@ export default function Outbox() {
 
   const openEditModal = (index: number) => {
     const item = queue[index];
-    if (item.type === 'ammo_adjustment' || item.type === 'component_adjustment') {
+    if (item.type === 'ammo_adjustment' || item.type === 'component_adjustment' || item.type === 'universal_scan') {
       setEditIndex(index);
-      setEditQuantity(String(item.count));
+      setEditQuantity(String(item.count || 1));
+    } else if (item.type === 'range_session') {
+      setEditIndex(index);
+      setEditQuantity(String(item.rounds_fired || 0));
     } else {
-      Alert.alert('Not Editable', 'Only quantity adjustments can be edited in the outbox.');
+      Alert.alert('Not Editable', 'Only quantity and round count adjustments can be edited in the outbox.');
     }
   };
 
@@ -72,7 +75,11 @@ export default function Outbox() {
 
     try {
       const newQueue = [...queue];
-      newQueue[editIndex].count = parsed;
+      if (newQueue[editIndex].type === 'range_session') {
+        newQueue[editIndex].rounds_fired = parsed;
+      } else {
+        newQueue[editIndex].count = parsed;
+      }
       await AsyncStorage.setItem('offline_queue', JSON.stringify(newQueue));
       setQueue(newQueue);
       setEditIndex(null);
@@ -100,25 +107,35 @@ export default function Outbox() {
                   <Text style={styles.badgeText}>
                     {item.type === 'ammo_adjustment' ? 'Ammo Adjustment' : 
                      item.type === 'component_adjustment' ? 'Component Adjustment' : 
+                     item.type === 'range_session' ? '🎯 Range Session' :
                      item.type === 'firearm_log' ? 'Firearm Log' : 
-                     item.type === 'firearm_photo' ? 'Firearm Photo' : 'Unknown'}
+                     item.type === 'firearm_photo' ? 'Firearm Photo' :
+                     item.type === 'universal_scan' ? 'Universal Scan' : 'Unknown'}
                   </Text>
                 </View>
                 
-                {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment') && (
-                  <Text style={styles.itemTitle}>{item.action === 'add' ? '+' : '-'}{item.count} Items</Text>
+                {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment' || item.type === 'universal_scan') && (
+                  <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{item.count} Items ({item.measurement || 'rds'})</Text>
+                )}
+
+                {item.type === 'range_session' && (
+                  <>
+                    <Text style={styles.itemTitle}>Firearm #{item.firearm_id} • {item.rounds_fired} Rounds</Text>
+                    {item.ammo_id && <Text style={styles.itemDesc}>Deducting Ammo ID: {item.ammo_id}</Text>}
+                    {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
+                  </>
                 )}
                 
                 {item.type === 'firearm_log' && (
                   <>
-                    <Text style={styles.itemTitle}>{item.logType === 'range' ? 'Range Log' : 'Maintenance'}</Text>
+                    <Text style={styles.itemTitle}>{item.logType === 'maintenance' ? 'Maintenance' : 'Range Log'}</Text>
                     {item.roundCount > 0 && <Text style={styles.itemDesc}>{item.roundCount} Rounds Fired</Text>}
                     {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
                   </>
                 )}
 
                 {item.type === 'firearm_photo' && (
-                  <Text style={styles.itemTitle}>New Photo</Text>
+                  <Text style={styles.itemTitle}>New Photo for Firearm #{item.firearmId}</Text>
                 )}
                 
                 <Text style={styles.timestamp}>{new Date(item.timestamp).toLocaleString()}</Text>

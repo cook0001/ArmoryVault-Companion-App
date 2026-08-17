@@ -1,4 +1,21 @@
 # Changelog
+ 
+## [2.5.0] - 2026-08-16
+### Added
+- **Modern Dashboard & Action Hub**: Overhauled the mobile home screen with a real-time desktop connection beacon, hero sync card with pending counter, and a 4-card Quick Action Hub (`Universal Scan`, `Range Mode`, `Firearms Vault`, `Ammo & Supplies`).
+- **Offline Firearms Vault Browser (`/firearms`)**: Searchable offline catalog of all firearms in your vault with total rounds fired, caliber badges, and quick-action buttons to log range trips or inspections.
+- **Offline Ammo & Reloading Inventory Catalog (`/inventory`)**: Dual-tab inventory browser for Ammunition and Reloading Supplies with search, category filtering (Powder, Primer, Case, Bullet), and instant stock adjustment modals.
+- **Dedicated Range Mode Companion (`/range`)**: Fast range session logger with firearm selector, auto-filtered caliber ammo deduction, fast-tap round presets (+25, +50, +100, +200), target photo capture, and session notes.
+- **Enhanced Settings & Sync Tools**: Added manual IP entry with connection ping test, forced cache refresh, and local storage diagnostic metrics.
+- **Reloading Component Tailored Steppers**: Added unit-aware quantity steppers for powder (lbs) and primers/brass/bullets (counts).
+
+## [2.4.0] - 2026-08-16
+### Added
+- **Full Offline Inventory Cache Integration (`/api/inventory/cache`)**: When connected to the desktop vault, the mobile app automatically downloads and caches firearms, ammunition, reloading components, and the custom SKU dictionary for complete offline functionality at the shooting range.
+- **High-Density QR Code Protocol Support**: Added recognition for `AV-AMMO-<id>`, `AV-FIREARM-<id>`, and `AV-COMP-<id>` QR codes printed on ammo cans and box labels for instant mobile scanning and quantity adjustments.
+- **Smart Range Session Logging with Caliber Ammo Deductions**: Upgraded the firearm range logger to allow selecting caliber-matched ammunition from the offline cache, automatically queuing `range_session` actions to sync with the desktop's atomic inventory session ledger.
+- **Enhanced Scanner & Quantity Steppers**: Added item preview badges showing current on-hand stock and quick steppers (+20, +50, +100, +250, +500, +1400) for rapid inventory audits.
+- **Outbox Range Session Management**: View, modify rounds fired, and review pending range sessions and universal scans directly in the offline outbox.
 
 ## [2.3.4] - 2026-08-16
 ### Fixed
