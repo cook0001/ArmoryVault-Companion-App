@@ -54,7 +54,7 @@ export async function checkForUpdates(silent = true) {
 
 async function downloadAndInstallUpdate(downloadUrl: string) {
   try {
-    const updateFile = new File(Paths.cache, 'update.apk');
+    const updateFile = new File(Paths.cache, `update-${Date.now()}.apk`);
     
     // Download using the modern FileSystem API
     const fileOutput = await File.downloadFileAsync(downloadUrl, updateFile);

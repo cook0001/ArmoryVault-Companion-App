@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.3.4] - 2026-08-16
+### Fixed
+- Fixed an auto-updater crash where consecutive downloads failed with a "Destination already exists" error by appending unique timestamps to the temporary APK filename.
+
 ## [2.3.3] - 2026-08-16
 ### Changed
 - Dry run version bump to test the new in-app APK auto-updater mechanism.
