@@ -17,9 +17,13 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
+echo "Building release APK..."
+pushd /Users/danielc/Documents/ArmoryVault_Companion/android/ > /dev/null
+./gradlew assembleRelease
+popd > /dev/null
+
 if [ ! -f "$APK_PATH" ]; then
-    echo "Error: Release APK not found at $APK_PATH"
-    echo "Please build the APK first by running: cd android && ./gradlew assembleRelease"
+    echo "Error: Release APK not found at $APK_PATH even after building."
     exit 1
 fi
 
