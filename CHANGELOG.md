@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.0-nightly.4] - 2026-08-18 (Nightly Test Build)
+### Added
+- **User-Controlled Release Stream Switching & Instant Rollback Support**:
+  - Full channel toggle in Settings between **Official Stable** and **Nightly Pre-release** streams.
+  - **Intelligent Downgrade Engine**: When a user on a Nightly build selects Stable Channel, the auto-updater recognizes the pre-release state and offers a **"Rollback to Official Stable Release"** download, smoothly bypassing normal forward-only semver constraints.
+  - Dedicated **"Rollback to Latest Stable Release"** action button in Settings whenever a Nightly testing build is active.
+  - Instant auto-check when switching release channels with custom user confirmations.
+
 ## [2.6.0-nightly.3] - 2026-08-18 (Nightly Test Build)
 ### Added
 - **Expanded Commercial Factory Caliber Database (35+ Standard Loads)**:

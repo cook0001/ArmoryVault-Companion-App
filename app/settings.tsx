@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndic
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { checkForUpdates, UpdateChannel } from '../utils/updater';
+import { checkForUpdates, UpdateChannel, isPrereleaseVersion, getCurrentAppVersion } from '../utils/updater';
 import * as Application from 'expo-application';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -59,6 +59,29 @@ export default function Settings() {
     }
   };
 
+  const currentVersionStr = getCurrentAppVersion();
+  const isCurrentBuildNightly = isPrereleaseVersion(currentVersionStr);
+
+  const triggerUpdateOrRollbackCheck = (targetChannel: UpdateChannel) => {
+    checkForUpdates({
+      silent: false,
+      channel: targetChannel,
+      onConfirm: (opts) => {
+        showConfirm({
+          title: opts.title,
+          message: opts.message,
+          confirmText: opts.confirmText,
+          cancelText: opts.cancelText,
+          type: opts.title.includes('Rollback') ? 'danger' : 'confirm',
+          onConfirm: opts.onConfirm,
+        });
+      },
+      onAlert: (title, message) => {
+        showAlert({ title, message, type: 'info' });
+      }
+    });
+  };
+
   const handleChannelChange = async (newChannel: UpdateChannel) => {
     setUpdateChannel(newChannel);
     await AsyncStorage.setItem('update_channel', newChannel);
@@ -68,6 +91,11 @@ export default function Settings() {
       message: `Now tracking ${newChannel === 'nightly' ? 'Nightly Pre-release' : 'Stable'} builds.`,
       type: 'info'
     });
+
+    // Automatically check for rollback or nightly upgrade upon switching
+    setTimeout(() => {
+      triggerUpdateOrRollbackCheck(newChannel);
+    }, 400);
   };
 
   const handleTestConnection = async () => {
@@ -152,23 +180,7 @@ export default function Settings() {
   };
 
   const handleCheckForUpdates = () => {
-    checkForUpdates({
-      silent: false,
-      channel: updateChannel,
-      onConfirm: (opts) => {
-        showConfirm({
-          title: opts.title,
-          message: opts.message,
-          confirmText: opts.confirmText,
-          cancelText: opts.cancelText,
-          type: 'confirm',
-          onConfirm: opts.onConfirm,
-        });
-      },
-      onAlert: (title, message) => {
-        showAlert({ title, message, type: 'info' });
-      }
-    });
+    triggerUpdateOrRollbackCheck(updateChannel);
   };
 
   return (
@@ -199,51 +211,75 @@ export default function Settings() {
             {isTesting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.primaryButtonText}>Test & Connect</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="link-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.primaryButtonText}>Test Connection</Text>
+              </View>
             )}
           </Pressable>
 
           {syncedIp && (
-            <Pressable style={styles.dangerButton} onPress={handleDisconnect}>
-              <Text style={styles.dangerButtonText}>Unpair</Text>
+            <Pressable 
+              style={[styles.secondaryButton, { flex: 0.8 }]} 
+              onPress={handleDisconnect}
+            >
+              <Text style={styles.secondaryButtonText}>Unpair</Text>
             </Pressable>
           )}
         </View>
+
+        {syncedIp && (
+          <View style={styles.statusBadge}>
+            <Ionicons name="checkmark-circle" size={16} color="#10b981" style={{ marginRight: 6 }} />
+            <Text style={styles.statusText}>Paired with {syncedIp}</Text>
+          </View>
+        )}
       </View>
 
-      {/* 2. Automatic Sync Behavior */}
-      <Text style={styles.sectionTitle}>Synchronization Automation</Text>
+      {/* 2. Automated Sync Settings */}
+      <Text style={styles.sectionTitle}>Sync Behavior</Text>
       <View style={styles.card}>
         <View style={styles.toggleRow}>
           <View style={{ flex: 1, paddingRight: 10 }}>
-            <Text style={styles.settingLabel}>Auto-Sync when Connected</Text>
+            <Text style={styles.settingLabel}>Auto-Sync on Launch</Text>
             <Text style={styles.settingDescription}>
-              Automatically transmit pending range sessions, stock audits, and scans to your desktop app when connected on Wi-Fi.
+              Automatically sync pending queue when connected to your desktop network.
             </Text>
           </View>
           <Switch
             value={autoSyncEnabled}
             onValueChange={setAutoSyncEnabled}
-            trackColor={{ false: '#334155', true: '#10b981' }}
-            thumbColor="#ffffff"
+            trackColor={{ false: '#334155', true: '#059669' }}
+            thumbColor={autoSyncEnabled ? '#10b981' : '#94a3b8'}
           />
         </View>
       </View>
 
-      {/* 3. Offline Cache Management */}
-      <Text style={styles.sectionTitle}>Offline Inventory Cache</Text>
+      {/* 3. Offline Cache Inspection */}
+      <Text style={styles.sectionTitle}>Offline Vault Cache</Text>
       <View style={styles.card}>
-        <Text style={styles.settingLabel}>Local Vault Storage</Text>
-        {cacheStats ? (
-          <Text style={styles.settingDescription}>
-            Cached: {cacheStats.firearms} Firearms • {cacheStats.ammo} Ammo Types • {cacheStats.components} Components
-          </Text>
-        ) : (
-          <Text style={styles.settingDescription}>No inventory cached locally yet.</Text>
-        )}
+        <Text style={styles.settingLabel}>Cached Inventory</Text>
+        <Text style={styles.settingDescription}>
+          Local copy of firearms, ammo stock, and reloading components stored for offline field use.
+        </Text>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{cacheStats?.firearms ?? '-'}</Text>
+            <Text style={styles.statLabel}>Firearms</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{cacheStats?.ammo ?? '-'}</Text>
+            <Text style={styles.statLabel}>Ammo Lots</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{cacheStats?.components ?? '-'}</Text>
+            <Text style={styles.statLabel}>Components</Text>
+          </View>
+        </View>
 
         <Pressable 
-          style={[styles.primaryButton, { backgroundColor: '#065f46', borderColor: '#10b981', borderWidth: 1 }]} 
+          style={[styles.primaryButton, { backgroundColor: '#1e293b', borderColor: '#34d399', borderWidth: 1, marginTop: 12 }]} 
           onPress={handleForceRefreshCache}
           disabled={isRefreshing}
         >
@@ -279,7 +315,7 @@ export default function Settings() {
       <View style={styles.card}>
         <Text style={styles.settingLabel}>Release Channel</Text>
         <Text style={styles.settingDescription}>
-          Select which channel to receive APK updates from:
+          Select which release stream to receive APK updates from:
         </Text>
 
         <View style={styles.channelRow}>
@@ -316,18 +352,46 @@ export default function Settings() {
 
         <Text style={styles.channelDescriptionText}>
           {updateChannel === 'nightly'
-            ? '⚡ Tracking bleeding-edge test builds for new features and debugging.'
+            ? '⚡ Tracking bleeding-edge test builds for new features, ballistics tools, and debugging.'
             : '🎯 Tracking thoroughly tested, official production releases.'}
         </Text>
 
+        {/* Current Build Status Badge */}
+        <View style={[styles.statusBadge, { backgroundColor: isCurrentBuildNightly ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)', borderColor: isCurrentBuildNightly ? '#f59e0b' : '#10b981', borderWidth: 1, marginBottom: 12 }]}>
+          <Ionicons 
+            name={isCurrentBuildNightly ? "flask-outline" : "shield-checkmark-outline"} 
+            size={16} 
+            color={isCurrentBuildNightly ? "#f59e0b" : "#10b981"} 
+            style={{ marginRight: 6 }} 
+          />
+          <Text style={[styles.statusText, { color: isCurrentBuildNightly ? "#f59e0b" : "#10b981", fontWeight: 'bold' }]}>
+            Current Installed Build: v{currentVersionStr} ({isCurrentBuildNightly ? 'Nightly Pre-release' : 'Official Stable'})
+          </Text>
+        </View>
+
+        {/* Dedicated Rollback Button if currently on Nightly */}
+        {isCurrentBuildNightly && (
+          <Pressable 
+            style={[styles.dangerButton, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', borderWidth: 1, marginBottom: 10 }]} 
+            onPress={() => triggerUpdateOrRollbackCheck('stable')}
+          >
+            <Ionicons name="arrow-undo-outline" size={18} color="#ef4444" style={{ marginRight: 6 }} />
+            <Text style={[styles.dangerButtonText, { color: '#ef4444' }]}>
+              Rollback to Latest Stable Release
+            </Text>
+          </Pressable>
+        )}
+
         <Pressable style={styles.primaryButton} onPress={handleCheckForUpdates}>
           <Ionicons name="cloud-download-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-          <Text style={styles.primaryButtonText}>Check for Updates ({updateChannel.toUpperCase()})</Text>
+          <Text style={styles.primaryButtonText}>
+            Check for {updateChannel === 'nightly' ? 'Nightly Updates' : 'Stable Updates'}
+          </Text>
         </Pressable>
       </View>
 
       <Text style={styles.versionText}>
-        ArmoryVault Companion v{Application.nativeApplicationVersion || '2.6.0-nightly.1'} ({updateChannel.toUpperCase()})
+        ArmoryVault Companion v{currentVersionStr} ({updateChannel.toUpperCase()})
       </Text>
     </ScrollView>
   );
@@ -452,6 +516,57 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  secondaryButton: {
+    backgroundColor: '#334155',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: '#cbd5e1',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  statusText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#34d399',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   versionText: {
     textAlign: 'center',
