@@ -2,10 +2,14 @@ import { View, Text, StyleSheet, TextInput, Pressable, ScrollView } from 'react-
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSync } from '../../context/SyncContext';
+import { useDialog } from '../../context/DialogContext';
 
 export default function AmmoScreen() {
   const { upc } = useLocalSearchParams();
   const router = useRouter();
+  const { addToQueue } = useSync();
+  const { showToast, showError } = useDialog();
   
   const [action, setAction] = useState<'add' | 'remove'>('add');
   const [count, setCount] = useState('50');
@@ -50,7 +54,7 @@ export default function AmmoScreen() {
     try {
       const parsedCount = parseInt(count) || 0;
       if (parsedCount <= 0) {
-        alert('Enter a valid count');
+        showToast({ message: 'Please enter a valid round count', type: 'warning' });
         return;
       }
 
@@ -62,16 +66,12 @@ export default function AmmoScreen() {
         timestamp: new Date().toISOString()
       };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newLog);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-
-      alert(`Queued ${action === 'remove' ? '-' : '+'}${parsedCount} rds for sync!`);
+      const msg = `Queued ${action === 'remove' ? '-' : '+'}${parsedCount} rds (${matchedAmmo?.caliber || upc})`;
+      await addToQueue(newLog, msg);
       router.back();
     } catch (e) {
       console.error(e);
-      alert('Failed to save');
+      showError('Save Failed', 'Could not queue ammo adjustment');
     }
   };
 

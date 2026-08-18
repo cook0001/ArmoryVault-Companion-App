@@ -4,10 +4,15 @@ The official companion app for ArmoryVault, built with React Native and Expo.
 This mobile application connects securely over your local Wi-Fi to the ArmoryVault Desktop Electron app.
 
 ## Features
-- **Secure Offline-First Logging:** Scan custom QR codes to log range trips, maintenance, and ammo usage.
-- **Direct Local Sync:** Push logs and photos directly to your local desktop vault—no cloud required.
-- **Outbox Management:** Review and edit logs offline before pushing to the desktop.
-- **Haptic UI:** Fast, reliable scanning with a tactile dark-mode aesthetic.
+- **Automatic Background Sync:** Transmits pending range sessions, scans, and inventory audits automatically when connected to your desktop over Wi-Fi.
+- **Target MOA Grouping Analyzer & Scope Zeroing:** Scale target photos with 1" grids or coins, plot bullet holes (POI), and calculate Extreme Spread, Mean Radius, MOA, and scope turret click adjustments.
+- **Range Bag Packing Checklist ("Range Prep"):** Select guns -> auto-aggregates matching ammunition lots, magazines, and discipline gear presets (CCW, Precision, Steel Challenge).
+- **Maintenance Lifecycle Milestones & Wear Gauges:** Track recoil springs, extractor, and deep cleaning with 1-tap service resets and malfunction root-cause diagnostics.
+- **Offline DOPE & Ballistic Drop Calculator:** Simple Mode (commercial factory ammo database) and Advanced Mode (numerical G1 point-mass solver with environmental weather adjustments).
+- **Private Bill of Sale PDF Generator:** Driver's License PDF417 scanner, statutory legal affirmations, dual touch signature canvas, and 1-tap SMS/Email/Print sharing.
+- **100% On-Device Bench Voice Memos:** Private, zero-cloud audio notes with instant playback and 1-tap "Wipe All Voice Logs" purge controls.
+- **Tactical Dark UI & Dialogs:** Custom dark confirmation modals and auto-dismissing toast notifications with haptics.
+- **Nightly & Stable Update Channels:** Select between official stable releases and nightly test builds in Settings.
 
 ## Setup & Run
 This project uses Expo.
@@ -34,11 +39,14 @@ cd android
 ## Publishing Releases to GitHub
 You can use the provided scripts to automate GitHub releases:
 
-1. **Auto-Build & Publish**: `./publish-release.sh`
-   *(This script will automatically navigate into the `android/` folder, run the build command, and push the newly generated APK to GitHub)*
+1. **Auto-Build & Publish Stable Release**: `./publish-release.sh`
+   *(Builds the release APK and publishes an official release to GitHub)*
 
-2. **Publish Only**: `./publish-release-no-build.sh`
-   *(This script skips the build step and instantly uploads whatever APK is currently in your build output folder to GitHub)*
+2. **Auto-Build & Publish Nightly Prerelease**: `./publish-nightly.sh`
+   *(Builds the release APK and publishes a Nightly pre-release to GitHub)*
+
+3. **Publish Only (No Build)**: `./publish-release-no-build.sh`
+   *(Instantly uploads the current build artifact to GitHub)*
 
 ## Running on iOS (iPhone)
 Because Apple restricts standalone app sideloading without a paid developer account, the easiest way to run the app on your iPhone is through **Expo Go**:

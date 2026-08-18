@@ -6,8 +6,10 @@ import { useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import LockedScreen from './locked';
 import { checkForUpdates } from '../utils/updater';
+import { DialogProvider } from '../context/DialogContext';
+import { SyncProvider } from '../context/SyncContext';
 
-export default function Layout() {
+function RootLayoutContent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [hasAuthHardware, setHasAuthHardware] = useState(false);
 
@@ -52,44 +54,44 @@ export default function Layout() {
         }}
       >
         <Stack.Screen 
-        name="index" 
-        options={{ 
-          title: 'ArmoryVault Sync',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-          headerRight: () => (
-            <Link href="/settings" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                <Ionicons name="settings-outline" size={24} color="#fff" />
-              </Pressable>
-            </Link>
-          ),
-        }} 
-      />
-      <Stack.Screen 
-        name="settings" 
-        options={{ 
-          title: 'Settings',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />
-      <Stack.Screen 
-        name="scanner" 
-        options={{ 
-          title: 'Scan Item',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />
-      <Stack.Screen 
-        name="firearm/[id]" 
-        options={{ 
-          title: 'Firearm Log',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />
+          name="index" 
+          options={{ 
+            title: 'ArmoryVault Sync',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+            headerRight: () => (
+              <Link href="/settings" asChild>
+                <Pressable style={{ marginRight: 15 }}>
+                  <Ionicons name="settings-outline" size={24} color="#fff" />
+                </Pressable>
+              </Link>
+            ),
+          }} 
+        />
+        <Stack.Screen 
+          name="settings" 
+          options={{ 
+            title: 'Settings',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen 
+          name="scanner" 
+          options={{ 
+            title: 'Scan Item',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen 
+          name="firearm/[id]" 
+          options={{ 
+            title: 'Firearm Log',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
         <Stack.Screen 
           name="outbox" 
           options={{ 
@@ -132,5 +134,15 @@ export default function Layout() {
       )}
       <StatusBar style="light" />
     </View>
+  );
+}
+
+export default function Layout() {
+  return (
+    <DialogProvider>
+      <SyncProvider>
+        <RootLayoutContent />
+      </SyncProvider>
+    </DialogProvider>
   );
 }

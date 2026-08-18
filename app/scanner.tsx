@@ -5,11 +5,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
+import { useSync } from '../context/SyncContext';
+import { useDialog } from '../context/DialogContext';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const router = useRouter();
   const { type: expectedType } = useLocalSearchParams<{type: string}>();
+  
+  const { addToQueue, setServerIp, removeFromQueue, offlineQueue } = useSync();
+  const { showSuccess, showError, showToast } = useDialog();
+
   const [scanned, setScanned] = useState(false);
   const [manualUpc, setManualUpc] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -21,7 +27,6 @@ export default function ScannerScreen() {
   const [measurement, setMeasurement] = useState('box');
   const [genericUpcData, setGenericUpcData] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
-  const [undoToast, setUndoToast] = useState<{message: string, id: string | null} | null>(null);
   const [itemMatchInfo, setItemMatchInfo] = useState<{ title: string; subtitle?: string; stock?: number } | null>(null);
   const [scanAction, setScanAction] = useState<'add' | 'remove'>('add');
 
@@ -82,8 +87,8 @@ export default function ScannerScreen() {
         const ip = url.searchParams.get('ip');
         const port = url.searchParams.get('port');
         if (ip && port) {
-          await AsyncStorage.setItem('server_ip', `http://${ip}:${port}`);
-          alert(`Successfully paired to ${ip}`);
+          await setServerIp(`http://${ip}:${port}`);
+          showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port}`);
           router.replace('/');
           return;
         }
@@ -189,87 +194,67 @@ export default function ScannerScreen() {
 
     } catch (e) {
       console.error(e);
-      setUndoToast({ message: 'Invalid barcode', id: '' });
-      setTimeout(() => { setUndoToast(null); setScanned(false); }, 2000);
-    }
-  };
-
-  const handleGenericUpcSelection = (type: 'ammo' | 'component') => {
-    const data = genericUpcData;
-    setGenericUpcData(null);
-    if (!data) return;
-
-    if (continuousMode) {
-      autoSaveScan(type === 'ammo' ? 'ammo_adjustment' : 'component_adjustment', data);
-    } else {
-      if (type === 'ammo') {
-        router.replace(`/ammo/${data}`);
-      } else {
-        router.replace(`/component/${data}`);
-      }
+      showToast({ message: 'Invalid barcode or QR format', type: 'error' });
+      setTimeout(() => setScanned(false), 2000);
     }
   };
 
   const autoSaveScan = async (type: string, id: string) => {
-    try {
-      const newLog = {
-        type: type,
-        upcOrId: id,
-        action: 'add',
-        count: 1,
-        timestamp: new Date().toISOString()
-      };
+    const newLog = {
+      type: type,
+      upcOrId: id,
+      action: 'add',
+      count: 1,
+      timestamp: new Date().toISOString()
+    };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newLog);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-      
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await addToQueue(newLog);
+    showToast({
+      message: `Queued 1 item (${id})`,
+      type: 'success',
+      action: {
+        label: 'UNDO',
+        onPress: () => {
+          if (offlineQueue.length > 0) {
+            removeFromQueue(offlineQueue.length - 1);
+          }
+        }
+      }
+    });
 
-      setUndoToast({ message: `Queued 1 item(s)`, id: id });
-      setTimeout(() => setUndoToast(null), 3000);
-    } catch (e) {
-      console.error(e);
-      setUndoToast({ message: 'Failed to save scan', id: '' });
-      setTimeout(() => setUndoToast(null), 2000);
-    }
-    setTimeout(() => setScanned(false), 2000);
+    setTimeout(() => setScanned(false), 1500);
   };
 
   const saveContinuousScan = async () => {
     if (!pendingScan) return;
     const parsedQuantity = parseInt(quantity) || 0;
     if (parsedQuantity <= 0) {
-      setUndoToast({ message: 'Invalid quantity', id: '' });
-      setTimeout(() => setUndoToast(null), 2000);
+      showToast({ message: 'Please enter a valid quantity greater than 0', type: 'error' });
       return;
     }
 
-    try {
-      const newLog = {
-        type: pendingScan.type,
-        upcOrId: pendingScan.id,
-        action: scanAction,
-        count: parsedQuantity,
-        measurement: measurement,
-        timestamp: new Date().toISOString()
-      };
+    const newLog = {
+      type: pendingScan.type,
+      upcOrId: pendingScan.id,
+      action: scanAction,
+      count: parsedQuantity,
+      measurement: measurement,
+      timestamp: new Date().toISOString()
+    };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newLog);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-      
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      setUndoToast({ message: `Queued ${scanAction === 'remove' ? '-' : '+'}${parsedQuantity} item(s)`, id: pendingScan.id });
-      setTimeout(() => setUndoToast(null), 5000);
-    } catch (e) {
-      console.error(e);
-      setUndoToast({ message: 'Failed to save scan', id: '' });
-      setTimeout(() => setUndoToast(null), 2000);
-    }
+    await addToQueue(newLog);
+    showToast({
+      message: `Queued ${scanAction === 'remove' ? '-' : '+'}${parsedQuantity} item(s)`,
+      type: 'success',
+      action: {
+        label: 'UNDO',
+        onPress: () => {
+          if (offlineQueue.length > 0) {
+            removeFromQueue(offlineQueue.length - 1);
+          }
+        }
+      }
+    });
 
     setPromptVisible(false);
     setPendingScan(null);
@@ -284,20 +269,6 @@ export default function ScannerScreen() {
     setItemMatchInfo(null);
     setQuantity('1');
     setTimeout(() => setScanned(false), 1000);
-  };
-
-  const handleUndo = async () => {
-    try {
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      if (queue.length > 0) {
-        queue.pop();
-        await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setUndoToast(null);
   };
 
   return (
@@ -433,15 +404,6 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
-
-      {undoToast && (
-        <View style={styles.toastContainer}>
-          <Text style={styles.toastText}>{undoToast.message}</Text>
-          <Pressable onPress={handleUndo} style={styles.undoBtn}>
-            <Text style={styles.undoBtnText}>UNDO</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
@@ -517,39 +479,45 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#1e293b',
     padding: 20,
-    borderRadius: 12,
-    width: '80%',
+    borderRadius: 14,
+    width: '100%',
+    maxWidth: 340,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 5,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94a3b8',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalInput: {
     backgroundColor: '#0f172a',
     color: '#fff',
     width: '100%',
     textAlign: 'center',
-    fontSize: 24,
-    padding: 15,
+    fontSize: 26,
+    fontWeight: 'bold',
+    padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#3b82f6',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -558,47 +526,19 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     flex: 1,
-    padding: 15,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   modalBtnText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
-  },
-  toastContainer: {
-    position: 'absolute',
-    bottom: 120,
-    alignSelf: 'center',
-    backgroundColor: '#334155',
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  toastText: {
-    color: '#f8fafc',
-    marginRight: 15,
-  },
-  undoBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-  },
-  undoBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 15,
   },
   measurementChip: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#334155',
     backgroundColor: '#0f172a',
@@ -610,6 +550,7 @@ const styles = StyleSheet.create({
   measurementText: {
     color: '#94a3b8',
     fontWeight: 'bold',
+    fontSize: 12,
   },
   measurementTextActive: {
     color: '#3b82f6',
@@ -634,7 +575,7 @@ const styles = StyleSheet.create({
   actionToggleText: {
     color: '#94a3b8',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
   },
   actionToggleTextActive: {
     color: '#ffffff',

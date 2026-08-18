@@ -5,10 +5,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSync } from '../../context/SyncContext';
+import { useDialog } from '../../context/DialogContext';
 
 export default function RangeSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ firearmId?: string }>();
+  const { addToQueue } = useSync();
+  const { showToast, showError } = useDialog();
 
   const [firearms, setFirearms] = useState<any[]>([]);
   const [ammoList, setAmmoList] = useState<any[]>([]);
@@ -20,12 +24,51 @@ export default function RangeSessionScreen() {
   const [roundsFired, setRoundsFired] = useState('50');
   const [notes, setNotes] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [moaMetrics, setMoaMetrics] = useState<any | null>(null);
+
+  // Malfunctions state
+  const [malfunctions, setMalfunctions] = useState<{ [key: string]: number }>({
+    FTF: 0,
+    FTE: 0,
+    stovepipe: 0,
+    double_feed: 0,
+    light_strike: 0,
+  });
+  const [suspectedCause, setSuspectedCause] = useState<string>('unknown');
+  const [magId, setMagId] = useState('');
 
   useFocusEffect(
     useCallback(() => {
       loadInventory();
+      checkPendingMoa();
     }, [])
   );
+
+  const totalMalfunctions = Object.values(malfunctions).reduce((a, b) => a + b, 0);
+
+  const incrementMalfunction = (type: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setMalfunctions(prev => ({ ...prev, [type]: (prev[type] || 0) + 1 }));
+  };
+
+  const decrementMalfunction = (type: string) => {
+    setMalfunctions(prev => ({ ...prev, [type]: Math.max(0, (prev[type] || 0) - 1) }));
+  };
+
+  const checkPendingMoa = async () => {
+    try {
+      const moaStr = await AsyncStorage.getItem('pending_moa_analysis');
+      if (moaStr) {
+        const data = JSON.parse(moaStr);
+        if (data.groupMetrics) {
+          setMoaMetrics(data.groupMetrics);
+        }
+        await AsyncStorage.removeItem('pending_moa_analysis');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const loadInventory = async () => {
     try {
@@ -69,18 +112,39 @@ export default function RangeSessionScreen() {
     }
   };
 
+  const openGroupingCalculator = () => {
+    if (!photo) {
+      showToast({ message: 'Capture a target photo first', type: 'warning' });
+      return;
+    }
+    router.push({
+      pathname: '/range/grouping-calculator',
+      params: { photoUri: photo, distanceYards: '100' }
+    });
+  };
+
   const handleQueueRangeSession = async () => {
     if (!selectedFirearmId) {
-      alert('Please select a firearm');
+      showToast({ message: 'Please select a firearm', type: 'warning' });
       return;
     }
     const rounds = parseInt(roundsFired) || 0;
     if (rounds <= 0) {
-      alert('Please enter rounds fired');
+      showToast({ message: 'Please enter a valid rounds fired count', type: 'warning' });
       return;
     }
 
     try {
+      const recordedMalfunctions = Object.entries(malfunctions)
+        .filter(([_, count]) => count > 0)
+        .map(([type, count]) => ({
+          type,
+          count,
+          mag_id: magId || undefined,
+          ammo_id: selectedAmmoId || undefined,
+          suspected_cause: suspectedCause !== 'unknown' ? suspectedCause : undefined
+        }));
+
       const newSession = {
         type: 'range_session',
         firearm_id: selectedFirearmId,
@@ -89,20 +153,18 @@ export default function RangeSessionScreen() {
         date: new Date().toISOString().split('T')[0],
         notes,
         photoBase64: photo,
+        group_metrics: moaMetrics || undefined,
+        malfunctions: recordedMalfunctions.length > 0 ? recordedMalfunctions : undefined,
         timestamp: new Date().toISOString()
       };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newSession);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      alert(`Queued range session with ${selectedFirearm?.make} ${selectedFirearm?.model} (${rounds} rds)!`);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      const msg = `Queued range session: ${selectedFirearm?.make} ${selectedFirearm?.model} (${rounds} rds)${totalMalfunctions > 0 ? ` • ${totalMalfunctions} Malfunctions` : ''}`;
+      await addToQueue(newSession, msg);
       router.back();
     } catch (e) {
       console.error(e);
-      alert('Failed to save range session');
+      showError('Save Error', 'Failed to save range session');
     }
   };
 
@@ -184,8 +246,77 @@ export default function RangeSessionScreen() {
         ))}
       </View>
 
-      {/* 4. Notes */}
-      <Text style={styles.sectionHeader}>4. Target / Session Notes</Text>
+      {/* 4. Malfunction & Reliability Diagnostics */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <Text style={styles.sectionHeader}>4. Reliability & Malfunctions</Text>
+        {totalMalfunctions > 0 && (
+          <View style={styles.malfunctionPill}>
+            <Text style={styles.malfunctionPillText}>⚠️ {totalMalfunctions} Total</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.malfunctionGrid}>
+        {[
+          { key: 'FTF', label: 'Feed (FTF)' },
+          { key: 'FTE', label: 'Extract (FTE)' },
+          { key: 'stovepipe', label: 'Stovepipe' },
+          { key: 'double_feed', label: 'Dbl Feed' },
+          { key: 'light_strike', label: 'Light Strike' },
+        ].map(m => (
+          <View key={m.key} style={[styles.malfunctionBox, malfunctions[m.key] > 0 && styles.malfunctionBoxActive]}>
+            <Text style={styles.malfunctionLabel}>{m.label}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <Pressable style={styles.miniCounterBtn} onPress={() => decrementMalfunction(m.key)}>
+                <Text style={styles.miniCounterText}>-</Text>
+              </Pressable>
+              <Text style={[styles.counterValText, malfunctions[m.key] > 0 && { color: '#ef4444' }]}>
+                {malfunctions[m.key]}
+              </Text>
+              <Pressable style={[styles.miniCounterBtn, { backgroundColor: '#ef4444' }]} onPress={() => incrementMalfunction(m.key)}>
+                <Text style={[styles.miniCounterText, { color: '#fff' }]}>+</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {totalMalfunctions > 0 && (
+        <View style={styles.causeCard}>
+          <Text style={styles.causeTitle}>Suspected Root Cause & Component Tag:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 6 }}>
+            {[
+              { key: 'ammo_profile_mismatch', label: 'Bullet Profile (Flat Nose/JHP)' },
+              { key: 'low_pressure_cycling', label: 'Low Pressure / Comp Short-Stroke' },
+              { key: 'dirty_powder_fouling', label: 'Dirty Powder / Carbon Fouling' },
+              { key: 'steel_case_expansion', label: 'Steel Case Sticking' },
+              { key: 'magazine_spring', label: 'Magazine Feed Lips / Spring' },
+              { key: 'unknown', label: 'Unknown / Random' },
+            ].map(c => (
+              <Pressable
+                key={c.key}
+                style={[styles.causeChip, suspectedCause === c.key && styles.causeChipActive]}
+                onPress={() => setSuspectedCause(c.key)}
+              >
+                <Text style={[styles.causeChipText, suspectedCause === c.key && styles.causeChipTextActive]}>
+                  {c.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <TextInput
+            style={styles.magInput}
+            placeholder="Optional Mag ID (e.g. Mag #3 PMAG 30)..."
+            placeholderTextColor="#64748b"
+            value={magId}
+            onChangeText={setMagId}
+          />
+        </View>
+      )}
+
+      {/* 5. Notes */}
+      <Text style={styles.sectionHeader}>5. Target / Session Notes</Text>
       <TextInput
         style={styles.textArea}
         multiline
@@ -196,14 +327,41 @@ export default function RangeSessionScreen() {
         placeholderTextColor="#64748b"
       />
 
-      {/* 5. Target Photo */}
+      {/* 5. Target Photo & Group Analysis */}
+      <Text style={styles.sectionHeader}>5. Target Photo & MOA Analysis</Text>
       <Pressable style={styles.photoButton} onPress={takePhoto}>
         <Ionicons name="camera" size={18} color="#fff" style={{ marginRight: 8 }} />
         <Text style={styles.photoBtnText}>{photo ? 'Retake Target Photo' : 'Capture Target / Grouping Photo'}</Text>
       </Pressable>
 
       {photo && (
-        <Image source={{ uri: photo }} style={styles.previewImage} />
+        <View style={{ marginBottom: 16 }}>
+          <Image source={{ uri: photo }} style={styles.previewImage} />
+          
+          <Pressable style={styles.moaToolBtn} onPress={openGroupingCalculator}>
+            <Ionicons name="scan-outline" size={18} color="#38bdf8" style={{ marginRight: 6 }} />
+            <Text style={styles.moaToolBtnText}>
+              {moaMetrics ? '✏️ Re-Measure Group & Scope Adjustments' : '🎯 Measure Shot Group & MOA (Photo)'}
+            </Text>
+          </Pressable>
+
+          {moaMetrics && (
+            <View style={styles.moaBadgeCard}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={styles.moaBadgeTitle}>🎯 Measured Grouping</Text>
+                <Text style={styles.moaValueText}>{moaMetrics.moa} MOA</Text>
+              </View>
+              <Text style={styles.moaDetailText}>
+                Extreme Spread: {moaMetrics.extremeSpreadInches}" ({moaMetrics.extremeSpreadMm} mm) • {moaMetrics.shotCount} Shots • Mean Radius: {moaMetrics.meanRadiusInches}"
+              </Text>
+              {moaMetrics.turretAdjustment && (
+                <Text style={styles.turretSummaryText}>
+                  Scope Zero: Dial {moaMetrics.turretAdjustment.elevationDirection} {moaMetrics.turretAdjustment.elevationClicks} clicks, {moaMetrics.turretAdjustment.windageDirection} {moaMetrics.turretAdjustment.windageClicks} clicks ({moaMetrics.turretAdjustment.clickUnitLabel})
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
       )}
 
       {/* Submit Button */}
@@ -224,7 +382,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionHeader: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#94a3b8',
     textTransform: 'uppercase',
@@ -360,7 +518,157 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  moaToolBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    borderColor: '#38bdf8',
+    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  moaToolBtnText: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  moaBadgeCard: {
+    backgroundColor: '#0f172a',
+    borderColor: '#10b981',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  moaBadgeTitle: {
+    color: '#cbd5e1',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  moaValueText: {
+    color: '#34d399',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  moaDetailText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  turretSummaryText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  malfunctionPill: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  malfunctionPillText: {
+    color: '#ef4444',
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  malfunctionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  malfunctionBox: {
+    flex: 1,
+    minWidth: '30%',
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  malfunctionBoxActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: '#ef4444',
+  },
+  malfunctionLabel: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  miniCounterBtn: {
+    backgroundColor: '#334155',
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniCounterText: {
+    color: '#f8fafc',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  counterValText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: 'bold',
+    minWidth: 16,
+    textAlign: 'center',
+  },
+  causeCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  causeTitle: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  causeChip: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  causeChipActive: {
+    backgroundColor: '#991b1b',
+    borderColor: '#ef4444',
+  },
+  causeChipText: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  causeChipTextActive: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  magInput: {
+    backgroundColor: '#1e293b',
+    color: '#f8fafc',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 11,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   submitBtn: {
     flexDirection: 'row',

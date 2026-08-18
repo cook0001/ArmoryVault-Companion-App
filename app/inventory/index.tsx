@@ -3,10 +3,14 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { useSync } from '../../context/SyncContext';
+import { useDialog } from '../../context/DialogContext';
 
 export default function InventoryScreen() {
   const router = useRouter();
+  const { addToQueue, refreshCache } = useSync();
+  const { showToast, showError } = useDialog();
+
   const [activeTab, setActiveTab] = useState<'ammo' | 'components'>('ammo');
   const [ammoList, setAmmoList] = useState<any[]>([]);
   const [componentsList, setComponentsList] = useState<any[]>([]);
@@ -40,22 +44,8 @@ export default function InventoryScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      const ip = await AsyncStorage.getItem('server_ip');
-      if (ip) {
-        const res = await fetch(`${ip}/api/inventory/cache`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success) {
-            await AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
-            setAmmoList(data.ammo || []);
-            setComponentsList(data.components || []);
-          }
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    await refreshCache(true);
+    await loadCachedInventory();
     setRefreshing(false);
   };
 
@@ -69,30 +59,31 @@ export default function InventoryScreen() {
     if (!adjustItem) return;
     const parsed = parseInt(adjustCount) || 0;
     if (parsed <= 0) {
-      alert('Please enter a valid count');
+      showToast({ message: 'Please enter a valid count', type: 'warning' });
       return;
     }
 
     try {
+      const isAmmo = adjustItem.isAmmo;
+      const unit = isAmmo ? 'rds' : (adjustItem.item.type === 'Powder' ? 'lbs' : 'units');
+      const itemName = isAmmo 
+        ? `${adjustItem.item.caliber || 'Ammo'}`
+        : `${adjustItem.item.name || 'Component'}`;
+
       const newLog = {
-        type: adjustItem.isAmmo ? 'ammo_adjustment' : 'component_adjustment',
+        type: isAmmo ? 'ammo_adjustment' : 'component_adjustment',
         upcOrId: String(adjustItem.item.id || adjustItem.item.upc_code),
         action: adjustAction,
         count: parsed,
         timestamp: new Date().toISOString()
       };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newLog);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      alert(`Queued ${adjustAction === 'remove' ? '-' : '+'}${parsed} for sync!`);
+      const msg = `Queued ${adjustAction === 'remove' ? '-' : '+'}${parsed} ${unit} (${itemName})`;
+      await addToQueue(newLog, msg);
       setAdjustItem(null);
     } catch (e) {
       console.error(e);
-      alert('Failed to save adjustment');
+      showError('Save Error', 'Failed to save adjustment');
     }
   };
 
@@ -297,7 +288,7 @@ export default function InventoryScreen() {
                     : `${adjustItem.item.manufacturer || ''} ${adjustItem.item.name}`}
                 </Text>
                 <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13, marginBottom: 14 }}>
-                  Current Stock: {adjustItem.isAmmo ? adjustItem.item.count : adjustItem.item.quantity} {adjustItem.isAmmo ? 'rds' : 'units'}
+                  Current Stock: {adjustItem.isAmmo ? adjustItem.item.count : adjustItem.item.quantity} {adjustItem.isAmmo ? 'rds' : (adjustItem.item.type === 'Powder' ? 'lbs' : 'units')}
                 </Text>
 
                 {/* Action Toggle */}
@@ -537,7 +528,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,

@@ -132,6 +132,14 @@ export default function FirearmsScreen() {
                 <Ionicons name="camera-outline" size={16} color="#94a3b8" style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnText}>Logs & Photo</Text>
               </Pressable>
+
+              <Pressable
+                style={[styles.actionBtn, { backgroundColor: '#1e293b', borderColor: '#38bdf8' }]}
+                onPress={() => router.push(`/firearms/bill-of-sale?firearmId=${item.id}`)}
+              >
+                <Ionicons name="document-text-outline" size={16} color="#38bdf8" style={{ marginRight: 6 }} />
+                <Text style={[styles.actionBtnText, { color: '#38bdf8' }]}>Bill of Sale</Text>
+              </Pressable>
             </View>
           </View>
         )}

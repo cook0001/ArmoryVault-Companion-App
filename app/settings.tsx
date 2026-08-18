@@ -1,31 +1,49 @@
-import { View, Text, StyleSheet, Pressable, Alert, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useCallback } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { checkForUpdates } from '../utils/updater';
+import { useState, useCallback, useEffect } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { checkForUpdates, UpdateChannel } from '../utils/updater';
 import * as Application from 'expo-application';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSync } from '../context/SyncContext';
+import { useDialog } from '../context/DialogContext';
 
 export default function Settings() {
-  const router = useRouter();
-  const [syncedIp, setSyncedIp] = useState<string | null>(null);
+  const {
+    syncedIp,
+    autoSyncEnabled,
+    setAutoSyncEnabled,
+    setServerIp,
+    refreshCache,
+    clearQueue,
+    offlineQueueCount,
+  } = useSync();
+
+  const { showConfirm, showSuccess, showError, showToast, showAlert } = useDialog();
+
   const [manualIp, setManualIp] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cacheStats, setCacheStats] = useState<{ firearms: number, ammo: number, components: number } | null>(null);
+  const [updateChannel, setUpdateChannel] = useState<UpdateChannel>('stable');
 
   useFocusEffect(
     useCallback(() => {
-      loadStatus();
-    }, [])
+      loadSettingsData();
+    }, [syncedIp])
   );
 
-  const loadStatus = async () => {
+  const loadSettingsData = async () => {
     try {
-      const ip = await AsyncStorage.getItem('server_ip');
-      setSyncedIp(ip);
-      if (ip) setManualIp(ip);
+      if (syncedIp) setManualIp(syncedIp);
+
+      const channel = await AsyncStorage.getItem('update_channel');
+      if (channel === 'nightly') {
+        setUpdateChannel('nightly');
+      } else {
+        setUpdateChannel('stable');
+      }
 
       const cacheStr = await AsyncStorage.getItem('inventory_cache');
       if (cacheStr) {
@@ -41,10 +59,21 @@ export default function Settings() {
     }
   };
 
+  const handleChannelChange = async (newChannel: UpdateChannel) => {
+    setUpdateChannel(newChannel);
+    await AsyncStorage.setItem('update_channel', newChannel);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    showToast({
+      title: 'Update Channel Changed',
+      message: `Now tracking ${newChannel === 'nightly' ? 'Nightly Pre-release' : 'Stable'} builds.`,
+      type: 'info'
+    });
+  };
+
   const handleTestConnection = async () => {
     const target = manualIp.trim();
     if (!target) {
-      Alert.alert('Error', 'Please enter a server IP address (e.g. http://192.168.1.189:3456)');
+      showError('Error', 'Please enter a server IP address (e.g. http://192.168.1.189:3456)');
       return;
     }
 
@@ -61,86 +90,90 @@ export default function Settings() {
       const res = await fetch(`${url}/api/ping`, { method: 'GET' });
       if (res.ok) {
         const data = await res.json();
-        await AsyncStorage.setItem('server_ip', url);
-        setSyncedIp(url);
+        await setServerIp(url);
         setManualIp(url);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Connected!', `Successfully connected to ${data.device || 'Vault Server'} at ${url}`);
+        showSuccess('Connected to Vault', `Successfully paired with ${data.device || 'Vault Server'} at ${url}`);
       } else {
         throw new Error(`Server returned HTTP ${res.status}`);
       }
     } catch (e: any) {
-      Alert.alert('Connection Failed', `Could not reach ${url}. Make sure your PC is running ArmoryVault and on the same Wi-Fi network.`);
+      showError('Connection Failed', `Could not reach ${url}. Make sure your PC is running ArmoryVault and connected to the same Wi-Fi network.`);
     }
     setIsTesting(false);
   };
 
   const handleForceRefreshCache = async () => {
     if (!syncedIp) {
-      Alert.alert('Error', 'Please connect to desktop server first.');
+      showError('Not Connected', 'Please pair with your desktop server first.');
       return;
     }
 
     setIsRefreshing(true);
-    try {
-      const res = await fetch(`${syncedIp}/api/inventory/cache`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.success) {
-          await AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
-          const now = new Date().toLocaleTimeString();
-          await AsyncStorage.setItem('inventory_cache_time', now);
-          
-          setCacheStats({
-            firearms: data.firearms?.length || 0,
-            ammo: data.ammo?.length || 0,
-            components: data.components?.length || 0
-          });
-
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert('Cache Updated', `Successfully cached ${data.firearms?.length || 0} firearms, ${data.ammo?.length || 0} ammo lots, and ${data.components?.length || 0} reloading components.`);
-        }
-      } else {
-        throw new Error(`HTTP ${res.status}`);
-      }
-    } catch (e: any) {
-      Alert.alert('Cache Fetch Failed', `Could not refresh cache from ${syncedIp}`);
+    await refreshCache(false);
+    const cacheStr = await AsyncStorage.getItem('inventory_cache');
+    if (cacheStr) {
+      const cache = JSON.parse(cacheStr);
+      setCacheStats({
+        firearms: cache.firearms?.length || 0,
+        ammo: cache.ammo?.length || 0,
+        components: cache.components?.length || 0
+      });
     }
     setIsRefreshing(false);
   };
 
-  const handleDisconnect = async () => {
-    Alert.alert('Disconnect', 'Are you sure you want to unpair from this desktop server?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Disconnect', style: 'destructive', onPress: async () => {
-        try {
-          await AsyncStorage.removeItem('server_ip');
-          setSyncedIp(null);
-          setManualIp('');
-        } catch (e) {
-          console.error(e);
-        }
-      }}
-    ]);
+  const handleDisconnect = () => {
+    showConfirm({
+      title: 'Unpair Desktop Server',
+      message: 'Are you sure you want to unpair from this desktop server? Your offline cache will remain available.',
+      confirmText: 'Unpair Server',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        await setServerIp(null);
+        setManualIp('');
+        showToast({ message: 'Disconnected from desktop server', type: 'info' });
+      }
+    });
   };
 
-  const handleClearQueue = async () => {
-    Alert.alert('Clear Queue', 'Are you sure you want to clear all pending syncs? This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: async () => {
-        try {
-          await AsyncStorage.removeItem('offline_queue');
-          Alert.alert('Success', 'Offline queue cleared.');
-        } catch (e) {
-          console.error(e);
-        }
-      }}
-    ]);
+  const handleClearQueue = () => {
+    showConfirm({
+      title: 'Clear Offline Sync Queue',
+      message: `Are you sure you want to delete all ${offlineQueueCount} pending items in your outbox? This action cannot be undone.`,
+      confirmText: 'Clear Queue',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        await clearQueue();
+      }
+    });
+  };
+
+  const handleCheckForUpdates = () => {
+    checkForUpdates({
+      silent: false,
+      channel: updateChannel,
+      onConfirm: (opts) => {
+        showConfirm({
+          title: opts.title,
+          message: opts.message,
+          confirmText: opts.confirmText,
+          cancelText: opts.cancelText,
+          type: 'confirm',
+          onConfirm: opts.onConfirm,
+        });
+      },
+      onAlert: (title, message) => {
+        showAlert({ title, message, type: 'info' });
+      }
+    });
   };
 
   return (
     <ScrollView style={styles.container}>
-      {/* Connection Section */}
+      {/* 1. Connection Section */}
       <Text style={styles.sectionTitle}>Vault Server Connection</Text>
       <View style={styles.card}>
         <Text style={styles.settingLabel}>Server IP Address</Text>
@@ -178,7 +211,26 @@ export default function Settings() {
         </View>
       </View>
 
-      {/* Offline Cache Management */}
+      {/* 2. Automatic Sync Behavior */}
+      <Text style={styles.sectionTitle}>Synchronization Automation</Text>
+      <View style={styles.card}>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={styles.settingLabel}>Auto-Sync when Connected</Text>
+            <Text style={styles.settingDescription}>
+              Automatically transmit pending range sessions, stock audits, and scans to your desktop app when connected on Wi-Fi.
+            </Text>
+          </View>
+          <Switch
+            value={autoSyncEnabled}
+            onValueChange={setAutoSyncEnabled}
+            trackColor={{ false: '#334155', true: '#10b981' }}
+            thumbColor="#ffffff"
+          />
+        </View>
+      </View>
+
+      {/* 3. Offline Cache Management */}
       <Text style={styles.sectionTitle}>Offline Inventory Cache</Text>
       <View style={styles.card}>
         <Text style={styles.settingLabel}>Local Vault Storage</Text>
@@ -206,30 +258,76 @@ export default function Settings() {
         </Pressable>
       </View>
 
-      {/* Data Management */}
+      {/* 4. Data Management */}
       <Text style={styles.sectionTitle}>Data Management</Text>
       <View style={styles.card}>
-        <Text style={styles.settingLabel}>Pending Sync Queue</Text>
+        <Text style={styles.settingLabel}>Pending Sync Queue ({offlineQueueCount} items)</Text>
         <Text style={styles.settingDescription}>
           Clear all range sessions, logs, and stock adjustments waiting in the outbox.
         </Text>
-        <Pressable style={styles.dangerButton} onPress={handleClearQueue}>
+        <Pressable 
+          style={[styles.dangerButton, offlineQueueCount === 0 && { opacity: 0.5 }]} 
+          onPress={handleClearQueue}
+          disabled={offlineQueueCount === 0}
+        >
           <Text style={styles.dangerButtonText}>Clear Offline Queue</Text>
         </Pressable>
       </View>
 
-      {/* App Updates */}
-      <Text style={styles.sectionTitle}>App Updates</Text>
+      {/* 5. Update Channel & App Updates */}
+      <Text style={styles.sectionTitle}>Update Channel & Releases</Text>
       <View style={styles.card}>
-        <Text style={styles.settingLabel}>Check for Updates</Text>
-        <Text style={styles.settingDescription}>Query GitHub to see if a newer version of the companion app is available.</Text>
-        <Pressable style={styles.primaryButton} onPress={() => checkForUpdates(false)}>
-          <Text style={styles.primaryButtonText}>Check Now</Text>
+        <Text style={styles.settingLabel}>Release Channel</Text>
+        <Text style={styles.settingDescription}>
+          Select which channel to receive APK updates from:
+        </Text>
+
+        <View style={styles.channelRow}>
+          <Pressable
+            style={[styles.channelTab, updateChannel === 'stable' && styles.channelTabActive]}
+            onPress={() => handleChannelChange('stable')}
+          >
+            <Ionicons 
+              name="checkmark-circle" 
+              size={16} 
+              color={updateChannel === 'stable' ? '#10b981' : '#64748b'} 
+              style={{ marginRight: 6 }} 
+            />
+            <Text style={[styles.channelTabText, updateChannel === 'stable' && styles.channelTabTextActive]}>
+              Stable (Standard)
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.channelTab, updateChannel === 'nightly' && styles.channelTabNightlyActive]}
+            onPress={() => handleChannelChange('nightly')}
+          >
+            <Ionicons 
+              name="flash" 
+              size={16} 
+              color={updateChannel === 'nightly' ? '#f59e0b' : '#64748b'} 
+              style={{ marginRight: 6 }} 
+            />
+            <Text style={[styles.channelTabText, updateChannel === 'nightly' && styles.channelTabTextNightlyActive]}>
+              Nightly (Testing)
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.channelDescriptionText}>
+          {updateChannel === 'nightly'
+            ? '⚡ Tracking bleeding-edge test builds for new features and debugging.'
+            : '🎯 Tracking thoroughly tested, official production releases.'}
+        </Text>
+
+        <Pressable style={styles.primaryButton} onPress={handleCheckForUpdates}>
+          <Ionicons name="cloud-download-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.primaryButtonText}>Check for Updates ({updateChannel.toUpperCase()})</Text>
         </Pressable>
       </View>
 
       <Text style={styles.versionText}>
-        ArmoryVault Companion v{Application.nativeApplicationVersion || '2.5.0'}
+        ArmoryVault Companion v{Application.nativeApplicationVersion || '2.6.0-nightly.1'} ({updateChannel.toUpperCase()})
       </Text>
     </ScrollView>
   );
@@ -246,7 +344,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#94a3b8',
     marginBottom: 8,
-    marginTop: 12,
+    marginTop: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -257,6 +355,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   settingLabel: {
     fontSize: 16,
@@ -270,6 +373,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 18,
   },
+  channelDescriptionText: {
+    fontSize: 12,
+    color: '#cbd5e1',
+    marginBottom: 14,
+    fontStyle: 'italic',
+  },
   input: {
     backgroundColor: '#0f172a',
     borderWidth: 1,
@@ -279,6 +388,44 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     marginBottom: 12,
+  },
+  channelRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  channelTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  channelTabActive: {
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  channelTabNightlyActive: {
+    borderColor: '#f59e0b',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  channelTabText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  channelTabTextActive: {
+    color: '#10b981',
+    fontWeight: 'bold',
+  },
+  channelTabTextNightlyActive: {
+    color: '#f59e0b',
+    fontWeight: 'bold',
   },
   dangerButton: {
     backgroundColor: '#7f1d1d',
@@ -299,6 +446,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
   },
   primaryButtonText: {
     color: '#fff',
@@ -308,8 +456,8 @@ const styles = StyleSheet.create({
   versionText: {
     textAlign: 'center',
     color: '#64748b',
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 16,
+    marginBottom: 34,
     fontSize: 12,
   }
 });

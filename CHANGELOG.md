@@ -1,5 +1,31 @@
 # Changelog
- 
+
+## [2.6.0-nightly.3] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Expanded Commercial Factory Caliber Database (35+ Standard Loads)**:
+  - Full commercial factory profiles across **Handguns & PCCs** (9mm 115gr/124gr/+P/147gr sub, .40 S&W, 10mm Auto target & 200gr hard cast, .45 ACP ball & +P, .380 ACP, .38 Spl, .357 Mag, .44 Mag, 5.7x28mm, .357 SIG), **Rifles & Carbines** (5.56 NATO M193/M855/MK262/V-MAX, .300 BLK sup/sub, 7.62x39mm, 6.5 Grendel, 6mm ARC), **Precision & Long Range** (.308 Win M80/FGMM/SMK, 6.5 Creedmoor ELD-M/ELD-X, .30-06, .300 Win Mag, .338 Lapua, 7.62x54mmR, .45-70 Gov, .50 BMG), and **Rimfire & Shotgun** (.22 LR standard/HV/hyper/Stinger, .22 WMR, .17 HMR, 12 Gauge slug/00 buckshot, 20 Gauge slug).
+- **Firearm Barrel Length Velocity Scaling Engine**:
+  - Caliber-tailored empirical velocity scaling ($\pm 10\text{--}45\text{ fps/inch}$) with non-linear short-barrel rifle (SBR) corrections.
+  - Quick barrel length presets per caliber (e.g. 7.5", 10.5", 11.5", 14.5", 16.0", 18.0", 20.0" for 5.56; 3.1", 3.7", 4.0", 4.5", 5.0", 16.0" for 9mm; 5.5", 7.5", 9.0", 10.5", 16.0" for .300 BLK).
+  - Steppers (`-0.5"`, `+0.5"`) and direct numeric input with real-time velocity comparison readout comparing manufacturer test barrel vs your actual barrel length.
+  - Live DOPE table updates reflecting true downrange drop and turret click corrections.
+
+## [2.6.0-nightly.2] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Target MOA Grouping Analyzer & Scope Zeroing Assistant**: Multi-step interactive touch canvas to scale paper targets, plot point of aim (POA), mark bullet holes (POI), and calculate Extreme Spread, Mean Radius, MOA, and Scope Turret Click Corrections (1/4 MOA, 1/2 MOA, 0.1 MIL).
+- **Range Bag Packing Checklist Mode ("Range Prep")**: Select firearms to bring -> automatically aggregates required ammunition lots, magazines, and range gear essentials with persistent packing progress and discipline presets (CCW, Precision Rifle, Steel Challenge).
+- **Maintenance Lifecycle Milestones & Malfunction Diagnostics**: Real-time wear gauges for recoil springs, extractor, and deep cleaning with 1-tap service resets. 1-tap failure diagnostics (FTF, FTE, Stovepipe, Double Feed, Light Strike) with root-cause analysis and gun-ammo compatibility warnings.
+- **Offline DOPE & Ballistic Drop Calculator**: Simple Mode (factory commercial ammo database across 12 popular calibers) and Advanced Mode (G1 numerical point-mass solver with environmental corrections and 500yd+ DOPE card).
+- **Private Bill of Sale PDF Generator & DL Scanner**: AAMVA 2D barcode scanner for buyer Driver's Licenses, statutory legal acknowledgments, dual touch signature canvas, watermarked 1-page PDF generation, 1-tap SMS/Email delivery to both parties, and permanent archival to the firearm details card.
+- **100% On-Device Bench Voice Memos**: Private, zero-cloud audio recording for range and bench notes with playback and 1-tap "Wipe All Voice Logs" purge controls for total privacy compliance.
+
+## [2.6.0-nightly.1] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Automatic Desktop Synchronization**: When connected to the desktop vault over Wi-Fi, pending changes (range logs, stock audits, scans) automatically sync in the background without needing manual sync button taps.
+- **Tactical Dark Dialog & Toast System**: Completely overhauled popup confirmation dialogs with custom dark modals for destructive actions (Unpair, Delete item, Clear queue) and sleek auto-dismissing floating toasts for successes and quick adjustments.
+- **Update Channel Selector (Stable vs Nightly)**: Added in-app setting to toggle between Stable production releases and Nightly testing builds with dedicated APK routing.
+- **Nightly Build Website Download Grid Integration**: Added Android Mobile Companion download card to GitHub Pages website with live channel switching support.
+
 ## [2.5.0] - 2026-08-16
 ### Added
 - **Modern Dashboard & Action Hub**: Overhauled the mobile home screen with a real-time desktop connection beacon, hero sync card with pending counter, and a 4-card Quick Action Hub (`Universal Scan`, `Range Mode`, `Firearms Vault`, `Ammo & Supplies`).
