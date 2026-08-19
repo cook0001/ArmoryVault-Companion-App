@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.6.0-nightly.31] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Redesigned High-Definition Tactical Cyber Shield App Icon**:
+  - Replaced legacy Expo template icon with a custom 3D brushed titanium and gunmetal cyber shield app icon matching the ArmoryVault Desktop application.
+  - Features neon cyan (`#00f0ff`) and emerald green (`#10b981`) illuminated bevels, central mechanical combination vault dial and padlock shackle, set on a dark carbon-fiber textured plate.
+  - Generated full Android Adaptive Icon layers (`ic_launcher_foreground`, `ic_launcher_background`, `ic_launcher_monochrome`) across all mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+  - Added high-resolution splash screen emblem (`splashscreen_logo.png`) and updated native launcher colors to `#0b0f19` dark tactical theme.
+
+## [2.6.0-nightly.30] - 2026-08-18 (Nightly Test Build)
+### Fixed
+- **App Crash on Launch Fix & Standalone Local Boot**:
+  - Disabled `expo.modules.updates.ENABLED` in `AndroidManifest.xml` and removed legacy EAS update tags to eliminate runtime version mismatch crashes on launch.
+  - Replaced blocking initialization checks with non-blocking, exception-safe wrappers in `_layout.tsx` for biometrics and silent updates.
+  - Ensured the app boots 100% locally and instantaneously from its embedded release bundle with zero cloud dependencies.
+
 ## [2.6.0-nightly.29] - 2026-08-18 (Nightly Test Build)
 ### Added
 - **Preserved Offline Mobile Cache during Desktop Vault Lock**:

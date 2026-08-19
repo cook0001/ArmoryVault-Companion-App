@@ -15,27 +15,39 @@ function RootLayoutContent() {
 
   useEffect(() => {
     checkDeviceAuth();
-    // Silently check for updates on startup
-    checkForUpdates(true);
+    // Silently check for updates on startup without blocking
+    try {
+      checkForUpdates(true).catch(() => {});
+    } catch {}
   }, []);
 
   const checkDeviceAuth = async () => {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-    if (compatible && enrolled) {
-      setHasAuthHardware(true);
-      handleAuthenticate();
-    } else {
-      setIsUnlocked(true); // No biometrics setup, proceed
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync().catch(() => false);
+      const enrolled = await LocalAuthentication.isEnrolledAsync().catch(() => false);
+      if (compatible && enrolled) {
+        setHasAuthHardware(true);
+        handleAuthenticate();
+      } else {
+        setIsUnlocked(true); // No biometrics setup, proceed
+      }
+    } catch (e) {
+      console.warn('Biometrics check error:', e);
+      setIsUnlocked(true);
     }
   };
 
   const handleAuthenticate = async () => {
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock ArmoryVault',
-      fallbackLabel: 'Use PIN',
-    });
-    if (result.success) {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock ArmoryVault',
+        fallbackLabel: 'Use PIN',
+      }).catch(() => ({ success: false }));
+      if (result && result.success) {
+        setIsUnlocked(true);
+      }
+    } catch (e) {
+      console.warn('Authentication error:', e);
       setIsUnlocked(true);
     }
   };
