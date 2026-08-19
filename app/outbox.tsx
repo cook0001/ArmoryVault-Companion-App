@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Image, Modal, TextInput } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Image, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useSync } from '../context/SyncContext';
 import { useDialog } from '../context/DialogContext';
 
@@ -11,6 +12,10 @@ export default function Outbox() {
     offlineQueue, 
     removeFromQueue, 
     updateQueueItem, 
+    clearQueue,
+    triggerSync,
+    isSyncing,
+    syncProgress,
     isOnline, 
     autoSyncEnabled, 
     desktopDevice, 
@@ -23,16 +28,41 @@ export default function Outbox() {
   const [editQuantity, setEditQuantity] = useState('1');
 
   const handleDelete = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     showConfirm({
-      title: 'Remove from Queue',
-      message: 'Are you sure you want to delete this pending change from your sync outbox?',
-      confirmText: 'Delete',
+      title: 'Remove from Outbox?',
+      message: 'Are you sure you want to discard this pending item?',
+      confirmText: 'Discard Item',
       cancelText: 'Cancel',
       type: 'danger',
       onConfirm: async () => {
         await removeFromQueue(index);
+        showToast({ message: 'Item removed from outbox', type: 'info' });
       }
     });
+  };
+
+  const handleClearAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    showConfirm({
+      title: 'Clear Outbox?',
+      message: 'Are you sure you want to clear all pending changes from your outbox? This cannot be undone.',
+      confirmText: 'Clear Everything',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        await clearQueue();
+        showToast({ message: 'Sync outbox cleared', type: 'info' });
+      }
+    });
+  };
+
+  const handleManualSync = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    const success = await triggerSync({ manual: true });
+    if (success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
   };
 
   const openEditModal = (index: number) => {
@@ -65,18 +95,29 @@ export default function Outbox() {
     
     await updateQueueItem(editIndex, item);
     setEditIndex(null);
+    showToast({ message: 'Item updated in outbox', type: 'success' });
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Pending Sync Outbox</Text>
-      <Text style={styles.headerSubtitle}>Items below will be transmitted to the desktop app.</Text>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.headerTitle}>Sync Outbox ({offlineQueue.length})</Text>
+          <Text style={styles.headerSubtitle}>Items queued to transmit to ArmoryVault Desktop.</Text>
+        </View>
+        {offlineQueue.length > 0 && (
+          <Pressable style={styles.clearAllBtn} onPress={handleClearAll}>
+            <Ionicons name="trash-outline" size={14} color="#ef4444" style={{ marginRight: 4 }} />
+            <Text style={styles.clearAllBtnText}>Clear</Text>
+          </Pressable>
+        )}
+      </View>
 
       {/* Auto-Sync Status Banner */}
       <View style={styles.statusBanner}>
         <Ionicons 
           name={isOnline && autoSyncEnabled ? 'sync-circle' : 'cloud-offline-outline'} 
-          size={20} 
+          size={22} 
           color={isOnline && autoSyncEnabled ? '#34d399' : '#f59e0b'} 
           style={{ marginRight: 8 }} 
         />
@@ -86,42 +127,64 @@ export default function Outbox() {
               ? 'Auto-Sync Active' 
               : !syncedIp 
               ? 'Not Paired with Desktop' 
-              : 'Offline Mode'}
+              : 'Offline Cache Mode'}
           </Text>
           <Text style={styles.statusBannerSubtitle}>
             {isOnline && autoSyncEnabled
-              ? `Syncing changes seamlessly with ${desktopDevice || 'Vault Server'}.`
+              ? `Connected to ${desktopDevice || 'Vault Server'}. Changes transmit automatically.`
               : syncedIp 
-              ? 'Changes are preserved safely and will sync when reconnected.'
-              : 'Pair with your desktop server in Settings to enable syncing.'}
+              ? 'Changes preserved safely on-device. Will sync upon reconnection.'
+              : 'Scan pairing QR code in Settings to link desktop app.'}
           </Text>
         </View>
       </View>
 
+      {/* 1-Tap Manual Sync Button */}
+      {offlineQueue.length > 0 && (
+        <Pressable 
+          style={[styles.syncNowBtn, isSyncing && { opacity: 0.8 }]} 
+          onPress={handleManualSync}
+          disabled={isSyncing}
+        >
+          {isSyncing ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.syncNowBtnText}>{syncProgress || 'Transmitting to Desktop...'}</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="cloud-upload" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.syncNowBtnText}>Transmit {offlineQueue.length} Pending Changes Now →</Text>
+            </>
+          )}
+        </Pressable>
+      )}
+
       {offlineQueue.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="checkmark-done-circle-outline" size={54} color="#334155" style={{ marginBottom: 12 }} />
-          <Text style={styles.emptyStateTitle}>Outbox is Empty</Text>
-          <Text style={styles.emptyStateText}>All range sessions and stock changes are fully synchronized.</Text>
+          <Text style={styles.emptyStateTitle}>Outbox is Clear</Text>
+          <Text style={styles.emptyStateText}>All range sessions, stock audits, and maintenance logs are synced.</Text>
         </View>
       ) : (
-        <ScrollView style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
           {offlineQueue.map((item, index) => (
             <Pressable key={index} style={styles.card} onPress={() => openEditModal(index)}>
               <View style={{ flex: 1 }}>
                 <View style={styles.badgeContainer}>
                   <Text style={styles.badgeText}>
-                    {item.type === 'ammo_adjustment' ? 'Ammo Adjustment' : 
-                     item.type === 'component_adjustment' ? 'Component Adjustment' : 
+                    {item.type === 'ammo_adjustment' ? '📦 Ammo Adjustment' : 
+                     item.type === 'component_adjustment' ? '🧪 Component Adjustment' : 
                      item.type === 'range_session' ? '🎯 Range Session' :
-                     item.type === 'firearm_log' ? 'Firearm Log' : 
-                     item.type === 'firearm_photo' ? 'Firearm Photo' :
-                     item.type === 'universal_scan' ? 'Universal Scan' : 'Unknown'}
+                     item.type === 'part_maintenance' ? '🔧 Replacement Part' :
+                     item.type === 'firearm_log' ? '📝 Firearm Log' : 
+                     item.type === 'firearm_photo' ? '📷 Firearm Photo' :
+                     item.type === 'universal_scan' ? '🔍 Universal Scan' : 'Log'}
                   </Text>
                 </View>
                 
                 {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment' || item.type === 'universal_scan') && (
-                  <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{item.count} Items ({item.measurement || 'rds'})</Text>
+                  <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{item.count} Units ({item.measurement || 'rds'})</Text>
                 )}
 
                 {item.type === 'range_session' && (
@@ -129,7 +192,12 @@ export default function Outbox() {
                     <Text style={styles.itemTitle}>Firearm #{item.firearm_id} • {item.rounds_fired} Rounds</Text>
                     {item.ammo_id && <Text style={styles.itemDesc}>Deducting Ammo ID: {item.ammo_id}</Text>}
                     {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
+                    {item.malfunctions && <Text style={[styles.itemDesc, { color: '#ef4444' }]}>⚠️ {item.malfunctions.length} Malfunctions Logged</Text>}
                   </>
+                )}
+
+                {item.type === 'part_maintenance' && (
+                  <Text style={styles.itemTitle}>Part SKU: {item.upcOrId} for Firearm #{item.firearmId || 'General'}</Text>
                 )}
                 
                 {item.type === 'firearm_log' && (
@@ -152,21 +220,18 @@ export default function Outbox() {
               )}
 
               <Pressable style={styles.deleteButton} onPress={() => handleDelete(index)}>
-                <Text style={styles.deleteText}>✕</Text>
+                <Ionicons name="close-circle" size={20} color="#ef4444" />
               </Pressable>
             </Pressable>
           ))}
         </ScrollView>
       )}
 
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Back to Dashboard</Text>
-      </Pressable>
-
+      {/* Edit Quantity Modal */}
       <Modal visible={editIndex !== null} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Quantity</Text>
+            <Text style={styles.modalTitle}>Edit Quantity / Rounds</Text>
             <TextInput
               style={styles.modalInput}
               keyboardType="numeric"
@@ -196,16 +261,36 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#0f172a',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94a3b8',
-    marginBottom: 14,
+    marginTop: 2,
+  },
+  clearAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  clearAllBtnText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   statusBanner: {
     flexDirection: 'row',
@@ -215,108 +300,96 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   statusBannerTitle: {
     color: '#f8fafc',
-    fontWeight: 'bold',
     fontSize: 13,
+    fontWeight: 'bold',
   },
   statusBannerSubtitle: {
     color: '#94a3b8',
     fontSize: 11,
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: 1,
+  },
+  syncNowBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  syncNowBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    padding: 20,
   },
   emptyStateTitle: {
+    color: '#f8fafc',
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#cbd5e1',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   emptyStateText: {
-    fontSize: 14,
     color: '#64748b',
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 20,
   },
   card: {
-    backgroundColor: '#1e293b',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
     flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#334155',
+    alignItems: 'center',
   },
   badgeContainer: {
+    backgroundColor: '#0f172a',
     alignSelf: 'flex-start',
-    backgroundColor: '#334155',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 4,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   badgeText: {
+    color: '#38bdf8',
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#cbd5e1',
     textTransform: 'uppercase',
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   itemDesc: {
-    fontSize: 13,
     color: '#94a3b8',
-    marginBottom: 2,
+    fontSize: 12,
+    marginTop: 2,
   },
   timestamp: {
-    fontSize: 11,
     color: '#64748b',
-    marginTop: 6,
+    fontSize: 10,
+    marginTop: 4,
   },
   previewImage: {
     width: 48,
     height: 48,
-    borderRadius: 8,
+    borderRadius: 6,
     marginRight: 10,
   },
   deleteButton: {
-    backgroundColor: '#7f1d1d',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteText: {
-    color: '#fca5a5',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  backButton: {
-    backgroundColor: '#334155',
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  backButtonText: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: 'bold',
+    padding: 6,
   },
   modalOverlay: {
     flex: 1,
@@ -327,7 +400,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#1e293b',
-    padding: 22,
+    padding: 20,
     borderRadius: 14,
     width: '100%',
     maxWidth: 320,
@@ -336,38 +409,38 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
   },
   modalInput: {
     backgroundColor: '#0f172a',
     color: '#fff',
     width: '100%',
     textAlign: 'center',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#3b82f6',
-    marginBottom: 18,
+    borderColor: '#38bdf8',
+    marginBottom: 16,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     width: '100%',
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   modalBtnText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 15,
-  }
+    fontSize: 13,
+  },
 });

@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useSync } from '../context/SyncContext';
 
 export default function Home() {
@@ -9,6 +10,7 @@ export default function Home() {
   const {
     syncedIp,
     isOnline,
+    isVaultLocked,
     desktopDevice,
     offlineQueueCount,
     dashboardStats,
@@ -20,9 +22,12 @@ export default function Home() {
     triggerSync,
     loadStatus,
     refreshCache,
+    remoteLockVault,
   } = useSync();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [showLockConfirmModal, setShowLockConfirmModal] = useState(false);
+  const [isLocking, setIsLocking] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,7 +38,7 @@ export default function Home() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadStatus();
-    if (syncedIp && isOnline) {
+    if (syncedIp && isOnline && !isVaultLocked) {
       await refreshCache(true);
     }
     setRefreshing(false);
@@ -43,21 +48,33 @@ export default function Home() {
     await triggerSync({ manual: true });
   };
 
+  const handleExecuteRemoteLock = async () => {
+    setIsLocking(true);
+    await remoteLockVault();
+    setIsLocking(false);
+    setShowLockConfirmModal(false);
+  };
+
   return (
     <ScrollView 
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
     >
-      {/* 1. Connection Status Beacon */}
+      {/* 1. Connection Status Beacon & Remote Lock Trigger */}
       <View style={styles.connectionBanner}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <View style={[styles.beaconDot, isOnline ? styles.beaconOnline : styles.beaconOffline]} />
+          <View 
+            style={[
+              styles.beaconDot, 
+              isVaultLocked ? styles.beaconLocked : isOnline ? styles.beaconOnline : styles.beaconOffline
+            ]} 
+          />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.beaconStatusText}>
-                {isOnline ? 'VAULT SERVER ONLINE' : syncedIp ? 'OFFLINE CACHE MODE' : 'NOT PAIRED'}
+                {isVaultLocked ? 'DESKTOP LOCKED (CACHE ACTIVE)' : isOnline ? 'VAULT SERVER ONLINE' : syncedIp ? 'OFFLINE CACHE MODE' : 'NOT PAIRED'}
               </Text>
-              {isOnline && autoSyncEnabled && (
+              {isOnline && !isVaultLocked && autoSyncEnabled && (
                 <View style={styles.autoSyncBadge}>
                   <Text style={styles.autoSyncBadgeText}>AUTO-SYNC</Text>
                 </View>
@@ -69,6 +86,19 @@ export default function Home() {
           </View>
         </View>
 
+        {isOnline && !isVaultLocked && (
+          <Pressable 
+            style={styles.remoteLockBtn} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+              setShowLockConfirmModal(true);
+            }}
+          >
+            <Ionicons name="lock-closed" size={13} color="#f87171" style={{ marginRight: 4 }} />
+            <Text style={styles.remoteLockBtnText}>Lock Desktop</Text>
+          </Pressable>
+        )}
+
         {!syncedIp && (
           <Pressable style={styles.pairButton} onPress={() => router.push('/scanner')}>
             <Ionicons name="qr-code-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
@@ -77,7 +107,34 @@ export default function Home() {
         )}
       </View>
 
-      {/* 2. Hero Pending Sync Card */}
+      {/* 2. Cached Vault Summary */}
+      <View style={styles.overviewCard}>
+        <View style={styles.overviewHeader}>
+          <Text style={styles.overviewTitle}>Cached Vault Summary</Text>
+          {lastCacheTime ? (
+            <Text style={styles.cacheTimeBadge}>✓ Synced {lastCacheTime}</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{dashboardStats?.firearms || 0}</Text>
+            <Text style={styles.statLabel}>Firearms</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{(dashboardStats?.ammo || 0).toLocaleString()}</Text>
+            <Text style={styles.statLabel}>Rounds</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{dashboardStats?.components || 0}</Text>
+            <Text style={styles.statLabel}>Components</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 3. Hero Pending Sync Card */}
       {offlineQueueCount > 0 && (
         <View style={styles.syncCard}>
           <View style={styles.syncCardHeader}>
@@ -89,7 +146,7 @@ export default function Home() {
             </View>
           </View>
           <Text style={styles.syncCardDesc}>
-            {isOnline && autoSyncEnabled
+            {isOnline && autoSyncEnabled && !isVaultLocked
               ? 'Transmitting changes to desktop automatically in the background...'
               : 'Range trips, stock adjustments, and scans saved locally on device.'}
           </Text>
@@ -102,9 +159,9 @@ export default function Home() {
             <Pressable 
               style={[
                 styles.syncActionBtn, 
-                { backgroundColor: (isSyncing || syncProgress) ? '#64748b' : '#10b981', flex: 1.2 }
+                { backgroundColor: (isSyncing || syncProgress || isVaultLocked) ? '#64748b' : '#10b981', flex: 1.2 }
               ]}
-              onPress={(isSyncing || syncProgress) ? undefined : handleManualSync}
+              onPress={(isSyncing || syncProgress || isVaultLocked) ? undefined : handleManualSync}
             >
               <Ionicons 
                 name={isSyncing ? "sync" : "cloud-upload-outline"} 
@@ -113,15 +170,15 @@ export default function Home() {
                 style={{ marginRight: 6 }} 
               />
               <Text style={styles.syncActionBtnText}>
-                {syncProgress ? syncProgress : isSyncing ? 'Syncing...' : 'Sync to Desktop'}
+                {syncProgress ? syncProgress : isSyncing ? 'Syncing...' : isVaultLocked ? 'Desktop Locked' : 'Sync to Desktop'}
               </Text>
             </Pressable>
           </View>
         </View>
       )}
 
-      {/* 3. Action Hub Grid */}
-      <Text style={styles.sectionHeader}>Vault Quick Actions</Text>
+      {/* 4. Action Hub Grid */}
+      <Text style={styles.sectionHeader}>Companion Tools</Text>
       <View style={styles.gridContainer}>
         {/* Range Prep Checklist */}
         <Pressable style={styles.gridCard} onPress={() => router.push('/range/checklist')}>
@@ -189,48 +246,60 @@ export default function Home() {
           <Text style={styles.gridCardTitle}>Voice Memos</Text>
           <Text style={styles.gridCardSub}>Air-Gapped Audio Logs</Text>
         </Pressable>
-      </View>
 
-      {/* 4. Inventory Cache Overview */}
-      <View style={styles.overviewCard}>
-        <View style={styles.overviewHeader}>
-          <Text style={styles.overviewTitle}>Cached Vault Summary</Text>
-          {lastCacheTime && (
-            <Text style={styles.cacheTimeBadge}>✓ Synced {lastCacheTime}</Text>
-          )}
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{dashboardStats?.firearms || 0}</Text>
-            <Text style={styles.statLabel}>Firearms</Text>
+        {/* Offline Sync Outbox */}
+        <Pressable style={styles.gridCard} onPress={() => router.push('/outbox')}>
+          <View style={[styles.iconCircle, { backgroundColor: offlineQueueCount > 0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(148, 163, 184, 0.15)' }]}>
+            <Ionicons 
+              name="file-tray-full-outline" 
+              size={24} 
+              color={offlineQueueCount > 0 ? '#38bdf8' : '#94a3b8'} 
+            />
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{(dashboardStats?.ammo || 0).toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Rounds</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{dashboardStats?.components || 0}</Text>
-            <Text style={styles.statLabel}>Components</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Outbox Bottom Banner */}
-      <Pressable style={styles.outboxBar} onPress={() => router.push('/outbox')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="file-tray-full-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
-          <Text style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: 14 }}>Offline Sync Outbox</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 13, marginRight: 4 }}>
-            {offlineQueueCount} Items
+          <Text style={styles.gridCardTitle}>Sync Outbox</Text>
+          <Text style={styles.gridCardSub}>
+            {offlineQueueCount === 0 ? '0 Pending Items' : `${offlineQueueCount} Pending ${offlineQueueCount === 1 ? 'Item' : 'Items'}`}
           </Text>
-          <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
+        </Pressable>
+      </View>
+
+      {/* Remote Lock Confirmation Modal */}
+      <Modal visible={showLockConfirmModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconBox}>
+              <Ionicons name="lock-closed" size={32} color="#f87171" />
+            </View>
+            
+            <Text style={styles.modalTitle}>Remote Lock Desktop Vault?</Text>
+            
+            <Text style={styles.modalBody}>
+              This will immediately lock the database on <Text style={{ color: '#fff', fontWeight: 'bold' }}>{desktopDevice || 'Desktop'}</Text> and purge master encryption keys from PC memory. Your mobile offline cache will remain available for range use.
+            </Text>
+
+            <View style={{ width: '100%', gap: 8, marginTop: 16 }}>
+              <Pressable 
+                style={[styles.confirmLockBtn, isLocking && { opacity: 0.6 }]} 
+                onPress={handleExecuteRemoteLock}
+                disabled={isLocking}
+              >
+                <Ionicons name="lock-closed-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.confirmLockBtnText}>
+                  {isLocking ? 'Locking Desktop...' : 'Yes, Lock Desktop Vault'}
+                </Text>
+              </Pressable>
+
+              <Pressable 
+                style={styles.cancelLockBtn} 
+                onPress={() => setShowLockConfirmModal(false)}
+                disabled={isLocking}
+              >
+                <Text style={styles.cancelLockBtnText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
-      </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -269,6 +338,14 @@ const styles = StyleSheet.create({
   beaconOffline: {
     backgroundColor: '#f59e0b',
   },
+  beaconLocked: {
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   beaconStatusText: {
     fontSize: 11,
     fontWeight: 'bold',
@@ -293,6 +370,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     marginTop: 1,
+  },
+  remoteLockBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  remoteLockBtnText: {
+    color: '#f87171',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   pairButton: {
     backgroundColor: '#3b82f6',
@@ -371,7 +463,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 18,
+    marginBottom: 28,
   },
   gridCard: {
     width: '48%',
@@ -410,7 +502,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   overviewHeader: {
     flexDirection: 'row',
@@ -451,15 +543,70 @@ const styles = StyleSheet.create({
     height: 28,
     backgroundColor: '#334155',
   },
-  outboxBar: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
     backgroundColor: '#1e293b',
-    borderRadius: 10,
-    padding: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 360,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 30,
+  },
+  modalIconBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  modalTitle: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalBody: {
+    color: '#94a3b8',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  confirmLockBtn: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  confirmLockBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  cancelLockBtn: {
+    backgroundColor: '#334155',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelLockBtnText: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    fontWeight: '600',
   }
 });

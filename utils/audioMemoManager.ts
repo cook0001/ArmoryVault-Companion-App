@@ -15,7 +15,9 @@ try {
 export interface AudioMemo {
   id: string;
   firearmId?: number;
+  firearmName?: string;
   ammoId?: number;
+  ammoName?: string;
   title: string;
   durationSec: number;
   fileUri: string;
@@ -78,6 +80,9 @@ export async function stopAndSaveAudioRecording(
   recording: any,
   title: string = 'Bench Audio Memo',
   firearmId?: number,
+  firearmName?: string,
+  ammoId?: number,
+  ammoName?: string,
   transcript?: string
 ): Promise<AudioMemo | null> {
   try {
@@ -102,6 +107,9 @@ export async function stopAndSaveAudioRecording(
     const memo: AudioMemo = {
       id,
       firearmId,
+      firearmName,
+      ammoId,
+      ammoName,
       title: title.trim() || 'Bench Voice Memo',
       durationSec,
       fileUri: uri,
@@ -128,54 +136,76 @@ export async function stopAndSaveAudioRecording(
 export async function saveTextBenchMemo(
   title: string,
   transcript: string,
-  firearmId?: number
+  firearmId?: number,
+  firearmName?: string,
+  ammoId?: number,
+  ammoName?: string
 ): Promise<AudioMemo> {
   const id = `memo_${Date.now()}`;
   const memo: AudioMemo = {
     id,
     firearmId,
+    firearmName,
+    ammoId,
+    ammoName,
     title: title.trim() || 'Bench Note',
     durationSec: 0,
     fileUri: '',
     fileSizeBytes: 0,
-    transcript: transcript.trim() || 'Bench inspection note',
+    transcript: transcript || 'Manual note entry',
     createdAt: new Date().toISOString()
   };
 
   const existing = await getAudioMemos();
   const updated = [memo, ...existing];
   await AsyncStorage.setItem(STORAGE_KEY_AUDIO_METADATA, JSON.stringify(updated));
+
   return memo;
 }
 
 /**
- * Loads all saved audio memos.
+ * Loads all locally persisted audio memo metadata records.
  */
 export async function getAudioMemos(): Promise<AudioMemo[]> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEY_AUDIO_METADATA);
     return data ? JSON.parse(data) : [];
   } catch (e) {
+    console.error('Error fetching audio memos:', e);
     return [];
   }
 }
 
 /**
- * Deletes a single audio memo file from local filesystem and metadata.
+ * Plays an audio recording from local storage.
  */
-export async function deleteAudioMemo(id: string): Promise<boolean> {
+export async function playAudioMemo(fileUri: string): Promise<any | null> {
+  if (!ExpoAudio || !fileUri) return null;
   try {
-    const memos = await getAudioMemos();
-    const target = memos.find(m => m.id === id);
+    const { sound } = await ExpoAudio.Sound.createAsync(
+      { uri: fileUri },
+      { shouldPlay: true }
+    );
+    return sound;
+  } catch (e) {
+    console.error('Error playing audio memo:', e);
+    return null;
+  }
+}
+
+/**
+ * Deletes a single audio memo and its physical file.
+ */
+export async function deleteAudioMemo(memoId: string): Promise<boolean> {
+  try {
+    const existing = await getAudioMemos();
+    const target = existing.find(m => m.id === memoId);
 
     if (target && target.fileUri) {
-      const info = await FileSystem.getInfoAsync(target.fileUri);
-      if (info.exists) {
-        await FileSystem.deleteAsync(target.fileUri, { idempotent: true });
-      }
+      await FileSystem.deleteAsync(target.fileUri, { idempotent: true }).catch(() => {});
     }
 
-    const updated = memos.filter(m => m.id !== id);
+    const updated = existing.filter(m => m.id !== memoId);
     await AsyncStorage.setItem(STORAGE_KEY_AUDIO_METADATA, JSON.stringify(updated));
     return true;
   } catch (e) {
@@ -185,42 +215,20 @@ export async function deleteAudioMemo(id: string): Promise<boolean> {
 }
 
 /**
- * Permanently purges and deletes ALL recorded voice logs from the device.
+ * Wipes all audio memos and deletes all recording files for complete data privacy.
  */
 export async function wipeAllAudioMemos(): Promise<boolean> {
   try {
-    const memos = await getAudioMemos();
-    for (const memo of memos) {
+    const existing = await getAudioMemos();
+    for (const memo of existing) {
       if (memo.fileUri) {
-        const info = await FileSystem.getInfoAsync(memo.fileUri);
-        if (info.exists) {
-          await FileSystem.deleteAsync(memo.fileUri, { idempotent: true });
-        }
+        await FileSystem.deleteAsync(memo.fileUri, { idempotent: true }).catch(() => {});
       }
     }
     await AsyncStorage.removeItem(STORAGE_KEY_AUDIO_METADATA);
     return true;
   } catch (e) {
-    console.error('Error purging audio memos:', e);
+    console.error('Error wiping all audio memos:', e);
     return false;
-  }
-}
-
-/**
- * Plays an audio memo.
- */
-export async function playAudioMemo(fileUri: string): Promise<any | null> {
-  if (!ExpoAudio || !fileUri) return null;
-  try {
-    await ExpoAudio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-    });
-    const { sound } = await ExpoAudio.Sound.createAsync({ uri: fileUri });
-    await sound.playAsync();
-    return sound;
-  } catch (e) {
-    console.error('Error playing audio memo:', e);
-    return null;
   }
 }

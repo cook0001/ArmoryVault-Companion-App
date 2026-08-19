@@ -13,6 +13,7 @@ export interface DashboardStats {
 interface SyncContextType {
   syncedIp: string | null;
   isOnline: boolean | null;
+  isVaultLocked: boolean | null;
   desktopDevice: string | null;
   isSyncing: boolean;
   syncProgress: string | null;
@@ -31,6 +32,7 @@ interface SyncContextType {
   updateQueueItem: (index: number, updatedItem: any) => Promise<void>;
   clearQueue: () => Promise<void>;
   refreshCache: (silent?: boolean) => Promise<boolean>;
+  remoteLockVault: () => Promise<boolean>;
   setAutoSyncEnabled: (enabled: boolean) => Promise<void>;
   setServerIp: (ip: string | null) => Promise<void>;
 }
@@ -50,6 +52,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [syncedIp, setSyncedIpState] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [isVaultLocked, setIsVaultLocked] = useState<boolean | null>(null);
   const [desktopDevice, setDesktopDevice] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
@@ -64,10 +67,55 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncedIpRef = useRef<string | null>(null);
   const autoSyncEnabledRef = useRef(true);
   const isOnlineRef = useRef<boolean | null>(null);
+  const isVaultLockedRef = useRef<boolean | null>(null);
 
   syncedIpRef.current = syncedIp;
   autoSyncEnabledRef.current = autoSyncEnabled;
   isOnlineRef.current = isOnline;
+  isVaultLockedRef.current = isVaultLocked;
+
+  // Remote Lock Desktop Vault (Desktop locks, mobile cache is preserved for offline use)
+  const remoteLockVault = useCallback(async (): Promise<boolean> => {
+    const ip = syncedIpRef.current;
+    if (!ip) {
+      showError('Not Paired', 'Please pair with your desktop ArmoryVault server first.');
+      return false;
+    }
+
+    try {
+      let res = await fetch(`${ip}/api/vault/lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => null);
+
+      if (!res || res.status === 404) {
+        res = await fetch(`${ip}/api/lock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => null);
+      }
+
+      if (res && res.ok) {
+        setIsVaultLocked(true);
+        isVaultLockedRef.current = true;
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        showSuccess('Desktop Vault Locked', 'Desktop database locked. Your mobile cache remains active for offline use.');
+        return true;
+      } else if (res && res.status === 404) {
+        showError(
+          'Desktop Restart Needed', 
+          'The desktop app needs to be restarted once to load the new remote lock endpoint.'
+        );
+        return false;
+      } else {
+        throw new Error(`HTTP ${res?.status || 'Network Error'}`);
+      }
+    } catch (e: any) {
+      console.error('remoteLockVault error:', e);
+      showError('Lock Failed', 'Could not reach desktop server to execute remote lock.');
+      return false;
+    }
+  }, [showSuccess, showError]);
 
   // Load Status from Storage & Server
   const loadStatus = useCallback(async () => {
@@ -124,50 +172,56 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isOnlineRef.current = true;
             if (data.device) setDesktopDevice(data.device);
 
-            // Fetch summary stats
-            fetch(`${ip}/api/inventory/summary`)
-              .then(async res => {
-                if (!res.ok) return null;
-                const text = await res.text();
-                try { return JSON.parse(text); } catch { return null; }
-              })
-              .then(data => {
-                if (data && data.success) {
-                  const stats: DashboardStats = { firearms: data.firearms, ammo: data.ammo, components: data.components };
-                  setDashboardStats(stats);
-                  AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
-                }
-              })
-              .catch(() => {});
+            const locked = Boolean(data.isLocked);
+            setIsVaultLocked(locked);
+            isVaultLockedRef.current = locked;
 
-            // Fetch inventory cache
-            fetch(`${ip}/api/inventory/cache`)
-              .then(async res => {
-                if (!res.ok) return null;
-                const text = await res.text();
-                try { return JSON.parse(text); } catch { return null; }
-              })
-              .then(data => {
-                if (data && data.success) {
-                  AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
-                  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  setLastCacheTime(now);
-                  AsyncStorage.setItem('inventory_cache_time', now);
+            if (!locked) {
+              // Fetch summary stats
+              fetch(`${ip}/api/inventory/summary`)
+                .then(async res => {
+                  if (!res.ok) return null;
+                  const text = await res.text();
+                  try { return JSON.parse(text); } catch { return null; }
+                })
+                .then(data => {
+                  if (data && data.success && !data.isLocked) {
+                    const stats: DashboardStats = { firearms: data.firearms, ammo: data.ammo, components: data.components };
+                    setDashboardStats(stats);
+                    AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
+                  }
+                })
+                .catch(() => {});
 
-                  const skuCount = data.skus ? Object.keys(data.skus).length : 0;
-                  setDashboardStats(prev => ({
-                    firearms: data.firearms?.length || prev?.firearms || 0,
-                    ammo: (data.ammo || []).reduce((sum: number, a: any) => sum + (Number(a.count) || 0), 0),
-                    components: data.components?.length || prev?.components || 0,
-                    skus: skuCount
-                  }));
-                }
-              })
-              .catch(() => {});
+              // Fetch inventory cache
+              fetch(`${ip}/api/inventory/cache`)
+                .then(async res => {
+                  if (!res.ok) return null;
+                  const text = await res.text();
+                  try { return JSON.parse(text); } catch { return null; }
+                })
+                .then(data => {
+                  if (data && data.success && !data.isLocked) {
+                    AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
+                    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    setLastCacheTime(now);
+                    AsyncStorage.setItem('inventory_cache_time', now);
 
-            // Trigger Auto-Sync if items exist in queue
-            if (currentQueue.length > 0 && isAutoSync && !isSyncingRef.current) {
-              triggerSyncInternal(ip, currentQueue, false);
+                    const skuCount = data.skus ? Object.keys(data.skus).length : 0;
+                    setDashboardStats(prev => ({
+                      firearms: data.firearms?.length || prev?.firearms || 0,
+                      ammo: (data.ammo || []).reduce((sum: number, a: any) => sum + (Number(a.count) || 0), 0),
+                      components: data.components?.length || prev?.components || 0,
+                      skus: skuCount
+                    }));
+                  }
+                })
+                .catch(() => {});
+
+              // Trigger Auto-Sync if items exist in queue
+              if (currentQueue.length > 0 && isAutoSync && !isSyncingRef.current) {
+                triggerSyncInternal(ip, currentQueue, false);
+              }
             }
           } else {
             setIsOnline(false);
@@ -240,7 +294,6 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSyncing(false);
       isSyncingRef.current = false;
 
-      // Show non-blocking auto-dismissing toast or confirmation
       if (isManual) {
         showSuccess('Sync Complete', `Successfully synchronized ${processedCount} item(s) to desktop.`);
       } else {
@@ -252,7 +305,6 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Refresh inventory cache post-sync
       refreshCache(true);
       return true;
 
@@ -320,13 +372,11 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // If connected and autoSync is enabled, auto-sync immediately!
       const ip = syncedIpRef.current;
       const isOnlineCurrent = isOnlineRef.current;
       const isAutoSyncCurrent = autoSyncEnabledRef.current;
 
       if (ip && isOnlineCurrent && isAutoSyncCurrent && !isSyncingRef.current) {
-        // Small delay to allow calling screen transition
         setTimeout(() => {
           triggerSyncInternal(ip, newQueue, false);
         }, 300);
@@ -392,11 +442,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await fetch(`${ip}/api/inventory/cache`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.success) {
+        if (data && data.success && !data.isLocked) {
           await AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
           const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setLastCacheTime(now);
           await AsyncStorage.setItem('inventory_cache_time', now);
+          setIsVaultLocked(false);
+          isVaultLockedRef.current = false;
 
           const skuCount = data.skus ? Object.keys(data.skus).length : 0;
           setDashboardStats({
@@ -413,6 +465,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             );
           }
           return true;
+        } else if (data?.isLocked) {
+          setIsVaultLocked(true);
+          isVaultLockedRef.current = true;
+          if (!silent) {
+            showToast({ title: 'Desktop Vault Locked', message: 'Vault is locked on desktop. Mobile app will use offline cache.', type: 'info' });
+          }
+          return false;
         }
       }
       throw new Error(`HTTP ${res.status}`);
@@ -422,7 +481,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return false;
     }
-  }, [showSuccess, showError]);
+  }, [showSuccess, showError, showToast]);
 
   // Set Auto-Sync Preference
   const setAutoSyncEnabled = useCallback(async (enabled: boolean) => {
@@ -448,6 +507,8 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       syncedIpRef.current = null;
       setIsOnline(false);
       isOnlineRef.current = false;
+      setIsVaultLocked(null);
+      isVaultLockedRef.current = null;
       setDesktopDevice(null);
     }
   }, [loadStatus]);
@@ -467,10 +528,20 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
               isOnlineRef.current = true;
               if (data.device) setDesktopDevice(data.device);
 
+              const locked = Boolean(data.isLocked);
+              const wasLocked = isVaultLockedRef.current;
+              setIsVaultLocked(locked);
+              isVaultLockedRef.current = locked;
+
+              if (!locked && wasLocked === true) {
+                // Desktop was just unlocked! Refresh cache automatically
+                refreshCache(true);
+              }
+
               // Auto-sync check during heartbeat
               const queueStr = await AsyncStorage.getItem('offline_queue');
               const q = queueStr ? JSON.parse(queueStr) : [];
-              if (q.length > 0 && autoSyncEnabledRef.current && !isSyncingRef.current) {
+              if (q.length > 0 && autoSyncEnabledRef.current && !isSyncingRef.current && !locked) {
                 triggerSyncInternal(currentIp, q, false);
               }
             } else {
@@ -486,13 +557,14 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 18000);
 
     return () => clearInterval(interval);
-  }, [loadStatus]);
+  }, [loadStatus, refreshCache]);
 
   return (
     <SyncContext.Provider
       value={{
         syncedIp,
         isOnline,
+        isVaultLocked,
         desktopDevice,
         isSyncing,
         syncProgress,
@@ -509,6 +581,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateQueueItem,
         clearQueue,
         refreshCache,
+        remoteLockVault,
         setAutoSyncEnabled,
         setServerIp,
       }}

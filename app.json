@@ -3,7 +3,7 @@
     "name": "ArmoryVault_Companion",
     "slug": "armoryvault-companion-app",
     "scheme": "armoryvault",
-    "version": "2.6.0-nightly.4",
+    "version": "2.6.0-nightly.29",
     "runtimeVersion": {
       "policy": "appVersion"
     },

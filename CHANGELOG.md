@@ -1,5 +1,199 @@
 # Changelog
 
+## [2.6.0-nightly.29] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Preserved Offline Mobile Cache during Desktop Vault Lock**:
+  - Maintained complete local offline mobile inventory cache across firearms, ammo lots, powders/primers, DOPE calculations, and range logs when locking the desktop database.
+  - Updated confirmation modal and status beacon to clarify that remote desktop lock secures the PC while keeping the mobile companion 100% functional for offline range sessions.
+
+## [2.6.0-nightly.28] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Remote Database Lock & Air-Gapped Cache Auto-Wipe**:
+  - Added 1-tap `[Lock Desktop]` button with confirmation modal in the mobile connection beacon to lock the desktop vault remotely.
+  - Automatically wipes mobile SQLite/AsyncStorage cached inventory, firearms, ammo, and summary counters whenever the desktop vault locks for security and privacy.
+  - Heartbeat automatically detects desktop lock/unlock transitions and safely resynchronizes when unlocked.
+
+## [2.6.0-nightly.27] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Position-Sorted Index Parser & Raw Barcode Inspector**:
+  - Implemented position-sorted index AAMVA parsing to seamlessly unpack single-strip continuous Florida PDF417 barcodes.
+  - Added collapsible "Inspect Raw Barcode String" console to the ID Preview sheet for full diagnostic visibility.
+
+## [2.6.0-nightly.26] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Florida Name Normalization (Last First Middle -> First Middle Last)**:
+  - Automatically recognizes and converts Florida DHSMV name ordering (`[Last] [First] [Middle]` or `[Last], [First] [Middle]`) into standard Legal Name order (`[First] [Middle] [Last]`).
+  - Enhanced ID Preview Sheet with clear badges (`2D Matrix` vs `1D Barcode`) and interactive guidance to easily rescan the 2D matrix for full address, DL#, and DOB.
+
+## [2.6.0-nightly.25] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Synchronous Scan-Lock & Instant Scanned ID Confirmation Modal**:
+  - Replaced asynchronous state checks with synchronous `useRef` locking to eliminate rapid multi-frame vibration and haptic feedback loops.
+  - Added interactive Scanned ID Confirmation Sheet displaying Legal Name, DL#, Street Address, and DOB with 1-tap "Apply to Bill of Sale Form" and "Rescan" actions.
+
+## [2.6.0-nightly.24] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Subfile Header DAQ Parser & Strict PDF417 Vision Isolation**:
+  - Configured CameraView to strictly isolate 2D `pdf417` optical capture when scanning driver's licenses, preventing hardware sensors from triggering on linear 1D barcodes.
+  - Added support for Florida DHSMV subfile headers where `DAQ` is concatenated with document identifiers without preceding line breaks.
+
+## [2.6.0-nightly.23] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Delimiter-Safe Regex Field Extractor for AAMVA Driver's Licenses**:
+  - Completely redesigned AAMVA field extraction to use strict delimiter-bounded pattern matching, preventing subfield truncation across Florida DHSMV and all 50 US State formats.
+  - Automatically extracts and formats: Full Legal Name, Residential Street Address, City, State, 5-Digit ZIP, DL/ID Number, and Date of Birth (`MM/DD/YYYY`).
+
+## [2.6.0-nightly.22] - 2026-08-18 (Nightly Test Build)
+### Added
+- **2D PDF417 Matrix Lock & Non-Dismissing Guidance**:
+  - In 2D Matrix mode, the scanner remains open and actively prompts the user if the top 1D barcode is encountered, ensuring the user aligns the 2D PDF417 matrix for full Address (Street, City, State, ZIP), DL#, and DOB extraction.
+  - Eliminated false/ghost state strings in the address field when only 1D data is present.
+
+## [2.6.0-nightly.21] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Scanner Viewfinder Mode Switcher & Non-Polluting Name Capture**:
+  - Added dedicated on-screen toggle between **2D Matrix (Full ID)** and **1D Barcode** with active camera remount keys to ensure hardware sensor isolation.
+  - Added parser support for prefix-only barcodes (`DL [LastName] [FirstName]`), routing names exclusively to `buyerName` and preventing false DL# field pollution.
+
+## [2.6.0-nightly.20] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Intelligent 1D Linear & 2D Matrix ID Field Parser**:
+  - Automatically isolates and parses 1D linear barcode formats (`DL# LastName FirstName`) into separate `buyerName` and `buyerDlNumber` fields.
+  - Full 2D AAMVA PDF417 support for extracting complete name, residential street address, city, state, zip code, and date of birth (`MM/DD/YYYY`).
+  - Added real-time scan feedback distinguishing full 2D auto-fills from 1D barcode captures.
+
+## [2.6.0-nightly.19] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Dedicated 2D PDF417 Driver's License Scanner Mode**:
+  - Configured ID scanner to strictly target 2D PDF417 matrix barcodes, preventing accidental capture of secondary 1D linear barcodes.
+  - Added full support for Track 1, Track 2, and AAMVA PDF417 formats.
+- **Persistent Multi-Rail Payment Profile**:
+  - Saved seller profile and payment accounts (Cash App, PayPal, Venmo, Stripe/Square, Zelle) auto-load across all sessions.
+  - Live auto-save on any payment handle edits inside the payment modal.
+
+## [2.6.0-nightly.18] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Florida & Multi-State AAMVA PDF417 Parser Overhaul**:
+  - Implemented token-boundary parser supporting Florida DHSMV `<` delimiters, multi-line formats, and concatenated field streams.
+  - Accurately maps Name, Street Address, City, State, 5-digit ZIP, DL Number, and formatted DOB (`MM/DD/YYYY`).
+- **Dynamic Pre-Filled Payment Links & QR Generator**:
+  - Direct integration for **Cash App Pay** (`$cashtag/amount`), **PayPal.me** (`paypal.me/user/amount`), **Venmo** (`venmo.com/user?txn=pay&amount=...`), **Stripe/Square**, and **Zelle**.
+  - Automatically generates scannable QR codes with exact dollar amount pre-filled and supports live preview testing.
+
+## [2.6.0-nightly.17] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Multi-Format AAMVA PDF417 Driver's License Parser**:
+  - Upgraded parser with support for all AAMVA specification revisions (2000–2020+), correctly extracting full legal names, street address, city, state, 5-digit zip code, DL/ID number, and date of birth.
+  - Added protection to prevent raw barcode strings from overflowing into input fields.
+- **Secure Card & Digital Payment Generator**:
+  - Added PCI-compliant instant Payment QR Code and checkout link generator directly inside the Bill of Sale form.
+  - Supports Apple Pay, Google Pay, Debit/Credit Card, and digital transfers with automated auth reference tagging.
+
+## [2.6.0-nightly.16] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Persistent Vault Owner / Seller Profile in Bill of Sale**:
+  - Saved seller profile (Name, Address, DL#, Phone, Email) auto-populates on every bill of sale.
+  - Prominent full-width Buyer ID scan banner with improved visual hierarchy.
+  - Payment method selector with Money Order / Check number tracking.
+- **Handload Recipe Lot # & Printable Ammo Box Labels**:
+  - Automatic Lot Number generation (`LOT-YYYYMMDD-XXX`) on new recipes and batches.
+  - 1-tap "Box Label" print generator creating 3.5" ammo box labels with embedded QR codes.
+  - Universal Scanner auto-detects `AV-RECIPE-` QR codes to load handload recipes.
+- **Ballistics DOPE Card Print Fix**:
+  - Replaced custom paper size styling with universal system print dialog via `Print.printAsync` for reliable AirPrint, Android Print, and PDF export.
+
+## [2.6.0-nightly.15] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Voice Memos & Outbox Polish**:
+  - **Firearm & Ammo Tagging in Voice Memos**: Tag memos to specific firearms or suspected bad ammo lots for diagnostic records.
+  - **1-Tap Privacy Wipe**: Purge all local voice logs with single-tap privacy protection.
+  - **Sync Outbox Enhancements**: Added 1-tap manual sync button with live transmission progress and clear outbox action.
+
+## [2.6.0-nightly.14] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Integrated Driver's License & CCW Barcode Scanner in Bill of Sale**:
+  - Embedded camera scanner directly in Bill of Sale form to scan 2D AAMVA PDF417 barcodes on Driver's Licenses and CCW permits.
+  - Automatically parses and populates legal full name, residential address, license number, DOB, and CCW permit details.
+- **Ballistics DOPE Enhancements**:
+  - **Handload Recipe Import**: 1-tap import of custom handload recipes to auto-populate muzzle velocity, bullet weight, and caliber in the solver.
+  - **Maximum Point Blank Range (MPBR) Calculator**: Automatically computes near zero, far zero, and max point-blank range for a 6" vital zone.
+  - **Pocket DOPE Card PDF Export**: Generate and share clean, waterproof-style pocket DOPE cards formatted for printing or offline field reference.
+
+## [2.6.0-nightly.13] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Ammo & Supplies Reloading Recipes & Valuation**:
+  - **Handload Recipes & Batches Tab**: Added dedicated recipes tab to record custom load recipes (Bullet, Powder, Grains, Primer, Brass, COAL) with velocity (fps), MOA group size, and batch tracking.
+  - **Vault Valuation Privacy Toggle**: 1-tap eye icon on the top banner to toggle display of total aggregate vault inventory valuation ($X,XXX.XX).
+  - **Cost-Per-Round (CPR) Readouts**: Live CPR pricing on ammunition lot cards.
+  - **Low-Stock Warning Indicators**: Visual warning badges when caliber counts drop below low-inventory thresholds.
+
+## [2.6.0-nightly.12] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Firearms Vault & Bill of Sale Overhaul**:
+  - **Category Filtering & Sorting**: Instant filter tabs (`All`, `Handguns`, `Rifles`, `Shotguns`, `Rimfire`, `NFA/Suppressed`) and sorting (`A-Z`, `Highest Round Count`).
+  - **1-Tap Scan Part Trigger**: Quick button on each firearm card to scan replacement parts and queue maintenance items to the desktop maintenance ledger.
+  - **FFL Dealer vs Private Sale Mode**: Added toggle for FFL Dealer Consignment/Transfer including FFL Number and Bound Book fields.
+  - **Concealed Carry License (CCL / CCW) Support**: Track CCW permit numbers, issuing states, and expiration dates.
+  - **Statutory Legal Affirmations**: Form 4473 style checkboxes for legal age, non-prohibited person status under 18 U.S.C. § 922(g), in-state residency, and lawful title.
+  - **Multi-Channel Distribution**: 1-tap Print (AirPrint/Android Print), native Share/SMS, and Email delivery.
+
+## [2.6.0-nightly.11] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Range Mode Enhancements**:
+  - **Incremental Rapid Round Steppers**: Added quick `+10`, `+25`, `+50`, and `+100` round steppers alongside preset chips.
+  - **Live Ammo Inventory Deduction Preview**: Displays live inventory deduction calculations and remaining rounds before queuing.
+  - **Collapsible Advanced Environmental Log**: Optional drawer for temperature (°F), wind speed/direction, and target distance.
+  - **Section Numbering & Layout Polish**: Streamlined sections from firearm selection to target photo zeroing and notes.
+
+## [2.6.0-nightly.10] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Universal Scanner Enhancements**:
+  - **Animated Laser Viewfinder**: Sweeping laser reticle animation across the camera scan target for high-precision visual scanning feedback.
+  - **Caliber-Aware Packaging Multiplier Dialog**:
+    - Pop-up dialog with interactive `Number of Boxes × Rounds/Box` multiplier with real-time total quantity calculation.
+    - Intelligent caliber-specific presets: 25 rds (defensive pistol), 20 rds (rifle), 50 rds (target pistol), 100 rds, 325/500 rds (rimfire brick), 1000 rds (case).
+    - Expanded packaging units: `Box`, `Case`, `Can (Ammo Can)`, `Sleeve`, `Brick`, `Loose (rds)`.
+  - **Smart Inventory Quick Lookup Drawer**:
+    - Bottom drawer with instant search filtering across cached ammo lots, calibers, components, and SKUs with 1-tap stock adjustment triggers without camera scanning.
+
+## [2.6.0-nightly.9] - 2026-08-18 (Nightly Test Build)
+### Added
+- **1-Tap Firearm Selection Reset in Range Prep**:
+  - Added a dedicated **"Reset Guns"** action button in the firearms selection header to quickly deselect all chosen firearms and allocated ammo without having to manually uncheck each card.
+  - Enhanced the top progress reset modal with dual options (**"Reset Everything"** vs **"Uncheck Items Only"**).
+
+## [2.6.0-nightly.8] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Intelligent Firearm Feeding Gear Classifier in Range Prep**:
+  - Automatically identifies action and feeding systems to suggest exact matching loading gear instead of generic detachable magazines:
+    - **Revolvers**: Speedloaders, moon clips, and speed strips.
+    - **Single-Shot & Break-Action Rifles/Pistols**: Cartridge belts and buttstock ammo cuffs.
+    - **Break-Action Shotguns (O/U & SxS)**: Waist shell pouches and shooting vests.
+    - **Tube-Fed Shotguns**: Side-saddles, elastic shell cards, and dump pouches.
+    - **Lever-Action Rifles**: Buttstock ammo sleeves and cartridge wallets.
+    - **Surplus & Clip-Fed Rifles (M1 Garand, SKS, Mosin, Mauser, Enfield)**: En bloc clips and stripper clips.
+- **Custom Bag Preset Builder**:
+  - Interactive preset creation modal to configure, name, iconize, and store persistent custom discipline packing lists.
+  - Delete and switch between custom and built-in presets seamlessly.
+- **Expanded Built-in Discipline Presets (10 Comprehensive Categories)**:
+  - Added **USPSA / IDPA Match**, **Defensive Carbine / 2-Gun**, **Clay & Trap / Skeet**, **Suppressed & Low-Light**, and **Youth & Novice Training**.
+
+## [2.6.0-nightly.7] - 2026-08-18 (Nightly Test Build)
+### Changed
+- **Dashboard Terminology**:
+  - Renamed the main tool grid section header from "Vault Quick Actions" to **"Companion Tools"** to accurately reflect the comprehensive module suite of the mobile application.
+
+## [2.6.0-nightly.6] - 2026-08-18 (Nightly Test Build)
+### Changed
+- **Dashboard Layout Optimization**:
+  - Moved the **Cached Vault Summary** card to the top of the dashboard directly below the connection status beacon.
+
+## [2.6.0-nightly.5] - 2026-08-18 (Nightly Test Build)
+### Changed
+- **Action Hub Sync Outbox Card**:
+  - Converted the bottom standalone banner into a dedicated 8th Quick Action Card in the primary Vault Quick Actions grid on the dashboard.
+  - Features real-time pending item count indicators, dynamic icon coloring, and balanced 2x4 action grid layout.
+
 ## [2.6.0-nightly.4] - 2026-08-18 (Nightly Test Build)
 ### Added
 - **User-Controlled Release Stream Switching & Instant Rollback Support**:

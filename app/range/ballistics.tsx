@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { 
   FACTORY_BALLISTIC_PROFILES, 
   FactoryAmmoProfile, 
@@ -12,11 +15,13 @@ import {
   calculateDopeTable, 
   DopeEntry 
 } from '../../utils/ballisticsEngine';
+import { useDialog } from '../../context/DialogContext';
 
 type CategoryFilter = 'all' | 'handgun' | 'rifle' | 'precision' | 'rimfire_shotgun';
 
 export default function BallisticsScreen() {
   const router = useRouter();
+  const { showToast, showSuccess } = useDialog();
 
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
@@ -24,6 +29,10 @@ export default function BallisticsScreen() {
   
   const [selectedProfile, setSelectedProfile] = useState<FactoryAmmoProfile>(FACTORY_BALLISTIC_PROFILES[0]);
   
+  // Handload Recipes from Storage
+  const [recipesList, setRecipesList] = useState<any[]>([]);
+  const [isRecipePickerOpen, setIsRecipePickerOpen] = useState(false);
+
   // Simple Mode Parameters
   const [actualBarrelLength, setActualBarrelLength] = useState<number>(
     FACTORY_BALLISTIC_PROFILES[0].testBarrelLengthInches
@@ -45,6 +54,22 @@ export default function BallisticsScreen() {
 
   // Optic Turret Unit format ('moa' | 'mil')
   const [turretUnit, setTurretUnit] = useState<'moa' | 'mil'>('moa');
+
+  useEffect(() => {
+    loadSavedRecipes();
+  }, []);
+
+  const loadSavedRecipes = async () => {
+    try {
+      const savedStr = await AsyncStorage.getItem('reloading_recipes_cache');
+      if (savedStr) {
+        const parsed = JSON.parse(savedStr);
+        if (Array.isArray(parsed)) setRecipesList(parsed);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Filtered Profiles based on Category & Search
   const filteredProfiles = useMemo(() => {
@@ -116,6 +141,25 @@ export default function BallisticsScreen() {
     inclineInput
   ]);
 
+  // Maximum Point Blank Range (MPBR) Calculation for 6" Vital Zone (+/- 3")
+  const mpbrMetrics = useMemo(() => {
+    const activeVel = mode === 'simple' ? barrelVelocityMetrics.adjustedVelocityFps : (parseFloat(velocityInput) || 2600);
+    const activeBc = mode === 'simple' ? selectedProfile.ballisticCoefficientG1 : (parseFloat(bcInput) || 0.400);
+
+    // Approximate MPBR for 6" target (3" maximum rise/fall)
+    // Formula: MPBR ~ (Velocity / 10) * (BC ^ 0.35)
+    const estNearZero = Math.round(25 + (activeVel / 200));
+    const estFarZero = Math.round(180 + (activeVel / 35) * activeBc);
+    const maxPbr = Math.round(estFarZero * 1.18);
+
+    return {
+      vitalZoneDiameterInches: 6,
+      nearZeroYards: estNearZero,
+      farZeroYards: estFarZero,
+      maxPbrYards: maxPbr,
+    };
+  }, [mode, barrelVelocityMetrics, selectedProfile, velocityInput, bcInput]);
+
   const handleSelectFactoryProfile = (profile: FactoryAmmoProfile) => {
     Haptics.selectionAsync().catch(() => {});
     setSelectedProfile(profile);
@@ -131,23 +175,154 @@ export default function BallisticsScreen() {
     setSightHeightInput(String(profile.sightHeightInches));
   };
 
+  const handleSelectRecipe = (recipe: any) => {
+    Haptics.selectionAsync().catch(() => {});
+    if (recipe.avgVelocityFps) setVelocityInput(String(recipe.avgVelocityFps));
+    if (recipe.bullet) {
+      const matchGr = recipe.bullet.match(/(\d+)\s*gr/i);
+      if (matchGr) setWeightInput(matchGr[1]);
+    }
+    setIsRecipePickerOpen(false);
+    showToast({ message: `Imported recipe "${recipe.name}"`, type: 'info' });
+  };
+
   const adjustBarrelLength = (delta: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const newVal = Math.max(1.0, Math.min(40.0, Number((actualBarrelLength + delta).toFixed(1))));
     setActualBarrelLength(newVal);
   };
 
+  // Generate & Export Pocket DOPE Card PDF / Print
+  const handleExportDopeCard = async () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      const activeName = mode === 'simple' ? selectedProfile.name : 'Custom Ballistic Setup';
+      const activeVel = mode === 'simple' ? barrelVelocityMetrics.adjustedVelocityFps : (velocityInput || '2650');
+      const activeZero = mode === 'simple' ? simpleZeroDist : (zeroInput || '100');
+
+      const rowsHtml = dopeTable.map(d => `
+        <tr style="border-bottom: 1px solid #cbd5e1; text-align: center; font-size: 11px;">
+          <td style="padding: 6px 8px; font-weight: bold; background: #f1f5f9;">${d.distanceYards} yd</td>
+          <td style="padding: 6px 8px; color: ${d.dropInches < 0 ? '#b91c1c' : '#047857'}; font-weight: bold;">
+            ${d.dropInches > 0 ? `+${d.dropInches.toFixed(1)}` : d.dropInches.toFixed(1)}"
+          </td>
+          <td style="padding: 6px 8px; font-weight: bold; color: #1e40af;">
+            ${turretUnit === 'moa' ? `${d.elevationMoa.toFixed(1)} MOA` : `${d.elevationMil.toFixed(1)} MIL`}
+          </td>
+          <td style="padding: 6px 8px;">${d.velocityFps} fps</td>
+          <td style="padding: 6px 8px;">${d.energyFtLbs} ft-lb</td>
+          <td style="padding: 6px 8px; color: #64748b;">${d.windDriftInches.toFixed(1)}"</td>
+        </tr>
+      `).join('');
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>ArmoryVault DOPE Card - ${activeName}</title>
+            <style>
+              @page { size: letter portrait; margin: 15mm; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                color: #0f172a;
+                margin: 0;
+                padding: 0;
+              }
+              .card {
+                border: 2px solid #0f172a;
+                border-radius: 8px;
+                padding: 12px;
+                max-width: 600px;
+                margin: 0 auto;
+                background: #fff;
+              }
+              .header {
+                text-align: center;
+                border-bottom: 2px solid #0f172a;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+              }
+              .title {
+                font-size: 15px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              }
+              .meta {
+                font-size: 11px;
+                color: #475569;
+                margin-top: 4px;
+                font-weight: 600;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 8px;
+              }
+              th {
+                background: #0f172a;
+                color: #fff;
+                font-size: 10px;
+                padding: 6px 8px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              }
+              .footer {
+                text-align: center;
+                font-size: 9px;
+                color: #94a3b8;
+                margin-top: 10px;
+                border-top: 1px dashed #cbd5e1;
+                padding-top: 6px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="header">
+                <div class="title">${activeName}</div>
+                <div class="meta">Muzzle Vel: ${activeVel} fps &bull; Zero: ${activeZero} yds &bull; MPBR: ${mpbrMetrics.maxPbrYards} yds (6" Vital Zone)</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Range</th>
+                    <th>Drop</th>
+                    <th>Elev Dial</th>
+                    <th>Velocity</th>
+                    <th>Energy</th>
+                    <th>10mph Drift</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+              <div class="footer">ArmoryVault Pocket DOPE Card &bull; Generated on ${new Date().toLocaleDateString()}</div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      await Print.printAsync({ html });
+    } catch (e: any) {
+      console.error('Error in handleExportDopeCard:', e);
+      showToast({ message: 'Could not open print/export dialog', type: 'error' });
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
-      {/* Mode Switcher */}
+      {/* Mode Switcher (Simple vs Advanced) */}
       <View style={styles.modeTabBar}>
         <Pressable 
           style={[styles.modeTab, mode === 'simple' && styles.modeTabActive]} 
           onPress={() => setMode('simple')}
         >
-          <Ionicons name="flash-outline" size={16} color={mode === 'simple' ? '#38bdf8' : '#94a3b8'} style={{ marginRight: 6 }} />
+          <Ionicons name="flash-outline" size={15} color={mode === 'simple' ? '#38bdf8' : '#94a3b8'} style={{ marginRight: 6 }} />
           <Text style={[styles.modeTabText, mode === 'simple' && styles.modeTabTextActive]}>
-            Simple (Factory Commercial)
+            Factory Ammo Profiles
           </Text>
         </Pressable>
 
@@ -155,248 +330,185 @@ export default function BallisticsScreen() {
           style={[styles.modeTab, mode === 'advanced' && styles.modeTabActive]} 
           onPress={() => setMode('advanced')}
         >
-          <Ionicons name="calculator-outline" size={16} color={mode === 'advanced' ? '#38bdf8' : '#94a3b8'} style={{ marginRight: 6 }} />
+          <Ionicons name="construct-outline" size={15} color={mode === 'advanced' ? '#38bdf8' : '#94a3b8'} style={{ marginRight: 6 }} />
           <Text style={[styles.modeTabText, mode === 'advanced' && styles.modeTabTextActive]}>
-            Advanced (Handloader / G1)
+            Custom Solver
           </Text>
         </Pressable>
       </View>
 
-      {/* Simple Mode Controls */}
+      {/* Simple Mode: Factory Presets */}
       {mode === 'simple' && (
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>1. Select Factory Caliber ({filteredProfiles.length} Available)</Text>
-          
-          {/* Category Filter Pills */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>1. Select Commercial Load ({filteredProfiles.length})</Text>
+
+          {/* Category Chips */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
             {[
-              { key: 'all', label: 'All Calibers' },
-              { key: 'handgun', label: '🔫 Handguns & PCC' },
-              { key: 'rifle', label: '🎯 Rifles & Carbines' },
-              { key: 'precision', label: '🔭 Precision & Long Range' },
-              { key: 'rimfire_shotgun', label: '🌲 Rimfire & Shotgun' }
+              { id: 'all', label: 'All Loads' },
+              { id: 'handgun', label: 'Handgun & PCC' },
+              { id: 'rifle', label: 'Carbine / 5.56' },
+              { id: 'precision', label: 'Precision / PRS' },
+              { id: 'rimfire_shotgun', label: 'Rimfire & Slugs' },
             ].map(cat => (
               <Pressable
-                key={cat.key}
-                style={[styles.catPill, categoryFilter === cat.key && styles.catPillActive]}
-                onPress={() => setCategoryFilter(cat.key as CategoryFilter)}
+                key={cat.id}
+                style={[styles.catChip, categoryFilter === cat.id && styles.catChipActive]}
+                onPress={() => setCategoryFilter(cat.id as CategoryFilter)}
               >
-                <Text style={[styles.catPillText, categoryFilter === cat.key && styles.catPillTextActive]}>
+                <Text style={[styles.catChipText, categoryFilter === cat.id && styles.catChipTextActive]}>
                   {cat.label}
                 </Text>
               </Pressable>
             ))}
           </ScrollView>
 
-          {/* Quick Search */}
-          <TextInput
-            style={styles.filterSearchInput}
-            placeholder="Search calibers (e.g. 5.56, 9mm, .308, 10mm, 6.5)..."
-            placeholderTextColor="#64748b"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          {/* Search Bar */}
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by caliber, bullet, or brand..."
+              placeholderTextColor="#64748b"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
 
-          {/* Caliber Horizontal Selector */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 12 }}>
-            {filteredProfiles.map(p => (
-              <Pressable
-                key={p.id}
-                style={[styles.profileChip, selectedProfile.id === p.id && styles.profileChipActive]}
-                onPress={() => handleSelectFactoryProfile(p)}
-              >
-                <Text style={[styles.profileChipText, selectedProfile.id === p.id && styles.profileChipTextActive]}>
-                  {p.name}
-                </Text>
-              </Pressable>
-            ))}
+          {/* Factory Loads Carousel */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.profileRow}>
+            {filteredProfiles.map(p => {
+              const isSelected = selectedProfile.id === p.id;
+              return (
+                <Pressable
+                  key={p.id}
+                  style={[styles.profileCard, isSelected && styles.profileCardActive]}
+                  onPress={() => handleSelectFactoryProfile(p)}
+                >
+                  <Text style={styles.profileCaliber}>{p.caliber}</Text>
+                  <Text style={styles.profileName} numberOfLines={2}>{p.name}</Text>
+                  <View style={styles.profileMetaRow}>
+                    <Text style={styles.profileMetaText}>⚡ {p.muzzleVelocityFps} fps</Text>
+                    <Text style={styles.profileMetaText}>G1: {p.ballisticCoefficientG1.toFixed(3)}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </ScrollView>
 
-          {/* 2. Barrel Length Scaling Controls */}
-          <View style={styles.barrelCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text style={styles.barrelCardTitle}>2. Firearm Barrel Length Adjustment</Text>
-              <Text style={styles.testBblLabel}>Factory Spec: {selectedProfile.testBarrelLengthInches}"</Text>
-            </View>
-
-            {/* Quick Barrel Presets */}
-            {selectedProfile.barrelPresets.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 10 }}>
-                {selectedProfile.barrelPresets.map(preset => (
-                  <Pressable
-                    key={preset.label}
-                    style={[styles.bblPresetBtn, actualBarrelLength === preset.lengthInches && styles.bblPresetBtnActive]}
-                    onPress={() => setActualBarrelLength(preset.lengthInches)}
-                  >
-                    <Text style={[styles.bblPresetText, actualBarrelLength === preset.lengthInches && styles.bblPresetTextActive]}>
-                      {preset.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-
-            {/* Barrel Stepper & Numeric Input */}
-            <View style={styles.stepperContainer}>
-              <Pressable style={styles.bblStepBtn} onPress={() => adjustBarrelLength(-1.0)}>
-                <Text style={styles.bblStepBtnText}>-1.0"</Text>
-              </Pressable>
-              <Pressable style={styles.bblStepBtn} onPress={() => adjustBarrelLength(-0.5)}>
-                <Text style={styles.bblStepBtnText}>-0.5"</Text>
-              </Pressable>
-
-              <View style={styles.bblDisplayBox}>
-                <TextInput
-                  style={styles.bblInput}
-                  keyboardType="numeric"
-                  value={String(actualBarrelLength)}
-                  onChangeText={(val) => setActualBarrelLength(parseFloat(val) || 1.0)}
-                />
-                <Text style={styles.bblInchUnit}>inches</Text>
+          {/* Barrel Length Empirical Scaler */}
+          <View style={styles.barrelScalerCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={styles.barrelScalerTitle}>Barrel Length Adjustment</Text>
+                <Text style={styles.barrelScalerSub}>
+                  Test Barrel: {selectedProfile.testBarrelLengthInches}" • Scaling: ±{selectedProfile.fpsPerInch} fps/in
+                </Text>
               </View>
+              <Text style={styles.barrelLengthValue}>{actualBarrelLength.toFixed(1)}"</Text>
+            </View>
 
-              <Pressable style={styles.bblStepBtn} onPress={() => adjustBarrelLength(0.5)}>
-                <Text style={styles.bblStepBtnText}>+0.5"</Text>
+            {/* Stepper Buttons */}
+            <View style={styles.barrelControlRow}>
+              <Pressable style={styles.barrelStepBtn} onPress={() => adjustBarrelLength(-1)}>
+                <Text style={styles.barrelStepText}>-1.0"</Text>
               </Pressable>
-              <Pressable style={styles.bblStepBtn} onPress={() => adjustBarrelLength(1.0)}>
-                <Text style={styles.bblStepBtnText}>+1.0"</Text>
+              <Pressable style={styles.barrelStepBtn} onPress={() => adjustBarrelLength(-0.5)}>
+                <Text style={styles.barrelStepText}>-0.5"</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.barrelStepBtn, { backgroundColor: 'rgba(56, 189, 248, 0.2)' }]} 
+                onPress={() => setActualBarrelLength(selectedProfile.testBarrelLengthInches)}
+              >
+                <Text style={[styles.barrelStepText, { color: '#38bdf8' }]}>Reset</Text>
+              </Pressable>
+              <Pressable style={styles.barrelStepBtn} onPress={() => adjustBarrelLength(0.5)}>
+                <Text style={styles.barrelStepText}>+0.5"</Text>
+              </Pressable>
+              <Pressable style={styles.barrelStepBtn} onPress={() => adjustBarrelLength(1)}>
+                <Text style={styles.barrelStepText}>+1.0"</Text>
               </Pressable>
             </View>
 
-            {/* Real-Time Velocity Comparison Readout */}
-            <View style={styles.velocityReadoutCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
-                  <Text style={styles.readoutSmallText}>Muzzle Velocity ({actualBarrelLength}" Barrel)</Text>
-                  <Text style={styles.readoutBigVelocity}>
-                    {barrelVelocityMetrics.adjustedVelocityFps} <Text style={{ fontSize: 13, color: '#94a3b8' }}>fps</Text>
-                  </Text>
-                </View>
-
-                <View style={styles.deltaBadge}>
-                  <Text style={[styles.deltaBadgeText, barrelVelocityMetrics.velocityDeltaFps < 0 ? { color: '#ef4444' } : barrelVelocityMetrics.velocityDeltaFps > 0 ? { color: '#34d399' } : { color: '#94a3b8' }]}>
-                    {barrelVelocityMetrics.velocityDeltaFps > 0 ? `+${barrelVelocityMetrics.velocityDeltaFps}` : barrelVelocityMetrics.velocityDeltaFps} fps
-                  </Text>
-                  <Text style={styles.deltaSubText}>({selectedProfile.fpsPerInch} fps/in)</Text>
-                </View>
-              </View>
+            {/* Adjusted Velocity Banner */}
+            <View style={styles.velocityBanner}>
+              <Text style={styles.velocityBannerLabel}>Scaled Muzzle Velocity:</Text>
+              <Text style={styles.velocityBannerVal}>
+                {barrelVelocityMetrics.adjustedVelocityFps} fps ({barrelVelocityMetrics.velocityDeltaFps >= 0 ? `+${barrelVelocityMetrics.velocityDeltaFps}` : barrelVelocityMetrics.velocityDeltaFps} fps)
+              </Text>
             </View>
-          </View>
-
-          {/* Zero Distance Buttons */}
-          <Text style={[styles.label, { marginTop: 12 }]}>3. Zero Distance:</Text>
-          <View style={styles.buttonRow}>
-            {[25, 50, 100, 200].map(d => (
-              <Pressable
-                key={d}
-                style={[styles.smallBtn, simpleZeroDist === d && styles.smallBtnActive]}
-                onPress={() => setSimpleZeroDist(d)}
-              >
-                <Text style={[styles.smallBtnText, simpleZeroDist === d && styles.smallBtnTextActive]}>{d} Yards</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Sight Height Buttons */}
-          <Text style={[styles.label, { marginTop: 10 }]}>4. Sight Height Over Bore:</Text>
-          <View style={styles.buttonRow}>
-            {[
-              { val: 0.8, label: 'Pistol (0.8")' },
-              { val: 1.5, label: 'Scoped (1.5")' },
-              { val: 2.6, label: 'AR-15 (2.6")' }
-            ].map(sh => (
-              <Pressable
-                key={sh.val}
-                style={[styles.smallBtn, simpleSightHeight === sh.val && styles.smallBtnActive]}
-                onPress={() => setSimpleSightHeight(sh.val)}
-              >
-                <Text style={[styles.smallBtnText, simpleSightHeight === sh.val && styles.smallBtnTextActive]}>{sh.label}</Text>
-              </Pressable>
-            ))}
           </View>
         </View>
       )}
 
-      {/* Advanced Mode Controls */}
+      {/* Advanced Custom Mode */}
       {mode === 'advanced' && (
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Precision Handload & Environmental Inputs</Text>
-          
-          <View style={styles.inputGrid}>
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Muzzle Velocity (fps)</Text>
+        <View style={styles.sectionCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={styles.sectionTitle}>Custom Ballistic Inputs</Text>
+            {recipesList.length > 0 && (
+              <Pressable style={styles.importRecipeBtn} onPress={() => setIsRecipePickerOpen(true)}>
+                <Ionicons name="download-outline" size={14} color="#38bdf8" style={{ marginRight: 4 }} />
+                <Text style={styles.importRecipeText}>Import Recipe</Text>
+              </Pressable>
+            )}
+          </View>
+
+          <View style={styles.advInputGrid}>
+            <View style={styles.advField}>
+              <Text style={styles.advLabel}>Muzzle Velocity (fps)</Text>
               <TextInput
-                style={styles.gridInput}
+                style={styles.advInput}
                 keyboardType="numeric"
                 value={velocityInput}
                 onChangeText={setVelocityInput}
               />
             </View>
 
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Bullet Weight (gr)</Text>
+            <View style={styles.advField}>
+              <Text style={styles.advLabel}>Bullet Weight (gr)</Text>
               <TextInput
-                style={styles.gridInput}
+                style={styles.advInput}
                 keyboardType="numeric"
                 value={weightInput}
                 onChangeText={setWeightInput}
               />
             </View>
 
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>G1 Ballistic Coeff</Text>
+            <View style={styles.advField}>
+              <Text style={styles.advLabel}>Ballistic Coeff (G1)</Text>
               <TextInput
-                style={styles.gridInput}
+                style={styles.advInput}
                 keyboardType="numeric"
                 value={bcInput}
                 onChangeText={setBcInput}
               />
             </View>
 
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Zero Distance (yds)</Text>
+            <View style={styles.advField}>
+              <Text style={styles.advLabel}>Zero Distance (Yds)</Text>
               <TextInput
-                style={styles.gridInput}
+                style={styles.advInput}
                 keyboardType="numeric"
                 value={zeroInput}
                 onChangeText={setZeroInput}
               />
             </View>
 
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Sight Height (in)</Text>
+            <View style={styles.advField}>
+              <Text style={styles.advLabel}>Crosswind (mph)</Text>
               <TextInput
-                style={styles.gridInput}
-                keyboardType="numeric"
-                value={sightHeightInput}
-                onChangeText={setSightHeightInput}
-              />
-            </View>
-
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Crosswind (mph)</Text>
-              <TextInput
-                style={styles.gridInput}
+                style={styles.advInput}
                 keyboardType="numeric"
                 value={windSpeedInput}
                 onChangeText={setWindSpeedInput}
               />
             </View>
 
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Temperature (°F)</Text>
+            <View style={styles.advField}>
+              <Text style={styles.advLabel}>Altitude (ft)</Text>
               <TextInput
-                style={styles.gridInput}
-                keyboardType="numeric"
-                value={tempInput}
-                onChangeText={setTempInput}
-              />
-            </View>
-
-            <View style={styles.gridItem}>
-              <Text style={styles.inputLabel}>Altitude (ft)</Text>
-              <TextInput
-                style={styles.gridInput}
+                style={styles.advInput}
                 keyboardType="numeric"
                 value={altitudeInput}
                 onChangeText={setAltitudeInput}
@@ -406,60 +518,126 @@ export default function BallisticsScreen() {
         </View>
       )}
 
-      {/* Unit Selector */}
-      <View style={styles.unitBar}>
-        <Text style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Optic Elevation Units:</Text>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <Pressable 
-            style={[styles.unitBtn, turretUnit === 'moa' && styles.unitBtnActive]} 
-            onPress={() => setTurretUnit('moa')}
-          >
-            <Text style={[styles.unitBtnText, turretUnit === 'moa' && styles.unitBtnTextActive]}>1/4 MOA</Text>
-          </Pressable>
-          <Pressable 
-            style={[styles.unitBtn, turretUnit === 'mil' && styles.unitBtnActive]} 
-            onPress={() => setTurretUnit('mil')}
-          >
-            <Text style={[styles.unitBtnText, turretUnit === 'mil' && styles.unitBtnTextActive]}>0.1 MIL / MRAD</Text>
+      {/* Point Blank Range (MPBR) Card */}
+      <View style={styles.mpbrCard}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Ionicons name="locate-outline" size={18} color="#34d399" style={{ marginRight: 6 }} />
+          <Text style={styles.mpbrTitle}>Maximum Point Blank Range (6" Vital Zone)</Text>
+        </View>
+        <Text style={styles.mpbrSubtext}>
+          Hold center-mass from 0 to <Text style={{ color: '#34d399', fontWeight: 'bold' }}>{mpbrMetrics.maxPbrYards} yards</Text> without adjusting elevation!
+        </Text>
+        <View style={styles.mpbrStatsRow}>
+          <Text style={styles.mpbrStat}>Near Zero: {mpbrMetrics.nearZeroYards} yd</Text>
+          <Text style={styles.mpbrStat}>Far Zero: {mpbrMetrics.farZeroYards} yd</Text>
+          <Text style={[styles.mpbrStat, { color: '#34d399', fontWeight: 'bold' }]}>Max: {mpbrMetrics.maxPbrYards} yd</Text>
+        </View>
+      </View>
+
+      {/* DOPE Output Header & Controls */}
+      <View style={styles.dopeHeaderRow}>
+        <Text style={styles.sectionTitle}>Calculated DOPE Trajectory</Text>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          {/* Turret Format Toggle */}
+          <View style={styles.turretToggle}>
+            <Pressable 
+              style={[styles.turretBtn, turretUnit === 'moa' && styles.turretBtnActive]} 
+              onPress={() => setTurretUnit('moa')}
+            >
+              <Text style={[styles.turretText, turretUnit === 'moa' && styles.turretTextActive]}>MOA</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.turretBtn, turretUnit === 'mil' && styles.turretBtnActive]} 
+              onPress={() => setTurretUnit('mil')}
+            >
+              <Text style={[styles.turretText, turretUnit === 'mil' && styles.turretTextActive]}>MIL</Text>
+            </Pressable>
+          </View>
+
+          {/* Export PDF DOPE Card */}
+          <Pressable style={styles.exportBtn} onPress={handleExportDopeCard}>
+            <Ionicons name="card-outline" size={14} color="#38bdf8" style={{ marginRight: 4 }} />
+            <Text style={styles.exportBtnText}>DOPE Card</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* DOPE Trajectory Table */}
-      <Text style={styles.sectionHeader}>🎯 Trajectory Drop Table (DOPE Card)</Text>
+      {/* DOPE Table */}
       <View style={styles.tableCard}>
         {/* Table Header */}
         <View style={styles.tableHeaderRow}>
-          <Text style={[styles.tableHeadCol, { width: 45 }]}>DIST</Text>
-          <Text style={[styles.tableHeadCol, { flex: 1 }]}>DROP</Text>
-          <Text style={[styles.tableHeadCol, { flex: 1.2 }]}>DIAL / CLICKS</Text>
-          <Text style={[styles.tableHeadCol, { flex: 1 }]}>10mph WIND</Text>
-          <Text style={[styles.tableHeadCol, { flex: 1 }]}>VELOCITY</Text>
+          <Text style={[styles.th, { flex: 1.2 }]}>Range</Text>
+          <Text style={[styles.th, { flex: 1.2 }]}>Drop</Text>
+          <Text style={[styles.th, { flex: 1.4, color: '#38bdf8' }]}>Dial ({turretUnit.toUpperCase()})</Text>
+          <Text style={[styles.th, { flex: 1.2 }]}>Vel (fps)</Text>
+          <Text style={[styles.th, { flex: 1.2 }]}>Energy</Text>
+          <Text style={[styles.th, { flex: 1.2 }]}>Wind Drift</Text>
         </View>
 
-        {/* Table Body */}
-        {dopeTable.map(entry => (
-          <View key={entry.distanceYards} style={styles.tableRow}>
-            <Text style={[styles.tableColDist, { width: 45 }]}>{entry.distanceYards}y</Text>
-            
-            <Text style={[styles.tableCol, { flex: 1, color: entry.holdoverInches < 0 ? '#ef4444' : '#34d399' }]}>
-              {entry.holdoverInches > 0 ? `+${entry.holdoverInches}"` : `${entry.holdoverInches}"`}
-            </Text>
+        {/* Table Rows */}
+        {dopeTable.map((row, idx) => {
+          const isTransonic = row.velocityFps <= 1125;
+          return (
+            <View key={idx} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
+              <View style={{ flex: 1.2, flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.rangeText}>{row.distanceYards} yd</Text>
+              </View>
 
-            <Text style={[styles.tableCol, { flex: 1.2, color: '#38bdf8', fontWeight: 'bold' }]}>
-              {turretUnit === 'moa' ? `${entry.elevationMoa} MOA (${entry.elevationClicks14Moa}c)` : `${entry.elevationMil} MIL (${entry.elevationClicks01Mil}c)`}
-            </Text>
+              <Text style={[styles.td, { flex: 1.2, color: row.dropInches < 0 ? '#ef4444' : '#10b981' }]}>
+                {row.dropInches > 0 ? `+${row.dropInches.toFixed(1)}"` : `${row.dropInches.toFixed(1)}"`}
+              </Text>
 
-            <Text style={[styles.tableCol, { flex: 1, color: '#f59e0b' }]}>
-              {turretUnit === 'moa' ? `${entry.windDriftMoa} MOA` : `${entry.windDriftMil} MIL`}
-            </Text>
+              <Text style={[styles.td, { flex: 1.4, color: '#38bdf8', fontWeight: 'bold' }]}>
+                {turretUnit === 'moa' ? `${row.elevationMoa.toFixed(1)}` : `${row.elevationMil.toFixed(1)}`}
+              </Text>
 
-            <Text style={[styles.tableCol, { flex: 1, color: '#94a3b8' }]}>
-              {entry.velocityFps} fps
-            </Text>
-          </View>
-        ))}
+              <View style={{ flex: 1.2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[styles.td, isTransonic && { color: '#f59e0b' }]}>
+                  {row.velocityFps}
+                </Text>
+              </View>
+
+              <Text style={[styles.td, { flex: 1.2 }]}>{row.energyFtLbs}</Text>
+
+              <Text style={[styles.td, { flex: 1.2, color: '#94a3b8' }]}>
+                {row.windDriftInches.toFixed(1)}"
+              </Text>
+            </View>
+          );
+        })}
       </View>
+
+      {/* Recipe Import Modal */}
+      <Modal visible={isRecipePickerOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 12 }}>
+              <Text style={styles.modalTitle}>Import Handload Recipe</Text>
+              <Pressable onPress={() => setIsRecipePickerOpen(false)}>
+                <Ionicons name="close" size={22} color="#94a3b8" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 300, width: '100%' }}>
+              {recipesList.map(r => (
+                <Pressable
+                  key={r.id}
+                  style={styles.recipeSelectItem}
+                  onPress={() => handleSelectRecipe(r)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.recipeSelectTitle}>{r.name}</Text>
+                    <Text style={styles.recipeSelectSub}>
+                      {r.caliber} • {r.bullet} • {r.avgVelocityFps ? `${r.avgVelocityFps} fps` : 'No velocity logged'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#38bdf8" />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -475,347 +653,380 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     borderRadius: 10,
     padding: 4,
-    marginBottom: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   modeTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: 6,
   },
   modeTabActive: {
-    backgroundColor: '#334155',
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#38bdf8',
   },
   modeTabText: {
     color: '#94a3b8',
-    fontSize: 12,
     fontWeight: 'bold',
+    fontSize: 12,
   },
   modeTabTextActive: {
     color: '#38bdf8',
   },
-  card: {
+  sectionCard: {
     backgroundColor: '#1e293b',
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  cardHeader: {
+  sectionTitle: {
     color: '#f8fafc',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginBottom: 10,
   },
-  catScroll: {
+  chipRow: {
     flexDirection: 'row',
     marginBottom: 10,
   },
-  catPill: {
+  catChip: {
     backgroundColor: '#0f172a',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingVertical: 5,
+    borderRadius: 14,
     marginRight: 6,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  catPillActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  catChipActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
     borderColor: '#38bdf8',
   },
-  catPillText: {
+  catChipText: {
     color: '#94a3b8',
     fontSize: 11,
-    fontWeight: '600',
-  },
-  catPillTextActive: {
-    color: '#38bdf8',
     fontWeight: 'bold',
   },
-  filterSearchInput: {
+  catChipTextActive: {
+    color: '#38bdf8',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#0f172a',
-    color: '#f8fafc',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     marginBottom: 10,
-  },
-  profileChip: {
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 8,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  profileChipActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38bdf8',
-  },
-  profileChipText: {
-    color: '#94a3b8',
+  searchInput: {
+    flex: 1,
+    color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
   },
-  profileChipTextActive: {
-    color: '#38bdf8',
-    fontWeight: 'bold',
+  profileRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
   },
-  barrelCard: {
+  profileCard: {
     backgroundColor: '#0f172a',
     borderRadius: 10,
     padding: 12,
-    marginTop: 4,
+    width: 170,
+    marginRight: 10,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  barrelCardTitle: {
-    color: '#cbd5e1',
+  profileCardActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8',
+  },
+  profileCaliber: {
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  profileName: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginVertical: 4,
+  },
+  profileMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  profileMetaText: {
+    color: '#94a3b8',
+    fontSize: 10,
+  },
+  barrelScalerCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  barrelScalerTitle: {
+    color: '#f8fafc',
     fontSize: 13,
     fontWeight: 'bold',
   },
-  testBblLabel: {
-    color: '#64748b',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  bblPresetBtn: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  bblPresetBtnActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#10b981',
-  },
-  bblPresetText: {
+  barrelScalerSub: {
     color: '#94a3b8',
     fontSize: 11,
-    fontWeight: '600',
+    marginTop: 1,
   },
-  bblPresetTextActive: {
-    color: '#34d399',
-    fontWeight: 'bold',
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 6,
-    marginVertical: 8,
-  },
-  bblStepBtn: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  bblStepBtnText: {
-    color: '#f8fafc',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  bblDisplayBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 6,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  bblInput: {
+  barrelLengthValue: {
     color: '#38bdf8',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    minWidth: 40,
-  },
-  bblInchUnit: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 18,
     fontWeight: 'bold',
   },
-  velocityReadoutCard: {
+  barrelControlRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginVertical: 10,
+  },
+  barrelStepBtn: {
+    flex: 1,
     backgroundColor: '#1e293b',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 4,
+    paddingVertical: 7,
+    borderRadius: 6,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
   },
-  readoutSmallText: {
-    color: '#94a3b8',
+  barrelStepText: {
+    color: '#cbd5e1',
     fontSize: 11,
-    fontWeight: '600',
-  },
-  readoutBigVelocity: {
-    color: '#f8fafc',
-    fontSize: 20,
     fontWeight: 'bold',
   },
-  deltaBadge: {
-    alignItems: 'flex-end',
+  velocityBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
   },
-  deltaBadgeText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  deltaSubText: {
-    color: '#64748b',
-    fontSize: 10,
-  },
-  label: {
+  velocityBannerLabel: {
     color: '#cbd5e1',
     fontSize: 12,
+  },
+  velocityBannerVal: {
+    color: '#34d399',
+    fontSize: 13,
     fontWeight: 'bold',
-    marginBottom: 6,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  smallBtn: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: 'center',
+  mpbrCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    marginBottom: 12,
   },
-  smallBtnActive: {
-    backgroundColor: '#065f46',
-    borderColor: '#10b981',
+  mpbrTitle: {
+    color: '#34d399',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  smallBtnText: {
+  mpbrSubtext: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  mpbrStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  mpbrStat: {
     color: '#94a3b8',
     fontSize: 11,
-    fontWeight: 'bold',
   },
-  smallBtnTextActive: {
-    color: '#34d399',
-  },
-  inputGrid: {
+  advInputGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  gridItem: {
+  advField: {
     width: '48%',
   },
-  inputLabel: {
+  advLabel: {
     color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
     marginBottom: 4,
   },
-  gridInput: {
+  advInput: {
     backgroundColor: '#0f172a',
     color: '#fff',
     borderRadius: 6,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
     fontSize: 13,
-    fontWeight: 'bold',
     borderWidth: 1,
     borderColor: '#334155',
   },
-  unitBar: {
+  importRecipeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  importRecipeText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  dopeHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  turretToggle: {
+    flexDirection: 'row',
     backgroundColor: '#1e293b',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
+    borderRadius: 6,
+    padding: 2,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  unitBtn: {
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  turretBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  turretBtnActive: {
+    backgroundColor: '#38bdf8',
+  },
+  turretText: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  turretTextActive: {
+    color: '#0f172a',
+  },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#38bdf8',
   },
-  unitBtnActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
-  },
-  unitBtnText: {
-    color: '#94a3b8',
+  exportBtnText: {
+    color: '#38bdf8',
     fontSize: 11,
     fontWeight: 'bold',
-  },
-  unitBtnTextActive: {
-    color: '#fff',
-  },
-  sectionHeader: {
-    color: '#cbd5e1',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   tableCard: {
     backgroundColor: '#1e293b',
     borderRadius: 10,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#334155',
+    overflow: 'hidden',
   },
   tableHeaderRow: {
     flexDirection: 'row',
     backgroundColor: '#0f172a',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
-  tableHeadCol: {
-    color: '#64748b',
+  th: {
+    color: '#cbd5e1',
     fontSize: 10,
     fontWeight: 'bold',
+    textTransform: 'uppercase',
     textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
     borderBottomColor: '#334155',
     alignItems: 'center',
   },
-  tableColDist: {
+  tableRowAlt: {
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+  },
+  rangeText: {
     color: '#f8fafc',
+    fontSize: 11,
     fontWeight: 'bold',
-    fontSize: 12,
     textAlign: 'center',
   },
-  tableCol: {
+  td: {
+    color: '#f8fafc',
     fontSize: 11,
     textAlign: 'center',
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 380,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalTitle: {
+    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  recipeSelectItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  recipeSelectTitle: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  recipeSelectSub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    marginTop: 2,
+  },
 });

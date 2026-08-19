@@ -1,6 +1,6 @@
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Image } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,13 @@ export default function RangeSessionScreen() {
   const [notes, setNotes] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [moaMetrics, setMoaMetrics] = useState<any | null>(null);
+
+  // Environmental & Advanced Details (Collapsible for advanced users)
+  const [showAdvancedEnv, setShowAdvancedEnv] = useState(false);
+  const [temperatureF, setTemperatureF] = useState('72');
+  const [windSpeedMph, setWindSpeedMph] = useState('5');
+  const [windDirection, setWindDirection] = useState('3 o\'clock');
+  const [targetDistanceYds, setTargetDistanceYds] = useState('100');
 
   // Malfunctions state
   const [malfunctions, setMalfunctions] = useState<{ [key: string]: number }>({
@@ -90,6 +97,7 @@ export default function RangeSessionScreen() {
   };
 
   const selectedFirearm = firearms.find(f => f.id === selectedFirearmId);
+  const selectedAmmo = ammoList.find(a => a.id === selectedAmmoId);
 
   // Filter matching ammo by firearm caliber
   const matchingAmmo = ammoList.filter(a => {
@@ -119,8 +127,15 @@ export default function RangeSessionScreen() {
     }
     router.push({
       pathname: '/range/grouping-calculator',
-      params: { photoUri: photo, distanceYards: '100' }
+      params: { photoUri: photo, distanceYards: targetDistanceYds || '100' }
     });
+  };
+
+  // Quick incremental round adder
+  const addIncrementalRounds = (delta: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const current = parseInt(roundsFired) || 0;
+    setRoundsFired(String(Math.max(0, current + delta)));
   };
 
   const handleQueueRangeSession = async () => {
@@ -151,10 +166,16 @@ export default function RangeSessionScreen() {
         ammo_id: selectedAmmoId || undefined,
         rounds_fired: rounds,
         date: new Date().toISOString().split('T')[0],
-        notes,
+        notes: notes.trim(),
         photoBase64: photo,
         group_metrics: moaMetrics || undefined,
         malfunctions: recordedMalfunctions.length > 0 ? recordedMalfunctions : undefined,
+        environmental: showAdvancedEnv ? {
+          temperatureF: temperatureF ? parseFloat(temperatureF) : undefined,
+          windSpeedMph: windSpeedMph ? parseFloat(windSpeedMph) : undefined,
+          windDirection: windDirection || undefined,
+          distanceYards: targetDistanceYds ? parseFloat(targetDistanceYds) : undefined,
+        } : undefined,
         timestamp: new Date().toISOString()
       };
 
@@ -168,8 +189,10 @@ export default function RangeSessionScreen() {
     }
   };
 
+  const parsedRounds = parseInt(roundsFired) || 0;
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
       {/* 1. Firearm Selector */}
       <Text style={styles.sectionHeader}>1. Select Firearm</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorRow}>
@@ -203,9 +226,9 @@ export default function RangeSessionScreen() {
           onPress={() => setSelectedAmmoId(null)}
         >
           <Text style={[styles.ammoTitle, selectedAmmoId === null && styles.activeText]}>
-            No Ammo Deduction
+            No Inventory Deduction
           </Text>
-          <Text style={styles.ammoSubtitle}>Range / Reloaded ammo</Text>
+          <Text style={styles.ammoSubtitle}>Range / Handloaded ammo</Text>
         </Pressable>
 
         {matchingAmmo.map(ammo => (
@@ -224,31 +247,58 @@ export default function RangeSessionScreen() {
         ))}
       </ScrollView>
 
+      {/* Ammo Deduction Summary Pill */}
+      {selectedAmmo && parsedRounds > 0 && (
+        <View style={styles.deductionCard}>
+          <Ionicons name="information-circle-outline" size={16} color="#38bdf8" style={{ marginRight: 6 }} />
+          <Text style={styles.deductionText}>
+            Deducting <Text style={{ color: '#f8fafc', fontWeight: 'bold' }}>{parsedRounds} rds</Text> from {selectedAmmo.manufacturer} {selectedAmmo.caliber} (Remaining: {Math.max(0, selectedAmmo.count - parsedRounds)} rds)
+          </Text>
+        </View>
+      )}
+
       {/* 3. Rounds Fired */}
       <Text style={styles.sectionHeader}>3. Rounds Fired</Text>
-      <TextInput
-        style={styles.roundsInput}
-        keyboardType="number-pad"
-        value={roundsFired}
-        onChangeText={setRoundsFired}
-        placeholder="e.g. 50"
-      />
+      <View style={styles.roundsInputRow}>
+        <TextInput
+          style={styles.roundsInput}
+          keyboardType="number-pad"
+          value={roundsFired}
+          onChangeText={setRoundsFired}
+          placeholder="e.g. 50"
+        />
+        {/* Incremental Steppers (+10, +25, +50, +100) */}
+        <View style={styles.incrementalRow}>
+          {[10, 25, 50, 100].map(inc => (
+            <Pressable
+              key={inc}
+              style={styles.incBtn}
+              onPress={() => addIncrementalRounds(inc)}
+            >
+              <Text style={styles.incBtnText}>+{inc}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
 
+      {/* Absolute Rounds Presets */}
       <View style={styles.stepperRow}>
-        {[25, 50, 100, 150, 200, 250, 500].map(amt => (
+        {[20, 25, 50, 100, 150, 200, 250, 500].map(amt => (
           <Pressable
             key={amt}
-            style={styles.stepperChip}
+            style={[styles.stepperChip, roundsFired === String(amt) && styles.stepperChipActive]}
             onPress={() => setRoundsFired(String(amt))}
           >
-            <Text style={styles.stepperText}>{amt} rds</Text>
+            <Text style={[styles.stepperText, roundsFired === String(amt) && styles.stepperTextActive]}>
+              {amt} rds
+            </Text>
           </Pressable>
         ))}
       </View>
 
       {/* 4. Malfunction & Reliability Diagnostics */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <Text style={styles.sectionHeader}>4. Reliability & Malfunctions</Text>
+        <Text style={styles.sectionHeader}>4. Reliability & Stoppages</Text>
         {totalMalfunctions > 0 && (
           <View style={styles.malfunctionPill}>
             <Text style={styles.malfunctionPillText}>⚠️ {totalMalfunctions} Total</Text>
@@ -315,18 +365,6 @@ export default function RangeSessionScreen() {
         </View>
       )}
 
-      {/* 5. Notes */}
-      <Text style={styles.sectionHeader}>5. Target / Session Notes</Text>
-      <TextInput
-        style={styles.textArea}
-        multiline
-        numberOfLines={3}
-        value={notes}
-        onChangeText={setNotes}
-        placeholder="e.g. 25 yards zeroing, tight 1-inch grouping, ran flawlessly..."
-        placeholderTextColor="#64748b"
-      />
-
       {/* 5. Target Photo & Group Analysis */}
       <Text style={styles.sectionHeader}>5. Target Photo & MOA Analysis</Text>
       <Pressable style={styles.photoButton} onPress={takePhoto}>
@@ -361,6 +399,84 @@ export default function RangeSessionScreen() {
               )}
             </View>
           )}
+        </View>
+      )}
+
+      {/* 6. Session Notes */}
+      <Text style={styles.sectionHeader}>6. Target / Session Notes</Text>
+      <TextInput
+        style={styles.textArea}
+        multiline
+        numberOfLines={3}
+        value={notes}
+        onChangeText={setNotes}
+        placeholder="e.g. 25 yards zeroing, tight 1-inch grouping, ran flawlessly..."
+        placeholderTextColor="#64748b"
+      />
+
+      {/* 7. Advanced Environmental & Ballistics Details (Collapsible Drawer) */}
+      <Pressable 
+        style={styles.advancedToggle} 
+        onPress={() => setShowAdvancedEnv(!showAdvancedEnv)}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="partly-sunny-outline" size={18} color="#38bdf8" style={{ marginRight: 8 }} />
+          <Text style={styles.advancedToggleTitle}>Environmental & Weather Log</Text>
+          <Text style={styles.advancedOptionalBadge}>Optional</Text>
+        </View>
+        <Ionicons name={showAdvancedEnv ? "chevron-up" : "chevron-down"} size={18} color="#94a3b8" />
+      </Pressable>
+
+      {showAdvancedEnv && (
+        <View style={styles.advancedCard}>
+          <View style={styles.envGrid}>
+            <View style={styles.envField}>
+              <Text style={styles.envLabel}>Distance (Yds)</Text>
+              <TextInput
+                style={styles.envInput}
+                keyboardType="numeric"
+                value={targetDistanceYds}
+                onChangeText={setTargetDistanceYds}
+                placeholder="100"
+                placeholderTextColor="#64748b"
+              />
+            </View>
+
+            <View style={styles.envField}>
+              <Text style={styles.envLabel}>Temperature (°F)</Text>
+              <TextInput
+                style={styles.envInput}
+                keyboardType="numeric"
+                value={temperatureF}
+                onChangeText={setTemperatureF}
+                placeholder="72"
+                placeholderTextColor="#64748b"
+              />
+            </View>
+
+            <View style={styles.envField}>
+              <Text style={styles.envLabel}>Wind (mph)</Text>
+              <TextInput
+                style={styles.envInput}
+                keyboardType="numeric"
+                value={windSpeedMph}
+                onChangeText={setWindSpeedMph}
+                placeholder="5"
+                placeholderTextColor="#64748b"
+              />
+            </View>
+
+            <View style={styles.envField}>
+              <Text style={styles.envLabel}>Wind Direction</Text>
+              <TextInput
+                style={styles.envInput}
+                value={windDirection}
+                onChangeText={setWindDirection}
+                placeholder="3 o'clock"
+                placeholderTextColor="#64748b"
+              />
+            </View>
+          </View>
         </View>
       )}
 
@@ -453,168 +569,138 @@ const styles = StyleSheet.create({
   ammoSubtitle: {
     fontSize: 11,
     color: '#94a3b8',
-    marginTop: 4,
+    marginTop: 2,
   },
   activeText: {
-    color: '#ffffff',
+    color: '#fff',
+  },
+  deductionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    marginBottom: 8,
+  },
+  deductionText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    flex: 1,
+  },
+  roundsInputRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
   },
   roundsInput: {
     backgroundColor: '#1e293b',
+    color: '#f8fafc',
+    fontSize: 22,
+    fontWeight: 'bold',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#334155',
-    color: '#f8fafc',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 24,
-    fontWeight: 'bold',
+    width: 110,
     textAlign: 'center',
-    marginBottom: 10,
+  },
+  incrementalRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  incBtn: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incBtnText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   stepperRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-    marginBottom: 12,
+    gap: 6,
+    marginTop: 8,
   },
   stepperChip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#334155',
-  },
-  stepperText: {
-    color: '#f8fafc',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  textArea: {
     backgroundColor: '#1e293b',
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#334155',
-    color: '#f8fafc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
-    height: 80,
-    textAlignVertical: 'top',
-    marginBottom: 14,
   },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#334155',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 14,
-  },
-  photoBtnText: {
-    color: '#f8fafc',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  previewImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  moaToolBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
+  stepperChipActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
     borderColor: '#38bdf8',
-    borderWidth: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 10,
   },
-  moaToolBtnText: {
-    color: '#38bdf8',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  moaBadgeCard: {
-    backgroundColor: '#0f172a',
-    borderColor: '#10b981',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-  },
-  moaBadgeTitle: {
-    color: '#cbd5e1',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  moaValueText: {
-    color: '#34d399',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  moaDetailText: {
+  stepperText: {
     color: '#94a3b8',
     fontSize: 12,
-    lineHeight: 16,
+    fontWeight: 'bold',
   },
-  turretSummaryText: {
+  stepperTextActive: {
     color: '#38bdf8',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 6,
   },
   malfunctionPill: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: '#ef4444',
-    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ef4444',
   },
   malfunctionPillText: {
     color: '#ef4444',
-    fontWeight: 'bold',
     fontSize: 11,
+    fontWeight: 'bold',
   },
   malfunctionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
   },
   malfunctionBox: {
-    flex: 1,
-    minWidth: '30%',
     backgroundColor: '#1e293b',
     borderRadius: 8,
-    padding: 8,
+    padding: 10,
+    width: '31%',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
   },
   malfunctionBoxActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
     borderColor: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   malfunctionLabel: {
     color: '#cbd5e1',
     fontSize: 11,
     fontWeight: 'bold',
-    textAlign: 'center',
   },
   miniCounterBtn: {
     backgroundColor: '#334155',
-    width: 22,
-    height: 22,
-    borderRadius: 4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   miniCounterText: {
-    color: '#f8fafc',
-    fontSize: 12,
+    color: '#fff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   counterValText: {
@@ -625,64 +711,196 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   causeCard: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#1e293b',
     borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
+    padding: 12,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: '#334155',
   },
   causeTitle: {
-    color: '#cbd5e1',
+    color: '#94a3b8',
     fontSize: 11,
     fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
   causeChip: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 6,
     marginRight: 6,
     borderWidth: 1,
     borderColor: '#334155',
   },
   causeChipActive: {
-    backgroundColor: '#991b1b',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderColor: '#ef4444',
   },
   causeChipText: {
     color: '#94a3b8',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
   },
   causeChipTextActive: {
-    color: '#ffffff',
+    color: '#ef4444',
     fontWeight: 'bold',
   },
   magInput: {
+    backgroundColor: '#0f172a',
+    color: '#fff',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginTop: 6,
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#334155',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  photoBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  previewImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  moaToolBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+    marginBottom: 8,
+  },
+  moaToolBtnText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  moaBadgeCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  moaBadgeTitle: {
+    color: '#34d399',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  moaValueText: {
+    color: '#34d399',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  moaDetailText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  turretSummaryText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  textArea: {
     backgroundColor: '#1e293b',
     color: '#f8fafc',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    fontSize: 11,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: '#334155',
+    textAlignVertical: 'top',
+  },
+  advancedToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginTop: 14,
+  },
+  advancedToggleTitle: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  advancedOptionalBadge: {
+    color: '#64748b',
+    fontSize: 10,
+    fontWeight: 'bold',
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+    textTransform: 'uppercase',
+  },
+  advancedCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
     marginTop: 6,
+  },
+  envGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  envField: {
+    width: '48%',
+  },
+  envLabel: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  envInput: {
+    backgroundColor: '#1e293b',
+    color: '#fff',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
     borderWidth: 1,
     borderColor: '#334155',
   },
   submitBtn: {
     flexDirection: 'row',
-    backgroundColor: '#10b981',
-    padding: 16,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
-    marginTop: 6,
+    backgroundColor: '#10b981',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 18,
   },
   submitBtnText: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: 'bold',
-  }
+  },
 });
