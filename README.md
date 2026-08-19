@@ -29,10 +29,17 @@ This project uses Expo.
 ## Running on Android (Standalone APK)
 **Quick Install:** If you don't want to build the app yourself, you can download the latest pre-built `.apk` file directly from the [Releases](../../releases) tab and install it on your device!
 
-To build a standalone APK for your Android device locally from source:
+### ⚡ Turbo Fast Local Builds (Hardware Accelerated)
+For rapid on-device testing, use the single-ABI parallel build script:
+```bash
+./build-local-fast.sh
+```
+*(Leverages 8-core CPU parallelism, CMake `-j8`, Kotlin daemon, and Gradle build-caching to build for `arm64-v8a` modern phones in seconds)*
+
+To build a full universal release APK manually:
 ```bash
 cd android
-./gradlew assembleRelease
+./gradlew assembleRelease --parallel --build-cache
 ```
 *(The generated APK will be located at `android/app/build/outputs/apk/release/app-release.apk`)*
 

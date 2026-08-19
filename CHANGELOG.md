@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.0-nightly.33] - 2026-08-19 (Nightly Test Build)
+### Added
+- **Multi-Core Hardware Acceleration & Turbo Build Engine**:
+  - Expanded Gradle heap to `-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC` to eliminate GC swapping on multi-core host machines.
+  - Enabled multi-core Gradle parallel execution (`org.gradle.parallel=true`, `--max-workers=8`), native Gradle build caching (`org.gradle.caching=true`), and file system watching (`org.gradle.vfs.watch=true`).
+  - Added parallel C++ CMake compilation (`CMAKE_BUILD_PARALLEL_LEVEL=8`) across `publish-nightly.sh` and `publish-release.sh`.
+  - Created `build-local-fast.sh` for lightning-fast single-ABI (`arm64-v8a`) on-device testing.
+
 ## [2.6.0-nightly.32] - 2026-08-19 (Nightly Test Build)
 ### Fixed
 - **Gradle 9 & 10 Modern Groovy DSL Syntax Compliance**:
