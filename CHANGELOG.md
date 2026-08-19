@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.6.0-nightly.32] - 2026-08-19 (Nightly Test Build)
+### Fixed
+- **Gradle 9 & 10 Modern Groovy DSL Syntax Compliance**:
+  - Replaced legacy method-call syntax (`url '...'`, `ndkVersion ...`, `namespace '...'`, `signingConfig ...`, `shrinkResources ...`, `crunchPngs ...`, `useLegacyPackaging ...`, `ignoreAssetsPattern ...`) with modern assignment syntax (`=`) across `android/build.gradle` and `android/app/build.gradle`.
+  - Resolved all Groovy DSL deprecation warnings in the Gradle Problems Report, ensuring forward compatibility with Gradle 10.
+
 ## [2.6.0-nightly.31] - 2026-08-18 (Nightly Test Build)
 ### Added
 - **Redesigned High-Definition Tactical Cyber Shield App Icon**:
