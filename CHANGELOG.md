@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0-nightly.34] - 2026-08-19 (Nightly Test Build)
+### Fixed
+- **Fix Standalone Release APK Crash on Startup**:
+  - Removed unconfigured `expo-updates` package which caused native `ReactNativeHostHandler` startup deadlocks when attempting to resolve embedded JS bundle assets in standalone production APKs.
+  - Removed redundant `expo.modules.updates.ENABLED` metadata tag from `AndroidManifest.xml`.
+  - Added ProGuard keep rules for `react-native-worklets` and `react-native-gesture-handler` native bindings.
+
 ## [2.6.0-nightly.33] - 2026-08-19 (Nightly Test Build)
 ### Added
 - **Multi-Core Hardware Acceleration & Turbo Build Engine**:
