@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0-nightly.35] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Stable to Nightly Upgrade Startup Crash Fix & GitHub Release Deployment**:
+  - Purged stale CXX CMake cache bindings and rebuilt production release binaries with clean React Native autolinking.
+  - Verified elimination of `expo-updates` bundle-loading deadlock so upgrading from stable (v2.5.1) to nightly (v2.6.0-nightly.35) boots instantly without crashing.
+  - Updated in-app version metadata and fallback strings for accurate release channel checks.
+
 ## [2.6.0-nightly.34] - 2026-08-19 (Nightly Test Build)
 ### Fixed
 - **Fix Standalone Release APK Crash on Startup**:
