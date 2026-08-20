@@ -18,8 +18,10 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo "Building release APK..."
-pushd /Users/danielc/Documents/ArmoryVault_Companion/android/ > /dev/null
+pushd "$SCRIPT_DIR/android" > /dev/null
 ./gradlew assembleRelease
 popd > /dev/null
 
