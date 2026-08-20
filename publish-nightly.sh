@@ -18,9 +18,9 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-echo "Building Nightly Release APK (v$VERSION) with multi-core parallelism..."
+DIR="$(cd "$(dirname "$0")" && pwd)"
 export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu 2>/dev/null || echo 8)
-pushd /Users/danielc/Documents/ArmoryVault_Companion/android/ > /dev/null
+pushd "$DIR/android" > /dev/null
 ./gradlew assembleRelease --parallel --build-cache --max-workers=8
 popd > /dev/null
 
