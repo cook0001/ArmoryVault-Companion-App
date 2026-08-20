@@ -55,6 +55,27 @@ You can use the provided scripts to automate GitHub releases:
 3. **Publish Only (No Build)**: `./publish-release-no-build.sh`
    *(Instantly uploads the current build artifact to GitHub)*
 
+## Build Workflow Tools
+
+| Script | Purpose |
+|--------|---------|
+| `./preflight.sh` | **Run before every build.** Validates version consistency, runs `expo-doctor`, checks peer dependencies, verifies native autolinking, and detects stale caches. |
+| `./bump-version.sh <ver>` | Atomically bumps the version across `package.json`, `app.json`, `build.gradle`, and `updater.ts` in one command. |
+| `./clean-build.sh [arch]` | Purges all build caches (CXX, CMake, Gradle, Metro), backs up native modifications, runs preflight, and produces a fresh release APK. |
+| `./smoke-test.sh` | Post-build APK validation: checks size, JS bundle, native libs, manifest version, signature, and resources. |
+| `./native-backup.sh` | Snapshots all manually-modified native files (build.gradle, AndroidManifest, Kotlin sources, resources, keystore) for safe recovery. |
+| `./native-restore.sh [dir]` | Restores native files from a snapshot created by `native-backup.sh`. |
+
+### Recommended Build Flow
+```bash
+./bump-version.sh 2.6.1-nightly.1   # 1. Bump version
+# Edit CHANGELOG.md                   # 2. Document changes
+./preflight.sh                        # 3. Validate everything
+./clean-build.sh                      # 4. Clean build (includes preflight)
+./smoke-test.sh                       # 5. Validate the APK
+./publish-nightly.sh                  # 6. Ship it
+```
+
 ## Running on iOS (iPhone)
 Because Apple restricts standalone app sideloading without a paid developer account, the easiest way to run the app on your iPhone is through **Expo Go**:
 

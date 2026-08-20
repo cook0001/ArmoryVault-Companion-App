@@ -1,4 +1,13 @@
 # Changelog
+## [2.6.0-nightly.36] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Fix Startup Crash — Missing `expo-font` Peer Dependency**:
+  - Installed `expo-font` (~57.0.1), which is a **required** peer dependency of `@expo/vector-icons`. Without this native module, standalone release APKs crash immediately on launch with "App keeps stopping" because the font-loading native bridge is missing.
+  - Diagnosed via `npx expo-doctor` which flagged the missing peer dependency as a crash risk outside Expo Go.
+- **Fix `app.json` Schema Errors for Expo SDK 57**:
+  - Removed deprecated `android.usesCleartextTraffic` field (already configured directly in `AndroidManifest.xml`).
+  - Removed deprecated `android.splash` block (splash screen drawables are already generated in the native `res/drawable-*` folders).
+
 
 ## [2.6.0-nightly.35] - 2026-08-20 (Nightly Test Build)
 ### Fixed
