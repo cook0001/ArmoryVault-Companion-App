@@ -35,7 +35,7 @@ export function isPrereleaseVersion(version: string): boolean {
  * Gets the current installed version string.
  */
 export function getCurrentAppVersion(): string {
-  return (Application.nativeApplicationVersion || '2.6.0-nightly.38').replace(/^v/, '');
+  return (Application.nativeApplicationVersion || '2.6.0-nightly.39').replace(/^v/, '');
 }
 
 /**

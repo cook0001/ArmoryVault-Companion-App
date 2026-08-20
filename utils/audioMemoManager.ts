@@ -178,6 +178,50 @@ export async function getAudioMemos(): Promise<AudioMemo[]> {
 }
 
 /**
+ * Starts audio recording on device using expo-audio.
+ * Returns an AudioRecorder instance or null if unavailable/denied.
+ */
+export async function startAudioRecording(): Promise<any | null> {
+  if (!AudioModule) return null;
+  try {
+    const granted = await requestAudioPermissions();
+    if (!granted) return null;
+    await configureAudioForRecording();
+    const recorder = new AudioModule.AudioRecorder(RecordingPresets?.HIGH_QUALITY || {});
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+    return recorder;
+  } catch (e) {
+    console.error('Error starting audio recording:', e);
+    return null;
+  }
+}
+
+/**
+ * Stops an active AudioRecorder instance and saves the resulting audio memo metadata.
+ */
+export async function stopAndSaveAudioRecording(
+  recorder: any,
+  title: string = 'Bench Audio Memo',
+  firearmId?: number,
+  firearmName?: string,
+  ammoId?: number,
+  ammoName?: string,
+  transcript?: string
+): Promise<AudioMemo | null> {
+  try {
+    if (!recorder) return null;
+    await recorder.stop();
+    const uri = recorder.uri;
+    const durationSec = recorder.currentTime || 0;
+    return await saveRecording(uri, durationSec, title, firearmId, firearmName, ammoId, ammoName, transcript);
+  } catch (e) {
+    console.error('Error stopping and saving recording:', e);
+    return null;
+  }
+}
+
+/**
  * Plays an audio recording from local storage using the new expo-audio API.
  * Returns a player instance that the caller should release() when done.
  */
@@ -185,6 +229,33 @@ export async function playAudioMemo(fileUri: string): Promise<any | null> {
   if (!createAudioPlayer || !fileUri) return null;
   try {
     const player = createAudioPlayer({ uri: fileUri });
+
+    // Attach compatibility helpers for Sound API consumers
+    player.stopAsync = async () => {
+      try { player.pause(); } catch (_) {}
+    };
+    player.unloadAsync = async () => {
+      try {
+        player.pause();
+        if (typeof player.release === 'function') {
+          player.release();
+        }
+      } catch (_) {}
+    };
+    player.setOnPlaybackStatusUpdate = (listener: (status: any) => void) => {
+      try {
+        player.addListener('playbackStatusUpdate', (status: any) => {
+          const isFinished = status.didJustFinish || 
+            (status.duration > 0 && status.currentTime >= status.duration) ||
+            (!status.playing && status.currentTime > 0 && status.currentTime >= (status.duration || 0));
+          listener({
+            ...status,
+            didJustFinish: isFinished,
+          });
+        });
+      } catch (_) {}
+    };
+
     player.play();
     return player;
   } catch (e) {

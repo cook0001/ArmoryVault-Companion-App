@@ -1,4 +1,11 @@
 # Changelog
+## [2.6.0-nightly.39] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Restore Voice Memo Recording & Playback**:
+  - Implemented `startAudioRecording` and `stopAndSaveAudioRecording` using `expo-audio`'s `NativeAudioModule` / `AudioRecorder`.
+  - Added backward-compatible playback lifecycle wrappers (`stopAsync`, `unloadAsync`, `setOnPlaybackStatusUpdate`) on `playAudioMemo`.
+  - Resolved runtime `TypeError: undefined is not a function` in `voice-memos.tsx`.
+
 ## [2.6.0-nightly.38] - 2026-08-20 (Nightly Test Build)
 ### Upgraded
 - **Dependency Audit & Upgrades**:
