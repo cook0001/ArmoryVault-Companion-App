@@ -1,4 +1,10 @@
 # Changelog
+## [2.6.0-nightly.40] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Fix Voice Memo Persistence — Migrate to `expo-file-system/legacy`**:
+  - Migrated `getInfoAsync` and `deleteAsync` calls to `expo-file-system/legacy` to avoid Expo SDK 57 runtime deprecation exceptions that prevented voice memos from being saved to `AsyncStorage`.
+  - Added resilient try/catch error handling around file-size calculation in `saveRecording` to ensure metadata records are always persisted to local storage regardless of file system state.
+
 ## [2.6.0-nightly.39] - 2026-08-20 (Nightly Test Build)
 ### Fixed
 - **Restore Voice Memo Recording & Playback**:

@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // expo-audio (the maintained replacement for expo-av) provides the recording and playback APIs.
@@ -101,8 +101,12 @@ export async function saveRecording(
     let fileSizeBytes = 0;
 
     if (uri) {
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      fileSizeBytes = fileInfo.exists ? (fileInfo.size || 0) : 0;
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        fileSizeBytes = fileInfo.exists ? ((fileInfo as any).size || 0) : 0;
+      } catch (fsErr) {
+        console.warn('Could not query file size:', fsErr);
+      }
     }
 
     const memo: AudioMemo = {
