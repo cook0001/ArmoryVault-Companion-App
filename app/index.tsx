@@ -46,64 +46,69 @@ export default function Home() {
       }
       
       if (ip) {
-        // Ping desktop server
-        fetch(`${ip}/api/ping`)
-          .then(async res => {
-            if (res.ok) {
-              const data = await res.json();
-              setIsOnline(true);
-              if (data.device) setDesktopDevice(data.device);
-            } else {
-              setIsOnline(false);
-            }
-          })
-          .catch(() => setIsOnline(false));
+        // Ping desktop server with timeout
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const pingRes = await fetch(`${ip}/api/ping`, { signal: controller.signal });
+          clearTimeout(timeoutId);
 
-        // 1. Fetch summary stats
-        fetch(`${ip}/api/inventory/summary`)
-          .then(async res => {
-            if (!res.ok) return null;
-            const text = await res.text();
-            try { return JSON.parse(text); } catch { return null; }
-          })
-          .then(data => {
-            if (data && data.success) {
-              const stats = { firearms: data.firearms, ammo: data.ammo, components: data.components };
-              setDashboardStats(stats);
-              AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
-            }
-          })
-          .catch(err => console.error("Summary fetch error", err));
+          if (pingRes.ok) {
+            const data = await pingRes.json();
+            setIsOnline(true);
+            if (data.device) setDesktopDevice(data.device);
 
-        // 2. Fetch and persist full offline cache
-        fetch(`${ip}/api/inventory/cache`)
-          .then(async res => {
-            if (!res.ok) return null;
-            const text = await res.text();
-            try { return JSON.parse(text); } catch { return null; }
-          })
-          .then(data => {
-            if (data && data.success) {
-              AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
-              const now = new Date().toLocaleTimeString();
-              setLastCacheTime(now);
-              AsyncStorage.setItem('inventory_cache_time', now);
-              
-              const skuCount = data.skus ? Object.keys(data.skus).length : 0;
-              setDashboardStats(prev => ({
-                firearms: data.firearms?.length || prev?.firearms || 0,
-                ammo: (data.ammo || []).reduce((sum: number, a: any) => sum + (Number(a.count) || 0), 0),
-                components: data.components?.length || prev?.components || 0,
-                skus: skuCount
-              }));
-            }
-          })
-          .catch(err => console.error("Inventory cache fetch error", err));
+            // Server is confirmed online; fetch summary stats and offline cache in background
+            fetch(`${ip}/api/inventory/summary`)
+              .then(async res => {
+                if (!res.ok) return null;
+                const text = await res.text();
+                try { return JSON.parse(text); } catch { return null; }
+              })
+              .then(summaryData => {
+                if (summaryData && summaryData.success) {
+                  const stats = { firearms: summaryData.firearms, ammo: summaryData.ammo, components: summaryData.components };
+                  setDashboardStats(stats);
+                  AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
+                }
+              })
+              .catch(() => {});
+
+            fetch(`${ip}/api/inventory/cache`)
+              .then(async res => {
+                if (!res.ok) return null;
+                const text = await res.text();
+                try { return JSON.parse(text); } catch { return null; }
+              })
+              .then(cacheData => {
+                if (cacheData && cacheData.success) {
+                  AsyncStorage.setItem('inventory_cache', JSON.stringify(cacheData));
+                  const now = new Date().toLocaleTimeString();
+                  setLastCacheTime(now);
+                  AsyncStorage.setItem('inventory_cache_time', now);
+                  
+                  const skuCount = cacheData.skus ? Object.keys(cacheData.skus).length : 0;
+                  setDashboardStats(prev => ({
+                    firearms: cacheData.firearms?.length || prev?.firearms || 0,
+                    ammo: (cacheData.ammo || []).reduce((sum: number, a: any) => sum + (Number(a.count) || 0), 0),
+                    components: cacheData.components?.length || prev?.components || 0,
+                    skus: skuCount
+                  }));
+                }
+              })
+              .catch(() => {});
+          } else {
+            setIsOnline(false);
+          }
+        } catch {
+          // Server offline or unreachable - remain in offline cache mode
+          setIsOnline(false);
+        }
       } else {
         setIsOnline(false);
       }
     } catch (e) {
-      console.error(e);
+      console.warn('loadStatus error:', e);
     }
   };
 

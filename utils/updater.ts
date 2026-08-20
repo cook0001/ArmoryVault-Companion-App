@@ -10,7 +10,11 @@ export async function checkForUpdates(silent = true) {
   if (Platform.OS !== 'android') return;
 
   try {
-    const response = await fetch(REPO_URL);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const response = await fetch(REPO_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) throw new Error('Failed to fetch latest release');
     
     const data = await response.json();
@@ -45,8 +49,8 @@ export async function checkForUpdates(silent = true) {
       Alert.alert('Up to Date', `You are running the latest version (${currentVersion}).`);
     }
   } catch (error) {
-    console.error('Update check failed:', error);
     if (!silent) {
+      console.warn('Update check failed:', error);
       Alert.alert('Update Error', 'Could not check for updates at this time.');
     }
   }

@@ -58,7 +58,11 @@ export default function Settings() {
 
     setIsTesting(true);
     try {
-      const res = await fetch(`${url}/api/ping`, { method: 'GET' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${url}/api/ping`, { method: 'GET', signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         await AsyncStorage.setItem('server_ip', url);
@@ -83,7 +87,11 @@ export default function Settings() {
 
     setIsRefreshing(true);
     try {
-      const res = await fetch(`${syncedIp}/api/inventory/cache`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(`${syncedIp}/api/inventory/cache`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         if (data && data.success) {
@@ -104,7 +112,7 @@ export default function Settings() {
         throw new Error(`HTTP ${res.status}`);
       }
     } catch (e: any) {
-      Alert.alert('Cache Fetch Failed', `Could not refresh cache from ${syncedIp}`);
+      Alert.alert('Cache Fetch Failed', `Could not refresh cache from ${syncedIp}. Ensure your PC server is running.`);
     }
     setIsRefreshing(false);
   };

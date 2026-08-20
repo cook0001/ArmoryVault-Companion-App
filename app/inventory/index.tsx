@@ -43,7 +43,10 @@ export default function InventoryScreen() {
     try {
       const ip = await AsyncStorage.getItem('server_ip');
       if (ip) {
-        const res = await fetch(`${ip}/api/inventory/cache`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(`${ip}/api/inventory/cache`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
           if (data && data.success) {
@@ -54,7 +57,7 @@ export default function InventoryScreen() {
         }
       }
     } catch (e) {
-      console.error(e);
+      console.warn('Inventory cache refresh error (offline):', e);
     }
     setRefreshing(false);
   };

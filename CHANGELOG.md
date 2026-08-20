@@ -1,5 +1,11 @@
 # Changelog
  
+## [2.5.1] - 2026-08-19
+### Fixed
+- **Resilient Offline Cache & Network Handling**: Fixed noisy `java.net.ConnectException` and `CodedError` exceptions appearing on startup and screen focus when the desktop companion server is unreachable. Network pings and cache checks now use `AbortController` timeouts (2.5-4s) and gate background sync requests so the companion app transitions seamlessly and quietly into Offline Cache Mode.
+- **Graceful Refresh Handling**: Added network timeouts and graceful offline warning handlers to manual pull-to-refresh on Firearms, Inventory, and Settings screens.
+- **Silent Startup Update Check**: Prevented console errors when the automatic GitHub update check runs while device is offline.
+
 ## [2.5.0] - 2026-08-16
 ### Added
 - **Modern Dashboard & Action Hub**: Overhauled the mobile home screen with a real-time desktop connection beacon, hero sync card with pending counter, and a 4-card Quick Action Hub (`Universal Scan`, `Range Mode`, `Firearms Vault`, `Ammo & Supplies`).
