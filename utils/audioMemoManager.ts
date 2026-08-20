@@ -1,15 +1,23 @@
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Safe dynamic resolution of expo-av to prevent top-level crashes if native binary hasn't been rebuilt
-let ExpoAudio: any = null;
+// expo-audio (the maintained replacement for expo-av) provides the recording and playback APIs.
+// We use imperative APIs here since this is a utility module, not a React component.
+// Components that need recording should use the useAudioRecorder hook from expo-audio directly,
+// or call these utility functions for persistence and metadata management.
+let AudioModule: any = null;
+let createAudioPlayer: any = null;
+let setAudioModeAsync: any = null;
+let RecordingPresets: any = null;
+
 try {
-  const av = require('expo-av');
-  if (av && av.Audio) {
-    ExpoAudio = av.Audio;
-  }
+  const expoAudio = require('expo-audio');
+  AudioModule = expoAudio.AudioModule;
+  createAudioPlayer = expoAudio.createAudioPlayer;
+  setAudioModeAsync = expoAudio.setAudioModeAsync;
+  RecordingPresets = expoAudio.RecordingPresets;
 } catch (e) {
-  // Graceful fallback for environments where ExponentAV native binary is not yet compiled
+  // Graceful fallback if expo-audio native module is not available
 }
 
 export interface AudioMemo {
@@ -32,17 +40,17 @@ const STORAGE_KEY_AUDIO_METADATA = 'armoryvault_audio_memos_meta';
  * Checks if native audio recording is available in the current runtime.
  */
 export function isAudioAvailable(): boolean {
-  return !!ExpoAudio;
+  return !!AudioModule;
 }
 
 /**
  * Request microphone permissions for local on-device voice notes.
  */
 export async function requestAudioPermissions(): Promise<boolean> {
-  if (!ExpoAudio) return false;
+  if (!AudioModule) return false;
   try {
-    const { granted } = await ExpoAudio.requestPermissionsAsync();
-    return granted;
+    const status = await AudioModule.requestRecordingPermissionsAsync();
+    return status.granted;
   } catch (e) {
     console.warn('Audio permission request error:', e);
     return false;
@@ -50,34 +58,36 @@ export async function requestAudioPermissions(): Promise<boolean> {
 }
 
 /**
- * Starts a new on-device audio recording.
+ * Configures the audio mode for recording.
+ * Call this before starting a recording session.
  */
-export async function startAudioRecording(): Promise<any | null> {
-  if (!ExpoAudio) return null;
+export async function configureAudioForRecording(): Promise<void> {
+  if (!setAudioModeAsync) return;
   try {
-    const hasPermission = await requestAudioPermissions();
-    if (!hasPermission) return null;
-
-    await ExpoAudio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: true,
     });
-
-    const recording = new ExpoAudio.Recording();
-    await recording.prepareToRecordAsync(ExpoAudio.RecordingOptionsPresets.HIGH_QUALITY);
-    await recording.startAsync();
-    return recording;
   } catch (e) {
-    console.warn('startAudioRecording error:', e);
-    return null;
+    console.warn('Audio mode configuration error:', e);
   }
 }
 
 /**
- * Stops recording and persists the audio memo locally.
+ * Returns the RecordingPresets for use with useAudioRecorder hook.
+ * Components should use: const recorder = useAudioRecorder(getRecordingPreset());
  */
-export async function stopAndSaveAudioRecording(
-  recording: any,
+export function getRecordingPreset(): any {
+  return RecordingPresets?.HIGH_QUALITY || {};
+}
+
+/**
+ * Saves the recording from an AudioRecorder instance and persists the audio memo locally.
+ * The recorder should already be stopped (via recorder.stop()) before calling this.
+ */
+export async function saveRecording(
+  recorderUri: string | null,
+  durationSec: number,
   title: string = 'Bench Audio Memo',
   firearmId?: number,
   firearmName?: string,
@@ -86,16 +96,7 @@ export async function stopAndSaveAudioRecording(
   transcript?: string
 ): Promise<AudioMemo | null> {
   try {
-    let uri = '';
-    let durationSec = 1;
-
-    if (recording && typeof recording.stopAndUnloadAsync === 'function') {
-      await recording.stopAndUnloadAsync();
-      uri = recording.getURI() || '';
-      const status = await recording.getStatusAsync();
-      durationSec = Math.max(1, Math.round((status?.durationMillis || 0) / 1000));
-    }
-
+    const uri = recorderUri || '';
     const id = `memo_${Date.now()}`;
     let fileSizeBytes = 0;
 
@@ -111,7 +112,7 @@ export async function stopAndSaveAudioRecording(
       ammoId,
       ammoName,
       title: title.trim() || 'Bench Voice Memo',
-      durationSec,
+      durationSec: Math.max(1, Math.round(durationSec)),
       fileUri: uri,
       fileSizeBytes,
       transcript: transcript || 'Recorded bench note',
@@ -177,16 +178,15 @@ export async function getAudioMemos(): Promise<AudioMemo[]> {
 }
 
 /**
- * Plays an audio recording from local storage.
+ * Plays an audio recording from local storage using the new expo-audio API.
+ * Returns a player instance that the caller should release() when done.
  */
 export async function playAudioMemo(fileUri: string): Promise<any | null> {
-  if (!ExpoAudio || !fileUri) return null;
+  if (!createAudioPlayer || !fileUri) return null;
   try {
-    const { sound } = await ExpoAudio.Sound.createAsync(
-      { uri: fileUri },
-      { shouldPlay: true }
-    );
-    return sound;
+    const player = createAudioPlayer({ uri: fileUri });
+    player.play();
+    return player;
   } catch (e) {
     console.error('Error playing audio memo:', e);
     return null;

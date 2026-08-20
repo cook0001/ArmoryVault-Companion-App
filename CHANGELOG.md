@@ -1,4 +1,27 @@
 # Changelog
+## [2.6.0-nightly.38] - 2026-08-20 (Nightly Test Build)
+### Upgraded
+- **Dependency Audit & Upgrades**:
+  - Migrated `expo-av` (v16.0.8, unmaintained) → `expo-audio` (v57.0.4, maintained) for audio recording/playback.
+  - Upgraded `@react-native-async-storage/async-storage` from v2.2.0 → v3.1.1 (scoped storage support, no API changes needed).
+  - Installed missing `expo-asset` peer dependency required by `expo-audio`.
+  - Updated 10 Expo SDK 57 packages to latest patch versions.
+  - Added `WORKFLOW.md` build & release documentation.
+- **System Tools**:
+  - Node.js 24.18.0 → 24.19.0 (LTS)
+  - OpenJDK 17.0.20 → 17.0.20.1
+
+### Health
+- `npx expo-doctor`: **21/21 checks passed** ✅
+- `./smoke-test.sh`: **8/8 checks passed** ✅
+
+## [2.6.0-nightly.37] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Fix Startup Crash — Remove ABI-Incompatible `expo-av` Native Module**:
+  - Removed `expo-av` (v16.0.8) which was compiled against an older JSI ABI incompatible with React Native 0.86.2. The `libexpo-av.so` native library crashed immediately during TurboModule initialization with `UnsatisfiedLinkError: cannot locate symbol "_ZNKR8facebook3jsi5Value8asObjectERNS0_7RuntimeE"`.
+  - Diagnosed via `adb logcat` crash capture on Google Pixel.
+  - Audio recording (bench voice memos) is temporarily disabled; text-only bench memos continue to work. Audio support will be restored when a maintained replacement module is available.
+
 ## [2.6.0-nightly.36] - 2026-08-20 (Nightly Test Build)
 ### Fixed
 - **Fix Startup Crash — Missing `expo-font` Peer Dependency**:

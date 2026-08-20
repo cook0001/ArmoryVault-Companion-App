@@ -63,8 +63,12 @@ You can use the provided scripts to automate GitHub releases:
 | `./bump-version.sh <ver>` | Atomically bumps the version across `package.json`, `app.json`, `build.gradle`, and `updater.ts` in one command. |
 | `./clean-build.sh [arch]` | Purges all build caches (CXX, CMake, Gradle, Metro), backs up native modifications, runs preflight, and produces a fresh release APK. |
 | `./smoke-test.sh` | Post-build APK validation: checks size, JS bundle, native libs, manifest version, signature, and resources. |
+| `./crash-report.sh` | Device crash diagnostics: captures crash logs, fatal exceptions, ANRs, and system info from connected Android phone. |
+| `./debug-feature.sh` | On-device feature diagnostics: checks permissions, hardware, storage, Wi-Fi sync, biometrics, and runtime logs. |
 | `./native-backup.sh` | Snapshots all manually-modified native files (build.gradle, AndroidManifest, Kotlin sources, resources, keystore) for safe recovery. |
 | `./native-restore.sh [dir]` | Restores native files from a snapshot created by `native-backup.sh`. |
+
+For complete documentation on workflows, native safety, and troubleshooting, see [WORKFLOW.md](./WORKFLOW.md).
 
 ### Recommended Build Flow
 ```bash
