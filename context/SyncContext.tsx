@@ -525,6 +525,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             } catch {}
           }
+          return true;
         } else if (data?.isLocked) {
           setIsVaultLocked(true);
           isVaultLockedRef.current = true;
@@ -541,7 +542,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return false;
     }
-  }, [showSuccess, showError, showToast]);
+  }, [showSuccess, showError, showToast, getAuthHeaders]);
 
   // Set Auto-Sync Preference
   const setAutoSyncEnabled = useCallback(async (enabled: boolean) => {

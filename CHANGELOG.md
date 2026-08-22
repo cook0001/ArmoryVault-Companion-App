@@ -1,4 +1,10 @@
 # Changelog
+## [2.6.0-nightly.46] - 2026-08-22 (Nightly Test Build)
+### Fixed
+- **Cache Refresh Return Value Fix (`context/SyncContext.tsx`)**:
+  - Resolved regression where `refreshCache` failed to return `true` on successful HTTP 200 payload, triggering a false error prompt.
+  - Added multi-version server compatibility supporting both token-authenticated (v2.8.0) and open LAN (v2.7.x) desktop hosts.
+
 ## [2.6.0-nightly.45] - 2026-08-22 (Nightly Test Build)
 ### Fixed
 - **Seamless Local Pairing & Token Handshake (`context/SyncContext.tsx` & `app/scanner.tsx`)**:
