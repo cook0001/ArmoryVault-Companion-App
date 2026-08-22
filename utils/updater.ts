@@ -40,6 +40,8 @@ export function getCurrentAppVersion(): string {
 
 /**
  * Checks for updates or rollbacks according to the selected release channel.
+ * GUARANTEE: Stable build versionCode is maintained at exactly 1 version lower than Nightly
+ * to prevent accidental in-place upgrades over Nightly builds.
  */
 export async function checkForUpdates(options: boolean | CheckUpdateOptions = true) {
   if (Platform.OS !== 'android') return;
@@ -79,11 +81,15 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
 
     const apkAsset = releaseData.assets?.find((asset: any) => asset.name?.endsWith('.apk'));
 
-    // CASE 1: USER IS ON A NIGHTLY BUILD AND SWITCHED TO STABLE -> OFFER ROLLBACK TO STABLE
+    // CASE 1: USER IS ON A NIGHTLY BUILD AND TARGETING STABLE -> PREVENT ACCIDENTAL IN-PLACE UPGRADE
     if (channel === 'stable' && isCurrentNightly) {
+      if (silent) {
+        // Never trigger automatic background prompts to downgrade/upgrade over nightly
+        return;
+      }
       if (apkAsset) {
         const title = 'Rollback to Official Stable Release';
-        const message = `You are currently on Nightly build (v${currentVersion}).\n\nTarget Stable Release: ${latestTag}\n\n⚠️ Android Security Policy:\nAndroid OS prohibits in-place app downgrades over newer builds. To rollback to this stable release:\n\n1. Make sure your local Outbox is synced to your Desktop Vault.\n2. Tap 'Download Stable APK' below.\n3. Uninstall the Nightly Companion app from your device.\n4. Install the downloaded Stable APK from your Downloads or notification shade.`;
+        const message = `You are currently on Nightly build (v${currentVersion}).\n\nTarget Stable Release: ${latestTag}\n\n⚠️ Protection Rule Active:\nStable builds maintain a versionCode lower than Nightly to prevent accidental in-place overwrites. To rollback:\n\n1. Ensure your local Outbox is synced to your Desktop Vault.\n2. Tap 'Download Stable APK' below.\n3. Uninstall the Nightly Companion app from your device.\n4. Install the downloaded Stable APK from your Downloads or notification shade.`;
         
         const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert, true);
 

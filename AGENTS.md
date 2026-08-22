@@ -8,8 +8,10 @@ After making any bug fixes or changes, ALWAYS automatically bump the version in 
 
 Additionally, EVERY TIME before pushing to GitHub, you MUST ensure that the `CHANGELOG.md`, `README.md`, and `.gitignore` files are properly updated to reflect the new changes, scripts, or build artifacts.
 
-# Android Native VersionCode Monotonic Increase (Strict)
-In `android/app/build.gradle` and `app.json`, `versionCode` MUST strictly increment with every build and NEVER be decremented, reset, or set below the established production baseline (currently `>= 300`). Setting a `versionCode` lower than or equal to an installed build causes Android PackageInstaller and the in-app OTA updater to immediately reject APK installations with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed / Update not installed").
+# 8. Android Native VersionCode Monotonic Increase (Strict)
+- **Strict VersionCode Increment**: In `android/app/build.gradle` and `app.json`, `versionCode` MUST strictly increment with every build and NEVER be decremented, reset, or set below the established production baseline (currently `>= 300`). Setting a `versionCode` lower than or equal to an installed build causes Android PackageInstaller and the in-app OTA updater to immediately reject APK installations with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed / Update not installed").
+- **Stable vs Nightly Offset**: The Stable release build `versionCode` MUST strictly stay exactly one code version lower than the corresponding Nightly build (e.g., Nightly `versionCode 301` → Stable `versionCode 300`).
+
 
 # Native Android Integrity
 **Never blindly run `npx expo prebuild --clean`**. We have manually modified `android/app/build.gradle` (for native versioning) and other native files. Wiping the `android/` directory will destroy our custom native tweaks. You must explicitly back up and restore native modifications if you ever need to regenerate the native folders.
