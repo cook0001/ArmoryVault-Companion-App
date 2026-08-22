@@ -1,4 +1,14 @@
 # Changelog
+## [2.6.0-nightly.48] - 2026-08-22 (Nightly Test Build)
+### Added
+- **Mobile Firearm Creation & Editing System (`app/firearms/form.tsx`)**:
+  - Reusable tactical Firearm Form screen supporting full creation and editing of firearms directly on mobile.
+  - Make/model autocomplete chips, caliber selectors, action types, condition, purchase tracking, and storage location safe selector.
+  - Multi-photo capture and gallery picker with base64 synchronization.
+  - Added "+ Add Firearm" FAB and top header action buttons on `app/firearms/index.tsx`.
+  - Added "Edit Firearm" action button to `app/firearm/[id].tsx`.
+  - Barcode and serial number scanner integration linking directly to firearm detail views.
+
 ## [2.6.0-nightly.47] - 2026-08-22 (Nightly Test Build)
 ### Fixed
 - **Android Cleartext HTTP Traffic Unblocked (`android:usesCleartextTraffic="true"`)**:

@@ -248,8 +248,22 @@ export default function ScannerScreen() {
 
       // 2. Firearm QR Code (AV-FIREARM- or armoryvault://firearm/)
       if (data.startsWith('AV-FIREARM-') || data.startsWith('armoryvault://firearm/')) {
-        const id = data.replace('AV-FIREARM-', '').split('/').pop();
-        router.replace(`/firearms`);
+        const rawId = data.replace('AV-FIREARM-', '').replace('armoryvault://firearm/', '').trim();
+        try {
+          const cacheStr = await AsyncStorage.getItem('inventory_cache');
+          if (cacheStr) {
+            const cache = JSON.parse(cacheStr);
+            const found = (cache.firearms || []).find((f: any) =>
+              String(f.id) === rawId ||
+              (f.serial_number && f.serial_number.toLowerCase() === rawId.toLowerCase())
+            );
+            if (found) {
+              router.replace(`/firearm/${found.id}`);
+              return;
+            }
+          }
+        } catch (e) {}
+        router.replace('/firearms');
         return;
       }
 

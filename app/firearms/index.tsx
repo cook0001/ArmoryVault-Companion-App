@@ -118,21 +118,32 @@ export default function FirearmsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#94a3b8" style={{ marginRight: 8 }} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by make, model, caliber, or serial..."
-          placeholderTextColor="#64748b"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <Pressable onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#94a3b8" />
-          </Pressable>
-        )}
+      {/* Search Bar & Add Button */}
+      <View style={styles.topHeaderRow}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search make, model, caliber, serial..."
+            placeholderTextColor="#64748b"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable
+          style={styles.addHeaderBtn}
+          onPress={() => router.push('/firearms/form')}
+          hitSlop={6}
+        >
+          <Ionicons name="add" size={20} color="#ffffff" />
+          <Text style={styles.addHeaderBtnText}>Add</Text>
+        </Pressable>
       </View>
 
       {/* Category Filter Chips */}
@@ -181,10 +192,11 @@ export default function FirearmsScreen() {
             <Text style={[styles.sortBtnText, sortOption === 'az' && styles.sortBtnTextActive]}>A-Z</Text>
           </Pressable>
           <Pressable 
-            style={[styles.sortBtn, sortOption === 'rounds_high' && styles.sortBtnActive]}
+            style={[styles.sortBtn, sortOption === 'rounds_high' && styles.sortBtnActive, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
             onPress={() => setSortOption('rounds_high')}
           >
-            <Text style={[styles.sortBtnText, sortOption === 'rounds_high' && styles.sortBtnTextActive]}>🔥 High Rds</Text>
+            <Ionicons name="flame-outline" size={13} color={sortOption === 'rounds_high' ? '#38bdf8' : '#94a3b8'} />
+            <Text style={[styles.sortBtnText, sortOption === 'rounds_high' && styles.sortBtnTextActive]}>High Rds</Text>
           </Pressable>
         </View>
       </View>
@@ -194,11 +206,14 @@ export default function FirearmsScreen() {
         data={filteredFirearms}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />}
-        contentContainerStyle={{ paddingBottom: 110 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            {/* Main Header */}
-            <View style={styles.cardHeader}>
+            {/* Main Header (Tap to View Details) */}
+            <Pressable
+              style={styles.cardHeader}
+              onPress={() => router.push(`/firearm/${item.id}`)}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={styles.makeLabel}>{item.make}</Text>
                 <Text style={styles.modelTitle}>{item.model}</Text>
@@ -207,7 +222,7 @@ export default function FirearmsScreen() {
                 <Ionicons name="disc-outline" size={12} color="#38bdf8" />
                 <Text style={styles.roundsBadgeText}>{item.total_rounds || 0} rds</Text>
               </View>
-            </View>
+            </Pressable>
 
             {/* Badges Row */}
             <View style={styles.badgeRow}>
@@ -230,13 +245,22 @@ export default function FirearmsScreen() {
 
             {/* Quick Action Buttons */}
             <View style={styles.cardActions}>
+              {/* Edit Specs & Photos */}
+              <Pressable
+                style={[styles.actionBtn, { backgroundColor: '#1e293b', borderColor: '#3b82f6' }]}
+                onPress={() => router.push(`/firearms/form?id=${item.id}`)}
+              >
+                <Ionicons name="create-outline" size={15} color="#60a5fa" style={{ marginRight: 4 }} />
+                <Text style={[styles.actionBtnText, { color: '#60a5fa' }]}>Edit</Text>
+              </Pressable>
+
               {/* Range Mode */}
               <Pressable
                 style={[styles.actionBtn, { backgroundColor: '#065f46', borderColor: '#10b981' }]}
                 onPress={() => router.push(`/range?firearmId=${item.id}`)}
               >
                 <Ionicons name="flash-outline" size={15} color="#34d399" style={{ marginRight: 4 }} />
-                <Text style={[styles.actionBtnText, { color: '#34d399' }]}>Range Trip</Text>
+                <Text style={[styles.actionBtnText, { color: '#34d399' }]}>Range</Text>
               </Pressable>
 
               {/* Scan Replacement Parts */}
@@ -250,7 +274,7 @@ export default function FirearmsScreen() {
                 }}
               >
                 <Ionicons name="construct-outline" size={15} color="#eab308" style={{ marginRight: 4 }} />
-                <Text style={[styles.actionBtnText, { color: '#eab308' }]}>Scan Part</Text>
+                <Text style={[styles.actionBtnText, { color: '#eab308' }]}>Part</Text>
               </Pressable>
 
               {/* Bill of Sale */}
@@ -259,7 +283,7 @@ export default function FirearmsScreen() {
                 onPress={() => router.push(`/firearms/bill-of-sale?firearmId=${item.id}`)}
               >
                 <Ionicons name="document-text-outline" size={15} color="#38bdf8" style={{ marginRight: 4 }} />
-                <Text style={[styles.actionBtnText, { color: '#38bdf8' }]}>Bill of Sale</Text>
+                <Text style={[styles.actionBtnText, { color: '#38bdf8' }]}>Sale</Text>
               </Pressable>
             </View>
           </View>
@@ -268,10 +292,28 @@ export default function FirearmsScreen() {
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
             <SafeIcon size={44} color="#475569" style={{ marginBottom: 12 }} />
             <Text style={{ color: '#f8fafc', fontSize: 16, fontWeight: '700', marginBottom: 4 }}>No Firearms Found</Text>
-            <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>Sync with desktop to load your registered armory.</Text>
+            <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+              Add a new firearm on your phone or sync with desktop.
+            </Text>
+            <Pressable
+              style={styles.emptyAddBtn}
+              onPress={() => router.push('/firearms/form')}
+            >
+              <Ionicons name="add-circle" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyAddBtnText}>Add Firearm</Text>
+            </Pressable>
           </View>
         }
       />
+
+      {/* Floating Action Button (FAB) */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => router.push('/firearms/form')}
+        hitSlop={8}
+      >
+        <Ionicons name="add" size={28} color="#ffffff" />
+      </Pressable>
     </View>
   );
 }
@@ -282,14 +324,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     padding: 16,
   },
+  topHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -297,6 +345,49 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#f8fafc',
     fontSize: 14,
+  },
+  addHeaderBtn: {
+    backgroundColor: '#3b82f6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 4,
+  },
+  addHeaderBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  emptyAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  emptyAddBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   filterChip: {
     flexDirection: 'row',

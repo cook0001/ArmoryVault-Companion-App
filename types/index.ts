@@ -150,3 +150,29 @@ export interface DashboardStats {
   components: number;
   skus?: number;
 }
+
+export interface NewFirearmPayload {
+  make: string;
+  model: string;
+  serial_number: string;
+  caliber: string;
+  firearm_type?: string;
+  action_type?: string;
+  barrel_length?: string;
+  finish?: string;
+  condition?: string;
+  purchase_price?: number | null;
+  purchase_date?: string;
+  purchased_from?: string;
+  storageLocationId?: number;
+  notes?: string;
+  is_nfa?: boolean;
+  nfa_type?: string;
+  photoBase64?: string;
+  photosBase64?: string[];
+  [key: string]: unknown;
+}
+
+export interface FirearmUpdatePayload extends Partial<NewFirearmPayload> {
+  firearmId: number;
+}

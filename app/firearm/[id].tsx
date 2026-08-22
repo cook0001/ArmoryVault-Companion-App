@@ -155,8 +155,21 @@ export default function FirearmScreen() {
     <ScrollView style={styles.container}>
       {firearmData ? (
         <View style={styles.card}>
-          <Text style={styles.firearmMake}>{firearmData.make}</Text>
-          <Text style={styles.firearmModel}>{firearmData.model}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.firearmMake}>{firearmData.make}</Text>
+              <Text style={styles.firearmModel}>{firearmData.model}</Text>
+            </View>
+            <Pressable
+              style={styles.editFirearmBtn}
+              onPress={() => router.push(`/firearms/form?id=${id}`)}
+              hitSlop={6}
+            >
+              <Ionicons name="create-outline" size={16} color="#60a5fa" />
+              <Text style={styles.editFirearmBtnText}>Edit</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.badgeRow}>
             {firearmData.caliber && (
               <View style={styles.caliberBadge}>
@@ -315,9 +328,13 @@ export default function FirearmScreen() {
 
       {/* Target or Maintenance Photo */}
       <View style={{ marginBottom: 20 }}>
-        <Pressable style={styles.photoButton} onPress={takePhoto}>
+        <Pressable
+          style={[styles.photoButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]}
+          onPress={takePhoto}
+        >
+          <Ionicons name="camera-outline" size={18} color="#38bdf8" />
           <Text style={styles.photoButtonText}>
-            {photo ? '📷 Retake Photo' : logType === 'photo' ? '📷 Capture Firearm Photo' : '📷 Attach Target / Log Photo'}
+            {photo ? 'Retake Photo' : logType === 'photo' ? 'Capture Firearm Photo' : 'Attach Target / Log Photo'}
           </Text>
         </Pressable>
 
@@ -588,5 +605,21 @@ const styles = StyleSheet.create({
     color: '#38bdf8',
     fontSize: 11,
     fontWeight: 'bold',
-  }
+  },
+  editFirearmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3b82f6',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  editFirearmBtnText: {
+    color: '#60a5fa',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
