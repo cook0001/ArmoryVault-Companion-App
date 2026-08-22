@@ -83,22 +83,22 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
     if (channel === 'stable' && isCurrentNightly) {
       if (apkAsset) {
         const title = 'Rollback to Official Stable Release';
-        const message = `You are currently running Nightly build (v${currentVersion}).\n\nLatest Official Stable Release: ${latestTag}\n\nWould you like to rollback and install the stable release now?`;
+        const message = `You are currently on Nightly build (v${currentVersion}).\n\nTarget Stable Release: ${latestTag}\n\n⚠️ Android Security Policy:\nAndroid OS prohibits in-place app downgrades over newer builds. To rollback to this stable release:\n\n1. Make sure your local Outbox is synced to your Desktop Vault.\n2. Tap 'Download Stable APK' below.\n3. Uninstall the Nightly Companion app from your device.\n4. Install the downloaded Stable APK from your Downloads or notification shade.`;
         
-        const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert);
+        const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert, true);
 
         if (onConfirm) {
           onConfirm({
             title,
             message,
-            confirmText: 'Rollback to Stable',
+            confirmText: 'Download Stable APK',
             cancelText: 'Stay on Nightly',
             onConfirm: doInstall,
           });
         } else {
           Alert.alert(title, message, [
             { text: 'Stay on Nightly', style: 'cancel' },
-            { text: 'Rollback to Stable', onPress: doInstall },
+            { text: 'Download Stable APK', onPress: doInstall },
           ]);
         }
         return;
@@ -220,7 +220,8 @@ function compareVersions(a: string, b: string): number {
  */
 export async function downloadAndInstallUpdate(
   downloadUrl: string,
-  onAlert?: (title: string, message: string) => void
+  onAlert?: (title: string, message: string) => void,
+  isRollback: boolean = false
 ) {
   if (Platform.OS !== 'android') return;
 
