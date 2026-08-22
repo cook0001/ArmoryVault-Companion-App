@@ -31,7 +31,7 @@ interface SyncContextType {
   refreshCache: (silent?: boolean) => Promise<boolean>;
   remoteLockVault: () => Promise<boolean>;
   setAutoSyncEnabled: (enabled: boolean) => Promise<void>;
-  setServerIp: (ip: string | null) => Promise<void>;
+  setServerIp: (ip: string | null, explicitToken?: string) => Promise<void>;
 }
 
 const SyncContext = createContext<SyncContextType | null>(null);
@@ -555,18 +555,23 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [offlineQueue]);
 
   // Set Server IP Address and initiate pairing
-  const setServerIp = useCallback(async (ip: string | null) => {
+  const setServerIp = useCallback(async (ip: string | null, explicitToken?: string) => {
     if (ip) {
       await AsyncStorage.setItem('server_ip', ip);
       setSyncedIpState(ip);
       syncedIpRef.current = ip;
 
+      if (explicitToken) {
+        pairingTokenRef.current = explicitToken;
+        await AsyncStorage.setItem('pairing_token', explicitToken);
+      }
+
       // Attempt to pair and obtain auth token
       try {
         const pairHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-        const existingToken = await AsyncStorage.getItem('pairing_token');
-        if (existingToken) {
-          pairHeaders['Authorization'] = `Bearer ${existingToken}`;
+        const activeToken = explicitToken || (await AsyncStorage.getItem('pairing_token'));
+        if (activeToken) {
+          pairHeaders['Authorization'] = `Bearer ${activeToken}`;
         }
 
         const pairRes = await fetch(`${ip}/api/pair`, {

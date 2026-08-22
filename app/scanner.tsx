@@ -213,8 +213,9 @@ export default function ScannerScreen() {
         const url = new URL(data);
         const ip = url.searchParams.get('ip');
         const port = url.searchParams.get('port');
+        const token = url.searchParams.get('token');
         if (ip && port) {
-          await setServerIp(`http://${ip}:${port}`);
+          await setServerIp(`http://${ip}:${port}`, token || undefined);
           showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port}`);
           router.replace('/');
           return;

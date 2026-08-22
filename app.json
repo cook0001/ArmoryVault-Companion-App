@@ -3,7 +3,7 @@
     "name": "ArmoryVault_Companion",
     "slug": "armoryvault-companion-app",
     "scheme": "armoryvault",
-    "version": "2.6.0-nightly.44",
+    "version": "2.6.0-nightly.45",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.armoryvault.companion",
-      "versionCode": 303,
+      "versionCode": 304,
       "permissions": [
         "REQUEST_INSTALL_PACKAGES"
       ],
