@@ -1,6 +1,6 @@
 {
   "name": "armoryvault_companion",
-  "version": "2.6.0-nightly.42",
+  "version": "2.6.0-nightly.44",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.11",
@@ -36,7 +36,10 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.18",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
     "typescript": "~6.0.3"
   },
   "scripts": {

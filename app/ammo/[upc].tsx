@@ -60,7 +60,7 @@ export default function AmmoScreen() {
 
       const newLog = {
         type: 'ammo_adjustment',
-        upcOrId: matchedAmmo?.id ? String(matchedAmmo.id) : upc,
+        upcOrId: matchedAmmo?.id ? String(matchedAmmo.id) : String(upc),
         action,
         count: parsedCount,
         timestamp: new Date().toISOString()

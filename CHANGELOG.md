@@ -1,4 +1,33 @@
 # Changelog
+## [2.6.0-nightly.44] - 2026-08-22 (Nightly Test Build)
+### Added
+- **Global Error Boundary (`app/components/ErrorBoundary.tsx`)**:
+  - Implemented React Error Boundary wrapping the root application tree with graceful recovery and restart UI.
+- **Strict TypeScript Typing (`types/index.ts`)**:
+  - Centralized shared type interfaces (Firearm, Ammo, ReloadingComponent, Accessory, StorageLocation, SyncQueueItem) across mobile context, sync, and storage modules.
+- **Offline Sync Queue Protection**:
+  - Enforced 500-item maximum capacity with FIFO eviction and threshold warnings at 400+ items.
+- **Unit Testing Suite (`utils/storageCapacity.test.ts`)**:
+  - Configured Jest + ts-jest test runner with 21 unit tests covering container capacity calculations, default storage modes, and URI parsing formats.
+- **Secure Pairing Token Authentication**:
+  - Added Bearer token authentication headers across all P2P synchronization and remote lock endpoints.
+
+## [2.6.0-nightly.43] - 2026-08-22 (Nightly Test Build)
+### Added
+- **Storage Location QR Code Scanning & Deep Links (`app/scanner.tsx`)**:
+  - Full support for scanning storage location physical QR labels (`armoryvault://storage/{id}`, `armoryvault://location/{id}`, `AV-STORAGE-{id}`, `storage:{id}`).
+  - Added dedicated Storage Container Inspection Sheet displaying container type vector badge, live smart capacity utilization meter, item breakdown pills (Guns, Accs, Ammo, Powders), and stored items preview with "View in Inventory" 1-tap navigation.
+- **Dedicated Firearm Storage Capacity & Smart Tracking Modes (`utils/storageCapacity.ts`)**:
+  - Implemented client-side calculation matching desktop standard: Safes and cabinets track gun capacity only (auxiliary accessories, ammo boxes, and powders do not overflow gun slots).
+  - Supports `firearms`, `ammo`, and `all` container capacity modes with dynamic unit labels (`Guns`, `Ammo Lots`, `Items`).
+- **Mobile Inventory Storage Filtering (`app/inventory/index.tsx`)**:
+  - Added horizontal Storage Location pill filter bar on the Inventory screen to quickly view ammunition lots, components, and handload recipes assigned to specific safes, cabinets, or ammo cans.
+  - Interactive container capacity header displaying active container type, live capacity bar, and one-tap filter clearing.
+- **Offline Storage Location Caching (`context/SyncContext.tsx`)**:
+  - Automatically fetches and caches `/api/storage-locations` and `storageLocations` from `/api/inventory/cache` into AsyncStorage for full offline range and vault management.
+- **Custom Vector Storage Icons (`app/components/CustomMobileIcons.tsx`)**:
+  - Added dedicated vector SVG components for `CabinetIcon`, `GunCaseIcon`, and `VehicleVaultIcon` adhering strictly to Rule 7 (zero raw emojis).
+
 ## [2.6.0-nightly.42] - 2026-08-21 (Nightly Test Build)
 ### Changed
 - **Dialog & Update Popup Full-Width Layout (`DialogContext`)**:

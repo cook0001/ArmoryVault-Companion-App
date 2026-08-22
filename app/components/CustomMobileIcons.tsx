@@ -299,6 +299,89 @@ export const HolsterIcon: React.FC<MobileIconProps> = ({
   </Svg>
 );
 
+/**
+ * Gun Storage Cabinet
+ */
+export const CabinetIcon: React.FC<MobileIconProps> = ({
+  size = 18,
+  color = '#38bdf8',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Rect x="4" y="3" width="16" height="18" rx="1.5" />
+    <Line x1="12" y1="3" x2="12" y2="21" />
+    <Line x1="10" y1="11" x2="10" y2="13" />
+    <Line x1="14" y1="11" x2="14" y2="13" />
+    <Line x1="6" y1="21" x2="6" y2="23" />
+    <Line x1="18" y1="21" x2="18" y2="23" />
+  </Svg>
+);
+
+/**
+ * Tactical Gun Case
+ */
+export const GunCaseIcon: React.FC<MobileIconProps> = ({
+  size = 18,
+  color = '#a78bfa',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Rect x="2" y="6" width="20" height="13" rx="2" />
+    <Path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    <Rect x="5.5" y="10" width="2" height="4" rx="0.5" />
+    <Rect x="16.5" y="10" width="2" height="4" rx="0.5" />
+    <Line x1="2" y1="12" x2="22" y2="12" />
+  </Svg>
+);
+
+/**
+ * Vehicle Center Console Vault / Car Safe
+ */
+export const VehicleVaultIcon: React.FC<MobileIconProps> = ({
+  size = 18,
+  color = '#fb7185',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" />
+    <Rect x="3" y="11" width="18" height="9" rx="2" />
+    <Circle cx="7.5" cy="16.5" r="1.5" />
+    <Circle cx="16.5" cy="16.5" r="1.5" />
+    <Circle cx="12" cy="14" r="1.5" />
+  </Svg>
+);
+
 export default function CustomMobileIcons() {
   return null;
 }
+

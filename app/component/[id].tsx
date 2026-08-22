@@ -66,7 +66,7 @@ export default function ComponentScreen() {
 
       const newLog = {
         type: 'component_adjustment',
-        upcOrId: componentData?.id ? String(componentData.id) : id,
+        upcOrId: componentData?.id ? String(componentData.id) : String(id),
         action,
         count: parsedCount,
         timestamp: new Date().toISOString()

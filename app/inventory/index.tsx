@@ -1,12 +1,24 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, FlatList, RefreshControl, Modal, ScrollView, Platform } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { CartridgesIcon, GunpowderIcon } from '../components/CustomMobileIcons';
+import {
+  CartridgesIcon,
+  GunpowderIcon,
+  SafeIcon,
+  AmmoCanIcon,
+  CabinetIcon,
+  GunCaseIcon,
+  VehicleVaultIcon,
+} from '../components/CustomMobileIcons';
+import {
+  getStorageCapacityUtilization,
+  StorageLocation,
+} from '../../utils/storageCapacity';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 
@@ -33,7 +45,8 @@ export interface ReloadingRecipe {
 
 export default function InventoryScreen() {
   const router = useRouter();
-  const { addToQueue, refreshCache } = useSync();
+  const params = useLocalSearchParams<{ storageId?: string }>();
+  const { addToQueue, refreshCache, storageLocations } = useSync();
   const { showToast, showError, showConfirm, showSuccess } = useDialog();
 
   const [activeTab, setActiveTab] = useState<'ammo' | 'components' | 'recipes'>('ammo');
@@ -41,6 +54,7 @@ export default function InventoryScreen() {
   const [componentsList, setComponentsList] = useState<any[]>([]);
   const [recipesList, setRecipesList] = useState<ReloadingRecipe[]>([]);
   const [componentFilter, setComponentFilter] = useState<'All' | 'Powder' | 'Primer' | 'Case' | 'Bullet'>('All');
+  const [selectedStorageId, setSelectedStorageId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,9 +84,12 @@ export default function InventoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (params.storageId) {
+        setSelectedStorageId(parseInt(params.storageId, 10) || null);
+      }
       loadCachedInventory();
       loadRecipes();
-    }, [])
+    }, [params.storageId])
   );
 
   const loadCachedInventory = async () => {
@@ -391,8 +408,31 @@ export default function InventoryScreen() {
     return total;
   }, [ammoList, componentsList]);
 
+  const selectedStorageLocation = useMemo(() => {
+    if (!selectedStorageId) return null;
+    return (storageLocations || []).find((l: any) => l.id === selectedStorageId) || null;
+  }, [storageLocations, selectedStorageId]);
+
+  const storageCapUtil = useMemo(() => {
+    if (!selectedStorageLocation) return null;
+    const fCount = (selectedStorageLocation.firearmIds || []).length;
+    const accCount = (selectedStorageLocation.accessoryIds || []).length;
+    const ammoCount = (selectedStorageLocation.ammoIds || []).length;
+    const compCount = (selectedStorageLocation.componentIds || []).length;
+    return getStorageCapacityUtilization(
+      selectedStorageLocation,
+      fCount,
+      accCount,
+      ammoCount,
+      compCount
+    );
+  }, [selectedStorageLocation]);
+
   const filteredAmmo = useMemo(() => {
     return ammoList.filter(a => {
+      if (selectedStorageId && selectedStorageLocation) {
+        if (!(selectedStorageLocation.ammoIds || []).includes(a.id)) return false;
+      }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const caliber = (a.caliber || '').toLowerCase();
@@ -401,10 +441,13 @@ export default function InventoryScreen() {
       const grain = String(a.grain || '');
       return caliber.includes(q) || mfg.includes(q) || proj.includes(q) || grain.includes(q);
     });
-  }, [ammoList, searchQuery]);
+  }, [ammoList, searchQuery, selectedStorageId, selectedStorageLocation]);
 
   const filteredComponents = useMemo(() => {
     return componentsList.filter(c => {
+      if (selectedStorageId && selectedStorageLocation) {
+        if (!(selectedStorageLocation.componentIds || []).includes(c.id)) return false;
+      }
       if (componentFilter !== 'All') {
         const type = (c.type || '').toLowerCase();
         if (!type.includes(componentFilter.toLowerCase())) return false;
@@ -416,7 +459,7 @@ export default function InventoryScreen() {
       const cal = (c.caliber || '').toLowerCase();
       return name.includes(q) || mfg.includes(q) || cal.includes(q);
     });
-  }, [componentsList, componentFilter, searchQuery]);
+  }, [componentsList, componentFilter, searchQuery, selectedStorageId, selectedStorageLocation]);
 
   const filteredRecipes = useMemo(() => {
     return recipesList.filter(r => {
@@ -514,6 +557,149 @@ export default function InventoryScreen() {
           </Pressable>
         )}
       </View>
+
+      {/* Storage Location Filter Chips */}
+      {storageLocations && storageLocations.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ maxHeight: 38, marginBottom: 8, paddingHorizontal: 16 }}
+          contentContainerStyle={{ gap: 6, alignItems: 'center' }}
+        >
+          <Pressable
+            style={[
+              {
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 16,
+                backgroundColor: selectedStorageId === null ? '#38bdf8' : 'rgba(255,255,255,0.05)',
+                borderWidth: 1,
+                borderColor: selectedStorageId === null ? '#38bdf8' : 'rgba(255,255,255,0.1)',
+              },
+            ]}
+            onPress={() => setSelectedStorageId(null)}
+          >
+            <Text
+              style={{
+                color: selectedStorageId === null ? '#0f172a' : '#94a3b8',
+                fontSize: 11,
+                fontWeight: '700',
+              }}
+            >
+              All Storage
+            </Text>
+          </Pressable>
+
+          {storageLocations.map((loc: any) => {
+            const isSelected = selectedStorageId === loc.id;
+            return (
+              <Pressable
+                key={loc.id}
+                style={[
+                  {
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 16,
+                    backgroundColor: isSelected ? '#38bdf8' : 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: isSelected ? '#38bdf8' : 'rgba(255,255,255,0.1)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                  },
+                ]}
+                onPress={() => setSelectedStorageId(isSelected ? null : loc.id)}
+              >
+                {loc.type === 'Safe' ? (
+                  <SafeIcon size={12} color={isSelected ? '#0f172a' : '#34d399'} />
+                ) : loc.type === 'AmmoCan' ? (
+                  <AmmoCanIcon size={12} color={isSelected ? '#0f172a' : '#f59e0b'} />
+                ) : loc.type === 'Cabinet' ? (
+                  <CabinetIcon size={12} color={isSelected ? '#0f172a' : '#38bdf8'} />
+                ) : loc.type === 'Case' ? (
+                  <GunCaseIcon size={12} color={isSelected ? '#0f172a' : '#a78bfa'} />
+                ) : (
+                  <VehicleVaultIcon size={12} color={isSelected ? '#0f172a' : '#fb7185'} />
+                )}
+                <Text
+                  style={{
+                    color: isSelected ? '#0f172a' : '#f1f5f9',
+                    fontSize: 11,
+                    fontWeight: '600',
+                  }}
+                  numberOfLines={1}
+                >
+                  {loc.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Selected Storage Location Card Banner */}
+      {selectedStorageLocation && storageCapUtil && (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 10,
+            backgroundColor: 'rgba(56, 189, 248, 0.08)',
+            borderColor: 'rgba(56, 189, 248, 0.25)',
+            borderWidth: 1,
+            borderRadius: 10,
+            padding: 10,
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {selectedStorageLocation.type === 'Safe' ? (
+                <SafeIcon size={16} color="#34d399" />
+              ) : selectedStorageLocation.type === 'AmmoCan' ? (
+                <AmmoCanIcon size={16} color="#f59e0b" />
+              ) : selectedStorageLocation.type === 'Cabinet' ? (
+                <CabinetIcon size={16} color="#38bdf8" />
+              ) : selectedStorageLocation.type === 'Case' ? (
+                <GunCaseIcon size={16} color="#a78bfa" />
+              ) : (
+                <VehicleVaultIcon size={16} color="#fb7185" />
+              )}
+              <Text style={{ color: '#f8fafc', fontSize: 13, fontWeight: '700' }}>
+                {selectedStorageLocation.name}
+              </Text>
+            </View>
+
+            <Pressable onPress={() => setSelectedStorageId(null)}>
+              <Ionicons name="close-circle" size={16} color="#94a3b8" />
+            </Pressable>
+          </View>
+
+          {storageCapUtil.max ? (
+            <View style={{ marginTop: 2 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+                <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                  {storageCapUtil.unitLabel} Capacity
+                </Text>
+                <Text style={{ color: storageCapUtil.isOverCapacity ? '#ef4444' : '#38bdf8', fontSize: 10, fontWeight: '700' }}>
+                  {storageCapUtil.used} / {storageCapUtil.max} ({storageCapUtil.percent}%)
+                </Text>
+              </View>
+              <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                <View
+                  style={{
+                    width: `${Math.min(100, storageCapUtil.percent || 0)}%`,
+                    height: '100%',
+                    backgroundColor: storageCapUtil.isOverCapacity ? '#ef4444' : '#38bdf8',
+                  }}
+                />
+              </View>
+            </View>
+          ) : (
+            <Text style={{ color: '#64748b', fontSize: 11 }}>
+              {storageCapUtil.summaryText}
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Tab Content: Ammunition */}
       {activeTab === 'ammo' && (

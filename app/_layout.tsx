@@ -10,6 +10,7 @@ import { DialogProvider } from '../context/DialogContext';
 import { SyncProvider } from '../context/SyncContext';
 
 import BottomTabBar from './components/BottomTabBar';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function RootLayoutContent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -152,10 +153,12 @@ function RootLayoutContent() {
 
 export default function Layout() {
   return (
-    <DialogProvider>
-      <SyncProvider>
-        <RootLayoutContent />
-      </SyncProvider>
-    </DialogProvider>
+    <ErrorBoundary>
+      <DialogProvider>
+        <SyncProvider>
+          <RootLayoutContent />
+        </SyncProvider>
+      </DialogProvider>
+    </ErrorBoundary>
   );
 }
