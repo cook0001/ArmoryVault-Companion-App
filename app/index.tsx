@@ -1,8 +1,15 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, Modal } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, Modal, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import {
+  BallisticsTrajectoryIcon,
+  CartridgesIcon,
+  GunpowderIcon,
+  SafeIcon,
+} from './components/CustomMobileIcons';
 import { useSync } from '../context/SyncContext';
 
 export default function Home() {
@@ -56,83 +63,88 @@ export default function Home() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0f172a' }} edges={['top']}>
     <ScrollView 
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
+      contentContainerStyle={{ paddingBottom: 110 }}
     >
-      {/* 1. Connection Status Beacon & Remote Lock Trigger */}
-      <View style={styles.connectionBanner}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <View 
-            style={[
-              styles.beaconDot, 
-              isVaultLocked ? styles.beaconLocked : isOnline ? styles.beaconOnline : styles.beaconOffline
-            ]} 
-          />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.beaconStatusText}>
-                {isVaultLocked ? 'DESKTOP LOCKED (CACHE ACTIVE)' : isOnline ? 'VAULT SERVER ONLINE' : syncedIp ? 'OFFLINE CACHE MODE' : 'NOT PAIRED'}
-              </Text>
-              {isOnline && !isVaultLocked && autoSyncEnabled && (
-                <View style={styles.autoSyncBadge}>
-                  <Text style={styles.autoSyncBadgeText}>AUTO-SYNC</Text>
-                </View>
-              )}
+      {/* ─── Hero Landing Section ─── */}
+      <View style={styles.heroSection}>
+        {/* Shield Brand */}
+        <View style={styles.heroBrandRow}>
+          <View style={styles.heroShield}>
+            <Ionicons name="shield-checkmark" size={32} color="#34d399" />
+          </View>
+          <View>
+            <Text style={styles.heroTitle}>ArmoryVault</Text>
+            <Text style={styles.heroSubtitle}>Field Companion</Text>
+          </View>
+        </View>
+
+        {/* Connection Status Pill */}
+        <Pressable 
+          style={[
+            styles.heroStatusPill,
+            isVaultLocked ? styles.statusPillLocked : isOnline ? styles.statusPillOnline : styles.statusPillOffline
+          ]}
+          onPress={!syncedIp ? () => router.push('/scanner') : undefined}
+        >
+          <View style={[
+            styles.heroPillDot, 
+            { backgroundColor: isVaultLocked ? '#ef4444' : isOnline ? '#34d399' : syncedIp ? '#fbbf24' : '#64748b' }
+          ]} />
+          <Text style={styles.heroPillText}>
+            {isVaultLocked ? 'VAULT LOCKED' : isOnline ? 'CONNECTED' : syncedIp ? 'OFFLINE MODE' : 'TAP TO PAIR'}
+          </Text>
+          {isOnline && !isVaultLocked && autoSyncEnabled && (
+            <View style={{ backgroundColor: 'rgba(52,211,153,0.3)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 4 }}>
+              <Text style={{ color: '#34d399', fontSize: 8, fontWeight: '800' }}>SYNC</Text>
             </View>
-            <Text style={styles.beaconSubText} numberOfLines={1}>
-              {desktopDevice ? `${desktopDevice} (${syncedIp})` : syncedIp ? syncedIp : 'Scan Desktop QR to pair'}
-            </Text>
-          </View>
-        </View>
+          )}
+        </Pressable>
 
-        {isOnline && !isVaultLocked && (
-          <Pressable 
-            style={styles.remoteLockBtn} 
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-              setShowLockConfirmModal(true);
-            }}
-          >
-            <Ionicons name="lock-closed" size={13} color="#f87171" style={{ marginRight: 4 }} />
-            <Text style={styles.remoteLockBtnText}>Lock Desktop</Text>
-          </Pressable>
-        )}
-
-        {!syncedIp && (
-          <Pressable style={styles.pairButton} onPress={() => router.push('/scanner')}>
-            <Ionicons name="qr-code-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-            <Text style={styles.pairButtonText}>Pair</Text>
-          </Pressable>
+        {desktopDevice && (
+          <Text style={styles.heroDeviceText}>
+            {desktopDevice} • {syncedIp}
+          </Text>
         )}
       </View>
 
-      {/* 2. Cached Vault Summary */}
-      <View style={styles.overviewCard}>
-        <View style={styles.overviewHeader}>
-          <Text style={styles.overviewTitle}>Cached Vault Summary</Text>
-          {lastCacheTime ? (
-            <Text style={styles.cacheTimeBadge}>✓ Synced {lastCacheTime}</Text>
-          ) : null}
+      {/* ─── Vault Stats Bar ─── */}
+      <View style={styles.statsBar}>
+        <View style={styles.statBlock}>
+          <SafeIcon size={16} color="#a78bfa" />
+          <Text style={styles.statBlockNumber}>{dashboardStats?.firearms || 0}</Text>
+          <Text style={styles.statBlockLabel}>Firearms</Text>
         </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{dashboardStats?.firearms || 0}</Text>
-            <Text style={styles.statLabel}>Firearms</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{(dashboardStats?.ammo || 0).toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Rounds</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{dashboardStats?.components || 0}</Text>
-            <Text style={styles.statLabel}>Components</Text>
-          </View>
+        <View style={styles.statsBarDivider} />
+        <View style={styles.statBlock}>
+          <CartridgesIcon size={16} color="#f59e0b" />
+          <Text style={styles.statBlockNumber}>{(dashboardStats?.ammo || 0).toLocaleString()}</Text>
+          <Text style={styles.statBlockLabel}>Rounds</Text>
+        </View>
+        <View style={styles.statsBarDivider} />
+        <View style={styles.statBlock}>
+          <GunpowderIcon size={16} color="#60a5fa" />
+          <Text style={styles.statBlockNumber}>{dashboardStats?.components || 0}</Text>
+          <Text style={styles.statBlockLabel}>Components</Text>
         </View>
       </View>
+
+      {/* ─── Remote Lock + Pair Actions ─── */}
+      {isOnline && !isVaultLocked && (
+        <Pressable 
+          style={styles.remoteLockBannerBtn} 
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            setShowLockConfirmModal(true);
+          }}
+        >
+          <Ionicons name="lock-closed" size={14} color="#f87171" style={{ marginRight: 6 }} />
+          <Text style={{ color: '#f87171', fontSize: 12, fontWeight: '700' }}>Remote Lock Desktop</Text>
+        </Pressable>
+      )}
 
       {/* 3. Hero Pending Sync Card */}
       {offlineQueueCount > 0 && (
@@ -210,7 +222,7 @@ export default function Home() {
         {/* Firearms Vault */}
         <Pressable style={styles.gridCard} onPress={() => router.push('/firearms')}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
-            <Ionicons name="shield-checkmark-outline" size={24} color="#a855f7" />
+            <SafeIcon size={24} color="#a855f7" />
           </View>
           <Text style={styles.gridCardTitle}>Firearms Vault</Text>
           <Text style={styles.gridCardSub}>
@@ -221,7 +233,7 @@ export default function Home() {
         {/* Ammo & Supplies */}
         <Pressable style={styles.gridCard} onPress={() => router.push('/inventory')}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-            <Ionicons name="cube-outline" size={24} color="#f59e0b" />
+            <CartridgesIcon size={24} color="#f59e0b" />
           </View>
           <Text style={styles.gridCardTitle}>Ammo & Supplies</Text>
           <Text style={styles.gridCardSub}>
@@ -232,7 +244,7 @@ export default function Home() {
         {/* Ballistics DOPE */}
         <Pressable style={styles.gridCard} onPress={() => router.push('/range/ballistics')}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-            <Ionicons name="calculator-outline" size={24} color="#ef4444" />
+            <BallisticsTrajectoryIcon size={24} color="#ef4444" />
           </View>
           <Text style={styles.gridCardTitle}>Ballistics DOPE</Text>
           <Text style={styles.gridCardSub}>Trajectory & Holdovers</Text>
@@ -301,6 +313,7 @@ export default function Home() {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -309,6 +322,130 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: '#0f172a',
+  },
+  /* ─── Hero Landing Section ─── */
+  heroSection: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(100,116,139,0.15)',
+  },
+  heroBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+  },
+  heroShield: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#34d399',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#f8fafc',
+    letterSpacing: -0.5,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 1,
+  },
+  heroStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statusPillOnline: {
+    backgroundColor: 'rgba(52,211,153,0.08)',
+    borderColor: 'rgba(52,211,153,0.3)',
+  },
+  statusPillOffline: {
+    backgroundColor: 'rgba(251,191,36,0.08)',
+    borderColor: 'rgba(251,191,36,0.3)',
+  },
+  statusPillLocked: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderColor: 'rgba(239,68,68,0.3)',
+  },
+  heroPillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  heroPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#e2e8f0',
+    letterSpacing: 0.8,
+  },
+  heroDeviceText: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  /* ─── Stats Bar ─── */
+  statsBar: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100,116,139,0.15)',
+  },
+  statBlock: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  statBlockNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#f1f5f9',
+    fontVariant: ['tabular-nums'],
+  },
+  statBlockLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statsBarDivider: {
+    width: 1,
+    backgroundColor: 'rgba(100,116,139,0.2)',
+    marginVertical: 2,
+  },
+  remoteLockBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.25)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
   connectionBanner: {
     backgroundColor: '#1e293b',
@@ -336,7 +473,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   beaconOffline: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: '#fbbf24',
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 5,
+    elevation: 3,
   },
   beaconLocked: {
     backgroundColor: '#ef4444',
@@ -349,7 +491,7 @@ const styles = StyleSheet.create({
   beaconStatusText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#cbd5e1',
+    color: '#f1f5f9',
     letterSpacing: 0.5,
   },
   autoSyncBadge: {
@@ -368,7 +510,7 @@ const styles = StyleSheet.create({
   },
   beaconSubText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#b0bcc9',
     marginTop: 1,
   },
   remoteLockBtn: {

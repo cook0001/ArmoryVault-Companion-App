@@ -35,7 +35,7 @@ export function isPrereleaseVersion(version: string): boolean {
  * Gets the current installed version string.
  */
 export function getCurrentAppVersion(): string {
-  return (Application.nativeApplicationVersion || '2.6.0-nightly.40').replace(/^v/, '');
+  return (Application.nativeApplicationVersion || '2.6.0-nightly.42').replace(/^v/, '');
 }
 
 /**
@@ -82,7 +82,7 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
     // CASE 1: USER IS ON A NIGHTLY BUILD AND SWITCHED TO STABLE -> OFFER ROLLBACK TO STABLE
     if (channel === 'stable' && isCurrentNightly) {
       if (apkAsset) {
-        const title = '🔄 Rollback to Official Stable Release';
+        const title = 'Rollback to Official Stable Release';
         const message = `You are currently running Nightly build (v${currentVersion}).\n\nLatest Official Stable Release: ${latestTag}\n\nWould you like to rollback and install the stable release now?`;
         
         const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert);
@@ -108,7 +108,7 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
     // CASE 2: USER IS ON STABLE AND SWITCHED TO NIGHTLY -> OFFER INSTALLING NIGHTLY
     if (channel === 'nightly' && !isCurrentNightly) {
       if (apkAsset && latestVersion !== currentVersion) {
-        const title = '⚡ Switch to Nightly Test Channel';
+        const title = 'Switch to Nightly Test Channel';
         const message = `You are currently on Stable (v${currentVersion}).\n\nA newer Nightly Test Build (${latestTag}) is available.\n\nWould you like to download and install this build?`;
         
         const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert);
@@ -136,7 +136,7 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
 
     if (isNewer && apkAsset) {
       const channelLabel = channel === 'nightly' ? 'Nightly Test Build' : 'Stable Release';
-      const title = channel === 'nightly' ? '⚡ New Nightly Build Found' : '🎯 New Update Available';
+      const title = channel === 'nightly' ? 'New Nightly Build Found' : 'New Update Available';
       const message = `A newer ${channelLabel} (${latestTag}) is available.\n\nCurrent: v${currentVersion}\nLatest: ${latestTag}\n\nWould you like to download and install this update now?`;
 
       const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert);

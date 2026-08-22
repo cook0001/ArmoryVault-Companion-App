@@ -7,6 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
+import {
+  CartridgesIcon,
+  SafeIcon,
+  BallisticsTrajectoryIcon,
+  GunpowderIcon,
+} from '../components/CustomMobileIcons';
 
 export default function RangeSessionScreen() {
   const router = useRouter();
@@ -192,7 +198,24 @@ export default function RangeSessionScreen() {
   const parsedRounds = parseInt(roundsFired) || 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 115 }}>
+      {/* Quick Launch: Chronograph */}
+      <Pressable
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 12,
+          backgroundColor: 'rgba(96,165,250,0.12)', borderRadius: 12, padding: 14,
+          borderWidth: 1, borderColor: 'rgba(96,165,250,0.3)', marginBottom: 16,
+        }}
+        onPress={() => router.push('/range/chronograph')}
+      >
+        <Ionicons name="speedometer" size={24} color="#60a5fa" />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Chronograph</Text>
+          <Text style={{ color: '#94a3b8', fontSize: 11 }}>Record velocity strings with Avg/SD/ES</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#64748b" />
+      </Pressable>
+
       {/* 1. Firearm Selector */}
       <Text style={styles.sectionHeader}>1. Select Firearm</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorRow}>
@@ -205,9 +228,12 @@ export default function RangeSessionScreen() {
               setSelectedAmmoId(null);
             }}
           >
-            <Text style={[styles.firearmMakeText, selectedFirearmId === f.id && styles.activeText]}>
-              {f.make}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+              <SafeIcon size={13} color={selectedFirearmId === f.id ? '#34d399' : '#94a3b8'} />
+              <Text style={[styles.firearmMakeText, selectedFirearmId === f.id && styles.activeText]}>
+                {f.make}
+              </Text>
+            </View>
             <Text style={[styles.firearmModelText, selectedFirearmId === f.id && styles.activeText]}>
               {f.model}
             </Text>
@@ -237,9 +263,12 @@ export default function RangeSessionScreen() {
             style={[styles.ammoCard, selectedAmmoId === ammo.id && styles.ammoCardActive]}
             onPress={() => setSelectedAmmoId(ammo.id)}
           >
-            <Text style={[styles.ammoTitle, selectedAmmoId === ammo.id && styles.activeText]}>
-              {ammo.manufacturer || ''} {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+              <CartridgesIcon size={13} color={selectedAmmoId === ammo.id ? '#f59e0b' : '#94a3b8'} />
+              <Text style={[styles.ammoTitle, selectedAmmoId === ammo.id && styles.activeText]}>
+                {ammo.manufacturer || ''} {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''}
+              </Text>
+            </View>
             <Text style={styles.ammoSubtitle}>
               In Stock: {ammo.count} rds
             </Text>
@@ -300,8 +329,9 @@ export default function RangeSessionScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <Text style={styles.sectionHeader}>4. Reliability & Stoppages</Text>
         {totalMalfunctions > 0 && (
-          <View style={styles.malfunctionPill}>
-            <Text style={styles.malfunctionPillText}>⚠️ {totalMalfunctions} Total</Text>
+          <View style={[styles.malfunctionPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+            <Ionicons name="warning-outline" size={12} color="#f87171" />
+            <Text style={styles.malfunctionPillText}>{totalMalfunctions} Total</Text>
           </View>
         )}
       </View>
@@ -379,14 +409,17 @@ export default function RangeSessionScreen() {
           <Pressable style={styles.moaToolBtn} onPress={openGroupingCalculator}>
             <Ionicons name="scan-outline" size={18} color="#38bdf8" style={{ marginRight: 6 }} />
             <Text style={styles.moaToolBtnText}>
-              {moaMetrics ? '✏️ Re-Measure Group & Scope Adjustments' : '🎯 Measure Shot Group & MOA (Photo)'}
+              {moaMetrics ? 'Re-Measure Group & Scope Adjustments' : 'Measure Shot Group & MOA (Photo)'}
             </Text>
           </Pressable>
 
           {moaMetrics && (
             <View style={styles.moaBadgeCard}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <Text style={styles.moaBadgeTitle}>🎯 Measured Grouping</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="disc-outline" size={14} color="#34d399" />
+                  <Text style={styles.moaBadgeTitle}>Measured Grouping</Text>
+                </View>
                 <Text style={styles.moaValueText}>{moaMetrics.moa} MOA</Text>
               </View>
               <Text style={styles.moaDetailText}>

@@ -3,7 +3,7 @@
     "name": "ArmoryVault_Companion",
     "slug": "armoryvault-companion-app",
     "scheme": "armoryvault",
-    "version": "2.6.0-nightly.40",
+    "version": "2.6.0-nightly.42",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { CartridgesIcon, GunpowderIcon } from '../components/CustomMobileIcons';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 
@@ -464,7 +465,7 @@ export default function InventoryScreen() {
           style={[styles.tab, activeTab === 'ammo' && styles.activeTab]}
           onPress={() => setActiveTab('ammo')}
         >
-          <Ionicons name="cube-outline" size={15} color={activeTab === 'ammo' ? '#fff' : '#94a3b8'} style={{ marginRight: 5 }} />
+          <CartridgesIcon size={15} color={activeTab === 'ammo' ? '#fff' : '#94a3b8'} style={{ marginRight: 5 }} />
           <Text style={[styles.tabText, activeTab === 'ammo' && styles.activeTabText]}>
             Ammo ({ammoList.length})
           </Text>
@@ -474,7 +475,7 @@ export default function InventoryScreen() {
           style={[styles.tab, activeTab === 'components' && styles.activeTab]}
           onPress={() => setActiveTab('components')}
         >
-          <Ionicons name="flask-outline" size={15} color={activeTab === 'components' ? '#fff' : '#94a3b8'} style={{ marginRight: 5 }} />
+          <GunpowderIcon size={15} color={activeTab === 'components' ? '#fff' : '#94a3b8'} style={{ marginRight: 5 }} />
           <Text style={[styles.tabText, activeTab === 'components' && styles.activeTabText]}>
             Supplies ({componentsList.length})
           </Text>
@@ -520,7 +521,7 @@ export default function InventoryScreen() {
           data={filteredAmmo}
           keyExtractor={(item) => String(item.id)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
           renderItem={({ item }) => {
             const isLowStock = (item.count || 0) < 100;
             const cpr = item.cost_per_round || 0.45;
@@ -562,7 +563,7 @@ export default function InventoryScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="cube-outline" size={44} color="#475569" style={{ marginBottom: 8 }} />
+              <CartridgesIcon size={44} color="#475569" style={{ marginBottom: 8 }} />
               <Text style={styles.emptyTitle}>No Ammunition Found</Text>
               <Text style={styles.emptySubtitle}>Sync with desktop or add ammunition lots to view your supply.</Text>
             </View>
@@ -592,7 +593,7 @@ export default function InventoryScreen() {
             data={filteredComponents}
             keyExtractor={(item) => String(item.id)}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />}
-            contentContainerStyle={{ paddingBottom: 40 }}
+            contentContainerStyle={{ paddingBottom: 110 }}
             renderItem={({ item }) => {
               const unit = item.type === 'Powder' ? 'lbs' : 'units';
               return (
@@ -621,7 +622,7 @@ export default function InventoryScreen() {
             }}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="flask-outline" size={44} color="#475569" style={{ marginBottom: 8 }} />
+                <GunpowderIcon size={44} color="#475569" style={{ marginBottom: 8 }} />
                 <Text style={styles.emptyTitle}>No Components Found</Text>
                 <Text style={styles.emptySubtitle}>Sync with desktop or select a different filter.</Text>
               </View>
@@ -642,7 +643,7 @@ export default function InventoryScreen() {
           <FlatList
             data={filteredRecipes}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingBottom: 40 }}
+            contentContainerStyle={{ paddingBottom: 110 }}
             renderItem={({ item }) => (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -697,22 +698,32 @@ export default function InventoryScreen() {
                 </View>
 
                 {/* Metrics / Performance */}
-                {(item.avgVelocityFps || item.groupMoa) && (
-                  <View style={styles.metricsRow}>
-                    {item.avgVelocityFps && (
-                      <Text style={styles.metricPill}>⚡ {item.avgVelocityFps} fps</Text>
-                    )}
-                    {item.groupMoa && (
-                      <Text style={styles.metricPill}>🎯 {item.groupMoa} MOA</Text>
-                    )}
-                    <Text style={styles.metricPill}>📦 Batch: {item.batchSize} rds</Text>
+                <View style={styles.metricsRow}>
+                  {item.avgVelocityFps && (
+                    <View style={[styles.metricPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                      <Ionicons name="flash-outline" size={11} color="#f59e0b" />
+                      <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>{item.avgVelocityFps} fps</Text>
+                    </View>
+                  )}
+                  {item.groupMoa && (
+                    <View style={[styles.metricPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                      <Ionicons name="disc-outline" size={11} color="#34d399" />
+                      <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>{item.groupMoa} MOA</Text>
+                    </View>
+                  )}
+                  <View style={[styles.metricPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                    <Ionicons name="cube-outline" size={11} color="#60a5fa" />
+                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>Batch: {item.batchSize} rds</Text>
                   </View>
-                )}
+                </View>
 
                 {item.notes ? (
-                  <Text style={styles.recipeNotesText} numberOfLines={2}>
-                    📝 {item.notes}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                    <Ionicons name="document-text-outline" size={12} color="#64748b" />
+                    <Text style={styles.recipeNotesText} numberOfLines={2}>
+                      {item.notes}
+                    </Text>
+                  </View>
                 ) : null}
               </View>
             )}
@@ -1293,28 +1304,39 @@ const styles = StyleSheet.create({
   },
   actionToggleBtn: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#0f172a',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#334155',
   },
   actionToggleAddActive: {
-    backgroundColor: '#065f46',
+    backgroundColor: '#059669',
     borderColor: '#10b981',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionToggleRemoveActive: {
-    backgroundColor: '#7f1d1d',
+    backgroundColor: '#dc2626',
     borderColor: '#ef4444',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionToggleText: {
     color: '#94a3b8',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 13,
   },
   actionToggleTextActive: {
-    color: '#fff',
+    color: '#ffffff',
   },
   modalInput: {
     backgroundColor: '#0f172a',
@@ -1322,54 +1344,65 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#38bdf8',
-    marginBottom: 10,
+    borderColor: '#0284c7',
+    marginBottom: 12,
   },
   stepperChipRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   stepperChip: {
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#334155',
   },
   stepperChipText: {
     color: '#cbd5e1',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: '#475569',
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: '#334155',
+    paddingVertical: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#475569',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: {
-    color: '#fff',
+    color: '#f1f5f9',
     fontWeight: 'bold',
+    fontSize: 14,
   },
   confirmBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    flex: 1.2,
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   confirmBtnText: {
-    color: '#fff',
+    color: '#ffffff',
     fontWeight: 'bold',
+    fontSize: 14,
   },
   // New Recipe Form Fields
   inputLabel: {
@@ -1396,15 +1429,21 @@ const styles = StyleSheet.create({
   },
   saveRecipeBtn: {
     backgroundColor: '#10b981',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 14,
     marginBottom: 10,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   saveRecipeBtnText: {
-    color: '#fff',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

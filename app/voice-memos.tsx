@@ -121,7 +121,7 @@ export default function VoiceMemosScreen() {
       }
       setRecordingInstance(rec);
       setIsRecording(true);
-      showToast({ message: '🎙️ Recording voice note...', type: 'info' });
+      showToast({ message: 'Recording voice note...', type: 'info' });
     } catch (e) {
       console.error(e);
       showError('Record Error', 'Could not initialize recording');
@@ -268,9 +268,12 @@ export default function VoiceMemosScreen() {
               style={[styles.tagChip, selectedFirearmId === f.id && styles.tagChipActive]}
               onPress={() => setSelectedFirearmId(selectedFirearmId === f.id ? null : f.id)}
             >
-              <Text style={[styles.tagChipText, selectedFirearmId === f.id && styles.tagChipTextActive]}>
-                🔫 {f.make} {f.model}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="shield-outline" size={11} color={selectedFirearmId === f.id ? '#38bdf8' : '#94a3b8'} />
+                <Text style={[styles.tagChipText, selectedFirearmId === f.id && styles.tagChipTextActive]}>
+                  {f.make} {f.model}
+                </Text>
+              </View>
             </Pressable>
           ))}
         </ScrollView>
@@ -292,9 +295,12 @@ export default function VoiceMemosScreen() {
               style={[styles.tagChip, selectedAmmoId === a.id && styles.tagChipAmmoActive]}
               onPress={() => setSelectedAmmoId(selectedAmmoId === a.id ? null : a.id)}
             >
-              <Text style={[styles.tagChipText, selectedAmmoId === a.id && { color: '#f87171' }]}>
-                📦 {a.manufacturer || ''} {a.caliber}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="cube-outline" size={11} color={selectedAmmoId === a.id ? '#f87171' : '#94a3b8'} />
+                <Text style={[styles.tagChipText, selectedAmmoId === a.id && { color: '#f87171' }]}>
+                  {a.manufacturer || ''} {a.caliber}
+                </Text>
+              </View>
             </Pressable>
           ))}
         </ScrollView>
@@ -375,12 +381,14 @@ export default function VoiceMemosScreen() {
                 <View style={styles.memoBadgeRow}>
                   {item.firearmName && (
                     <View style={styles.gunTagBadge}>
-                      <Text style={styles.gunTagText}>🔫 {item.firearmName}</Text>
+                      <Ionicons name="shield-outline" size={11} color="#38bdf8" style={{ marginRight: 4 }} />
+                      <Text style={styles.gunTagText}>{item.firearmName}</Text>
                     </View>
                   )}
                   {item.ammoName && (
                     <View style={styles.ammoTagBadge}>
-                      <Text style={styles.ammoTagText}>📦 {item.ammoName}</Text>
+                      <Ionicons name="cube-outline" size={11} color="#f87171" style={{ marginRight: 4 }} />
+                      <Text style={styles.ammoTagText}>{item.ammoName}</Text>
                     </View>
                   )}
                 </View>

@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { SafeIcon } from '../components/CustomMobileIcons';
 
 type CategoryFilter = 'all' | 'handgun' | 'rifle' | 'shotgun' | 'rimfire' | 'nfa';
 type SortOption = 'az' | 'rounds_high' | 'rounds_low';
@@ -193,7 +194,7 @@ export default function FirearmsScreen() {
         data={filteredFirearms}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 110 }}
         renderItem={({ item }) => (
           <View style={styles.card}>
             {/* Main Header */}
@@ -202,8 +203,9 @@ export default function FirearmsScreen() {
                 <Text style={styles.makeLabel}>{item.make}</Text>
                 <Text style={styles.modelTitle}>{item.model}</Text>
               </View>
-              <View style={styles.roundsBadge}>
-                <Text style={styles.roundsBadgeText}>🎯 {item.total_rounds || 0} rds</Text>
+              <View style={[styles.roundsBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                <Ionicons name="disc-outline" size={12} color="#38bdf8" />
+                <Text style={styles.roundsBadgeText}>{item.total_rounds || 0} rds</Text>
               </View>
             </View>
 
@@ -262,6 +264,13 @@ export default function FirearmsScreen() {
             </View>
           </View>
         )}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+            <SafeIcon size={44} color="#475569" style={{ marginBottom: 12 }} />
+            <Text style={{ color: '#f8fafc', fontSize: 16, fontWeight: '700', marginBottom: 4 }}>No Firearms Found</Text>
+            <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>Sync with desktop to load your registered armory.</Text>
+          </View>
+        }
       />
     </View>
   );

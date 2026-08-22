@@ -66,8 +66,8 @@ echo "   ✅ app.json → v$NEW_VERSION"
 # ─── 3. build.gradle ─────────────────────────────────────────
 echo "🤖 Updating android/app/build.gradle..."
 if [ -f "android/app/build.gradle" ]; then
-  sed -i '' "s/versionCode = $OLD_VCODE/versionCode = $NEW_VCODE/" android/app/build.gradle
-  sed -i '' "s/versionName = \"$OLD_VERSION\"/versionName = \"$NEW_VERSION\"/" android/app/build.gradle
+  sed -i '' "s/versionCode [0-9]*/versionCode $NEW_VCODE/" android/app/build.gradle
+  sed -i '' "s/versionName \".*\"/versionName \"$NEW_VERSION\"/" android/app/build.gradle
   echo "   ✅ build.gradle → v$NEW_VERSION (code $NEW_VCODE)"
 else
   echo "   ⚠️  android/app/build.gradle not found (run expo prebuild first)"

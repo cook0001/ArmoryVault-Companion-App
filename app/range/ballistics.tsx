@@ -388,7 +388,10 @@ export default function BallisticsScreen() {
                   <Text style={styles.profileCaliber}>{p.caliber}</Text>
                   <Text style={styles.profileName} numberOfLines={2}>{p.name}</Text>
                   <View style={styles.profileMetaRow}>
-                    <Text style={styles.profileMetaText}>⚡ {p.muzzleVelocityFps} fps</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                      <Ionicons name="flash-outline" size={11} color="#f59e0b" />
+                      <Text style={styles.profileMetaText}>{p.muzzleVelocityFps} fps</Text>
+                    </View>
                     <Text style={styles.profileMetaText}>G1: {p.ballisticCoefficientG1.toFixed(3)}</Text>
                   </View>
                 </Pressable>
@@ -666,9 +669,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   modeTabActive: {
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#38bdf8',
+    backgroundColor: '#0284c7',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 2,
   },
   modeTabText: {
     color: '#94a3b8',
@@ -676,7 +682,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   modeTabTextActive: {
-    color: '#38bdf8',
+    color: '#ffffff',
   },
   sectionCard: {
     backgroundColor: '#1e293b',
@@ -700,16 +706,21 @@ const styles = StyleSheet.create({
   },
   catChip: {
     backgroundColor: '#0f172a',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 14,
     marginRight: 6,
     borderWidth: 1,
     borderColor: '#334155',
   },
   catChipActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: '#0284c7',
     borderColor: '#38bdf8',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   catChipText: {
     color: '#94a3b8',
@@ -717,7 +728,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   catChipTextActive: {
-    color: '#38bdf8',
+    color: '#ffffff',
   },
   searchBar: {
     flexDirection: 'row',
@@ -749,8 +760,14 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   profileCardActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: '#1e3a5f',
     borderColor: '#38bdf8',
+    borderWidth: 1.5,
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   profileCaliber: {
     color: '#38bdf8',
@@ -889,12 +906,12 @@ const styles = StyleSheet.create({
   importRecipeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: '#475569',
   },
   importRecipeText: {
     color: '#38bdf8',
@@ -921,7 +938,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   turretBtnActive: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: '#0284c7',
   },
   turretText: {
     color: '#94a3b8',
@@ -929,17 +946,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   turretTextActive: {
-    color: '#0f172a',
+    color: '#ffffff',
   },
   exportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
+    backgroundColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: '#475569',
   },
   exportBtnText: {
     color: '#38bdf8',

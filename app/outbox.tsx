@@ -27,6 +27,27 @@ export default function Outbox() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editQuantity, setEditQuantity] = useState('1');
 
+  const getItemBadge = (type: string) => {
+    switch (type) {
+      case 'ammo_adjustment':
+        return { icon: 'cube-outline' as const, label: 'Ammo Adjustment' };
+      case 'component_adjustment':
+        return { icon: 'flask-outline' as const, label: 'Component Adjustment' };
+      case 'range_session':
+        return { icon: 'disc-outline' as const, label: 'Range Session' };
+      case 'part_maintenance':
+        return { icon: 'construct-outline' as const, label: 'Replacement Part' };
+      case 'firearm_log':
+        return { icon: 'document-text-outline' as const, label: 'Firearm Log' };
+      case 'firearm_photo':
+        return { icon: 'camera-outline' as const, label: 'Firearm Photo' };
+      case 'universal_scan':
+        return { icon: 'scan-outline' as const, label: 'Universal Scan' };
+      default:
+        return { icon: 'layers-outline' as const, label: 'Log Item' };
+    }
+  };
+
   const handleDelete = (index: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     showConfirm({
@@ -167,63 +188,64 @@ export default function Outbox() {
           <Text style={styles.emptyStateText}>All range sessions, stock audits, and maintenance logs are synced.</Text>
         </View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
-          {offlineQueue.map((item, index) => (
-            <Pressable key={index} style={styles.card} onPress={() => openEditModal(index)}>
-              <View style={{ flex: 1 }}>
-                <View style={styles.badgeContainer}>
-                  <Text style={styles.badgeText}>
-                    {item.type === 'ammo_adjustment' ? '📦 Ammo Adjustment' : 
-                     item.type === 'component_adjustment' ? '🧪 Component Adjustment' : 
-                     item.type === 'range_session' ? '🎯 Range Session' :
-                     item.type === 'part_maintenance' ? '🔧 Replacement Part' :
-                     item.type === 'firearm_log' ? '📝 Firearm Log' : 
-                     item.type === 'firearm_photo' ? '📷 Firearm Photo' :
-                     item.type === 'universal_scan' ? '🔍 Universal Scan' : 'Log'}
-                  </Text>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }}>
+          {offlineQueue.map((item, index) => {
+            const badge = getItemBadge(item.type);
+            return (
+              <Pressable key={index} style={styles.card} onPress={() => openEditModal(index)}>
+                <View style={{ flex: 1 }}>
+                  <View style={[styles.badgeContainer, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                    <Ionicons name={badge.icon} size={12} color="#38bdf8" />
+                    <Text style={styles.badgeText}>{badge.label}</Text>
+                  </View>
+                  
+                  {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment' || item.type === 'universal_scan') && (
+                    <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{item.count} Units ({item.measurement || 'rds'})</Text>
+                  )}
+
+                  {item.type === 'range_session' && (
+                    <>
+                      <Text style={styles.itemTitle}>Firearm #{item.firearm_id} • {item.rounds_fired} Rounds</Text>
+                      {item.ammo_id && <Text style={styles.itemDesc}>Deducting Ammo ID: {item.ammo_id}</Text>}
+                      {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
+                      {item.malfunctions && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <Ionicons name="warning-outline" size={12} color="#ef4444" />
+                          <Text style={[styles.itemDesc, { color: '#ef4444' }]}>{item.malfunctions.length} Malfunctions Logged</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+
+                  {item.type === 'part_maintenance' && (
+                    <Text style={styles.itemTitle}>Part SKU: {item.upcOrId} for Firearm #{item.firearmId || 'General'}</Text>
+                  )}
+                  
+                  {item.type === 'firearm_log' && (
+                    <>
+                      <Text style={styles.itemTitle}>{item.logType === 'maintenance' ? 'Maintenance' : 'Range Log'}</Text>
+                      {item.roundCount > 0 && <Text style={styles.itemDesc}>{item.roundCount} Rounds Fired</Text>}
+                      {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
+                    </>
+                  )}
+
+                  {item.type === 'firearm_photo' && (
+                    <Text style={styles.itemTitle}>New Photo for Firearm #{item.firearmId}</Text>
+                  )}
+                  
+                  <Text style={styles.timestamp}>{new Date(item.timestamp).toLocaleString()}</Text>
                 </View>
-                
-                {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment' || item.type === 'universal_scan') && (
-                  <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{item.count} Units ({item.measurement || 'rds'})</Text>
+
+                {item.photoBase64 && (
+                  <Image source={{ uri: item.photoBase64 }} style={styles.previewImage} />
                 )}
 
-                {item.type === 'range_session' && (
-                  <>
-                    <Text style={styles.itemTitle}>Firearm #{item.firearm_id} • {item.rounds_fired} Rounds</Text>
-                    {item.ammo_id && <Text style={styles.itemDesc}>Deducting Ammo ID: {item.ammo_id}</Text>}
-                    {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
-                    {item.malfunctions && <Text style={[styles.itemDesc, { color: '#ef4444' }]}>⚠️ {item.malfunctions.length} Malfunctions Logged</Text>}
-                  </>
-                )}
-
-                {item.type === 'part_maintenance' && (
-                  <Text style={styles.itemTitle}>Part SKU: {item.upcOrId} for Firearm #{item.firearmId || 'General'}</Text>
-                )}
-                
-                {item.type === 'firearm_log' && (
-                  <>
-                    <Text style={styles.itemTitle}>{item.logType === 'maintenance' ? 'Maintenance' : 'Range Log'}</Text>
-                    {item.roundCount > 0 && <Text style={styles.itemDesc}>{item.roundCount} Rounds Fired</Text>}
-                    {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
-                  </>
-                )}
-
-                {item.type === 'firearm_photo' && (
-                  <Text style={styles.itemTitle}>New Photo for Firearm #{item.firearmId}</Text>
-                )}
-                
-                <Text style={styles.timestamp}>{new Date(item.timestamp).toLocaleString()}</Text>
-              </View>
-
-              {item.photoBase64 && (
-                <Image source={{ uri: item.photoBase64 }} style={styles.previewImage} />
-              )}
-
-              <Pressable style={styles.deleteButton} onPress={() => handleDelete(index)}>
-                <Ionicons name="close-circle" size={20} color="#ef4444" />
+                <Pressable style={styles.deleteButton} onPress={() => handleDelete(index)}>
+                  <Ionicons name="close-circle" size={20} color="#ef4444" />
+                </Pressable>
               </Pressable>
-            </Pressable>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
 
@@ -241,11 +263,11 @@ export default function Outbox() {
               autoFocus
             />
             <View style={styles.modalButtons}>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#475569' }]} onPress={() => setEditIndex(null)}>
-                <Text style={styles.modalBtnText}>Cancel</Text>
+              <Pressable style={[styles.modalBtn, styles.modalCancelBtn]} onPress={() => setEditIndex(null)}>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#10b981' }]} onPress={saveEdit}>
-                <Text style={styles.modalBtnText}>Save</Text>
+              <Pressable style={[styles.modalBtn, styles.modalSaveBtn]} onPress={saveEdit}>
+                <Text style={styles.modalSaveBtnText}>Save Changes</Text>
               </Pressable>
             </View>
           </View>
@@ -421,26 +443,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 24,
     fontWeight: 'bold',
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: '#0284c7',
     marginBottom: 16,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
     width: '100%',
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalBtnText: {
-    color: '#fff',
+  modalCancelBtn: {
+    backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  modalCancelBtnText: {
+    color: '#f1f5f9',
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 14,
+  },
+  modalSaveBtn: {
+    backgroundColor: '#10b981',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalSaveBtnText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

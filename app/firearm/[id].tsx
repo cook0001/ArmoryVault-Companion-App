@@ -168,14 +168,18 @@ export default function FirearmScreen() {
                 <Text style={styles.serialBadgeText}>S/N: {firearmData.serial_number}</Text>
               </View>
             )}
-            <View style={styles.roundsBadge}>
-              <Text style={styles.roundsBadgeText}>🎯 {totalRounds} rds</Text>
+            <View style={[styles.roundsBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+              <Ionicons name="disc-outline" size={12} color="#38bdf8" />
+              <Text style={styles.roundsBadgeText}>{totalRounds} rds</Text>
             </View>
           </View>
 
           {/* Component Wear Progress Gauges */}
           <View style={styles.wearContainer}>
-            <Text style={styles.wearHeader}>⚙️ Component Wear Lifecycle</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Ionicons name="construct-outline" size={15} color="#38bdf8" />
+              <Text style={styles.wearHeader}>Component Wear Lifecycle</Text>
+            </View>
 
             {/* Recoil Spring */}
             <View style={styles.wearItem}>
@@ -219,22 +223,25 @@ export default function FirearmScreen() {
       {/* Mode Tabs */}
       <View style={styles.tabContainer}>
         <Pressable 
-          style={[styles.tab, logType === 'range' && styles.activeTab]} 
+          style={[styles.tab, logType === 'range' && styles.activeTab, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]} 
           onPress={() => setLogType('range')}
         >
-          <Text style={[styles.tabText, logType === 'range' && styles.activeTabText]}>🎯 Range Session</Text>
+          <Ionicons name="disc-outline" size={15} color={logType === 'range' ? '#38bdf8' : '#94a3b8'} />
+          <Text style={[styles.tabText, logType === 'range' && styles.activeTabText]}>Range Session</Text>
         </Pressable>
         <Pressable 
-          style={[styles.tab, logType === 'maintenance' && styles.activeTab]} 
+          style={[styles.tab, logType === 'maintenance' && styles.activeTab, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]} 
           onPress={() => setLogType('maintenance')}
         >
-          <Text style={[styles.tabText, logType === 'maintenance' && styles.activeTabText]}>🛠️ Maintenance</Text>
+          <Ionicons name="build-outline" size={15} color={logType === 'maintenance' ? '#38bdf8' : '#94a3b8'} />
+          <Text style={[styles.tabText, logType === 'maintenance' && styles.activeTabText]}>Maintenance</Text>
         </Pressable>
         <Pressable 
-          style={[styles.tab, logType === 'photo' && styles.activeTab]} 
+          style={[styles.tab, logType === 'photo' && styles.activeTab, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]} 
           onPress={() => setLogType('photo')}
         >
-          <Text style={[styles.tabText, logType === 'photo' && styles.activeTabText]}>📷 Photo</Text>
+          <Ionicons name="camera-outline" size={15} color={logType === 'photo' ? '#38bdf8' : '#94a3b8'} />
+          <Text style={[styles.tabText, logType === 'photo' && styles.activeTabText]}>Photo</Text>
         </Pressable>
       </View>
 

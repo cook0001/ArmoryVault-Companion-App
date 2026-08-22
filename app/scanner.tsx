@@ -474,7 +474,7 @@ export default function ScannerScreen() {
       </View>
 
       {/* Bottom Manual Entry Drawer Button */}
-      <View style={[styles.bottomBar, { bottom: keyboardHeight + 20 }]}>
+      <View style={[styles.bottomBar, { bottom: keyboardHeight + 95 }]}>
         <Pressable 
           style={styles.manualDrawerTrigger}
           onPress={() => setSearchDrawerOpen(true)}
@@ -564,9 +564,10 @@ export default function ScannerScreen() {
               <View style={styles.itemHeaderCard}>
                 <Text style={styles.modalTitle} numberOfLines={2}>{itemMatchInfo.title}</Text>
                 {itemMatchInfo.stock !== undefined && (
-                  <View style={styles.stockBadge}>
+                  <View style={[styles.stockBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                    <Ionicons name="cube-outline" size={11} color="#60a5fa" />
                     <Text style={styles.stockBadgeText}>
-                      📦 In Vault: {itemMatchInfo.stock} rds
+                      In Vault: {itemMatchInfo.stock} rds
                     </Text>
                   </View>
                 )}
@@ -992,21 +993,31 @@ const styles = StyleSheet.create({
   actionToggleBtn: {
     flex: 1,
     flexDirection: 'row',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#1e293b',
     borderWidth: 1,
     borderColor: '#334155',
   },
   actionToggleAddActive: {
-    backgroundColor: '#065f46',
+    backgroundColor: '#059669',
     borderColor: '#10b981',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionToggleRemoveActive: {
-    backgroundColor: '#991b1b',
+    backgroundColor: '#dc2626',
     borderColor: '#ef4444',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionToggleText: {
     color: '#94a3b8',
@@ -1046,14 +1057,16 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   stepperBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#334155',
+    borderRadius: 6,
   },
   stepperBtnText: {
-    color: '#38bdf8',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: 'bold',
   },
   stepperInput: {
@@ -1094,24 +1107,30 @@ const styles = StyleSheet.create({
   },
   presetChip: {
     backgroundColor: '#1e293b',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginRight: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#334155',
   },
   presetChipSelected: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: '#0284c7',
     borderColor: '#38bdf8',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   presetChipText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: 'bold',
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '600',
   },
   presetChipTextSelected: {
-    color: '#38bdf8',
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
   totalBanner: {
     flexDirection: 'row',
@@ -1138,49 +1157,63 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   measurementChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#334155',
     backgroundColor: '#0f172a',
   },
   measurementChipActive: {
     borderColor: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: '#0284c7',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   measurementText: {
     color: '#94a3b8',
     fontWeight: 'bold',
-    fontSize: 10,
+    fontSize: 11,
   },
   measurementTextActive: {
-    color: '#38bdf8',
+    color: '#ffffff',
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
     backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: {
-    color: '#cbd5e1',
+    color: '#f1f5f9',
     fontWeight: 'bold',
     fontSize: 14,
   },
   confirmBtn: {
     flex: 1.5,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   confirmBtnText: {
-    color: '#fff',
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 14,
   }

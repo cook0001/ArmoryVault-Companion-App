@@ -330,6 +330,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   <Pressable
                     style={[
                       styles.btn,
+                      styles.confirmBtn,
                       dialogConfig.type === 'danger' ? styles.dangerBtn : styles.primaryBtn,
                     ]}
                     onPress={handleConfirmAction}
@@ -455,48 +456,70 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     textAlign: 'center',
     marginBottom: 8,
+    alignSelf: 'stretch',
   },
   dialogMessage: {
     fontSize: 14,
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 22,
+    marginBottom: 24,
+    alignSelf: 'stretch',
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
     width: '100%',
+    alignSelf: 'stretch',
   },
   btn: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 48,
   },
   singleBtn: {
     width: '100%',
+    alignSelf: 'stretch',
   },
   cancelBtn: {
+    flex: 1,
     backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  confirmBtn: {
+    flex: 1,
   },
   cancelBtnText: {
-    color: '#cbd5e1',
+    color: '#f1f5f9',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 15,
+    textAlign: 'center',
   },
   primaryBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#0284c7',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   dangerBtn: {
     backgroundColor: '#dc2626',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   btnText: {
     color: '#ffffff',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 15,
+    textAlign: 'center',
   },
 
   // Toast Styles
@@ -526,16 +549,16 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   toastSuccess: {
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderColor: 'rgba(16, 185, 129, 0.5)',
   },
   toastError: {
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
   },
   toastWarning: {
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    borderColor: 'rgba(245, 158, 11, 0.5)',
   },
   toastInfo: {
-    borderColor: 'rgba(59, 130, 246, 0.4)',
+    borderColor: 'rgba(2, 132, 199, 0.5)',
   },
   toastIconBox: {
     marginRight: 12,
@@ -555,16 +578,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   toastActionBtn: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    borderColor: '#3b82f6',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
     marginLeft: 8,
   },
   toastActionText: {
-    color: '#60a5fa',
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 12,
   }

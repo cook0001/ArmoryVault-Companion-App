@@ -1,4 +1,16 @@
 # Changelog
+## [2.6.0-nightly.42] - 2026-08-21 (Nightly Test Build)
+### Changed
+- **Dialog & Update Popup Full-Width Layout (`DialogContext`)**:
+  - Resolved narrow button sizing issue on check-for-update and alert modals by applying `alignSelf: 'stretch'` and explicit `minHeight: 48` touch target dimensions across all single and dual-button dialogs.
+- **Strict Custom & Vector Icon Standard (Rule 7)**:
+  - Eliminated all emoji placeholders across mobile screens (Firearms, Range, Ballistics, Grouping Calculator, Scanner, Settings, Outbox, Voice Memos, Updater) in favor of Ionicons vector icons and custom icons.
+- **UI/UX Modal & Popup Button Redesign**:
+  - Replaced thin 1px outline boxes and faint blue border lines with rich, solid tactical buttons and tactile pill chips across all dialogs, popups, and sheets.
+  - Upgraded `DialogContext` confirm, alert, and toast action buttons with solid surfaces (`#0284c7`, `#10b981`, `#dc2626`, `#334155`), bold typography, and elevation shadows.
+  - Modernized Scanner popup preset chips (`20 rds`, `50 rds`, `100 rds`...), measurement units (`BOX`, `CAN`, `CASE`...), steppers, and action toggles with filled high-contrast states.
+  - Enhanced Quick Inventory adjustment dialogs, Recipe creation modals, Bill of Sale payment selectors, and Range checklist dialogs with solid button surfaces.
+
 ## [2.6.0-nightly.40] - 2026-08-20 (Nightly Test Build)
 ### Fixed
 - **Fix Voice Memo Persistence — Migrate to `expo-file-system/legacy`**:

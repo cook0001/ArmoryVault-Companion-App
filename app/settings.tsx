@@ -184,7 +184,7 @@ export default function Settings() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 110 }}>
       {/* 1. Connection Section */}
       <Text style={styles.sectionTitle}>Vault Server Connection</Text>
       <View style={styles.card}>
@@ -350,11 +350,18 @@ export default function Settings() {
           </Pressable>
         </View>
 
-        <Text style={styles.channelDescriptionText}>
-          {updateChannel === 'nightly'
-            ? '⚡ Tracking bleeding-edge test builds for new features, ballistics tools, and debugging.'
-            : '🎯 Tracking thoroughly tested, official production releases.'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 8 }}>
+          <Ionicons 
+            name={updateChannel === 'nightly' ? "flash-outline" : "shield-checkmark-outline"} 
+            size={14} 
+            color={updateChannel === 'nightly' ? "#f59e0b" : "#38bdf8"} 
+          />
+          <Text style={[styles.channelDescriptionText, { flex: 1, marginVertical: 0 }]}>
+            {updateChannel === 'nightly'
+              ? 'Tracking bleeding-edge test builds for new features, ballistics tools, and debugging.'
+              : 'Tracking thoroughly tested, official production releases.'}
+          </Text>
+        </View>
 
         {/* Current Build Status Badge */}
         <View style={[styles.statusBadge, { backgroundColor: isCurrentBuildNightly ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)', borderColor: isCurrentBuildNightly ? '#f59e0b' : '#10b981', borderWidth: 1, marginBottom: 12 }]}>

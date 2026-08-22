@@ -9,6 +9,8 @@ import { checkForUpdates } from '../utils/updater';
 import { DialogProvider } from '../context/DialogContext';
 import { SyncProvider } from '../context/SyncContext';
 
+import BottomTabBar from './components/BottomTabBar';
+
 function RootLayoutContent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [hasAuthHardware, setHasAuthHardware] = useState(false);
@@ -53,7 +55,7 @@ function RootLayoutContent() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
       <Stack
         screenOptions={{
           headerStyle: {
@@ -63,21 +65,15 @@ function RootLayoutContent() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+          contentStyle: {
+            backgroundColor: '#0f172a',
+          },
         }}
       >
         <Stack.Screen 
           name="index" 
           options={{ 
-            title: 'ArmoryVault Sync',
-            headerStyle: { backgroundColor: '#0f172a' },
-            headerTintColor: '#fff',
-            headerRight: () => (
-              <Link href="/settings" asChild>
-                <Pressable style={{ marginRight: 15 }}>
-                  <Ionicons name="settings-outline" size={24} color="#fff" />
-                </Pressable>
-              </Link>
-            ),
+            headerShown: false,
           }} 
         />
         <Stack.Screen 
@@ -138,7 +134,12 @@ function RootLayoutContent() {
         />
         <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="component/[id]" options={{ title: 'Component Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/chronograph" options={{ title: 'Chronograph', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/grouping-calculator" options={{ title: 'Group Analyzer', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/ballistics" options={{ title: 'Ballistics Calculator', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/checklist" options={{ title: 'Range Checklist', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
+      <BottomTabBar />
       {(!isUnlocked && hasAuthHardware) && (
         <View style={StyleSheet.absoluteFill}>
           <LockedScreen onUnlock={handleAuthenticate} />

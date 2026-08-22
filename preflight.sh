@@ -21,7 +21,7 @@ echo "🔍 [1/6] Checking version consistency across files..."
 PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null)
 APP_VER=$(node -p "require('./app.json').expo.version" 2>/dev/null)
 GRADLE_VER=$(grep 'versionName' android/app/build.gradle 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
-UPDATER_VER=$(grep "nativeApplicationVersion ||" utils/updater.ts 2>/dev/null | sed "s/.*|| '\\(.*\\)').*/\\1/")
+UPDATER_VER=$(grep "nativeApplicationVersion ||" utils/updater.ts 2>/dev/null | sed "s/.*|| '\([^']*\)'.*/\1/")
 
 ALL_MATCH=true
 if [ "$PKG_VER" != "$APP_VER" ]; then

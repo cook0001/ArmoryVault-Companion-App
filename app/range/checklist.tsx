@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useDialog } from '../../context/DialogContext';
+import { CartridgesIcon, SafeIcon } from '../components/CustomMobileIcons';
 
 interface ChecklistItem {
   id: string;
@@ -769,7 +770,10 @@ export default function RangeChecklistScreen() {
               onPress={() => toggleFirearm(f.id)}
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={styles.gunMake}>{f.make}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <SafeIcon size={12} color={isSelected ? "#10b981" : "#94a3b8"} />
+                  <Text style={styles.gunMake}>{f.make}</Text>
+                </View>
                 <Ionicons 
                   name={isSelected ? "checkbox" : "square-outline"} 
                   size={20} 
@@ -794,9 +798,12 @@ export default function RangeChecklistScreen() {
             return (
               <View key={ammo.id} style={styles.ammoRowCard}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.ammoLotName}>
-                    {ammo.manufacturer} {ammo.caliber}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <CartridgesIcon size={14} color="#f59e0b" />
+                    <Text style={styles.ammoLotName}>
+                      {ammo.manufacturer} {ammo.caliber}
+                    </Text>
+                  </View>
                   <Text style={styles.ammoLotDesc}>
                     {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''} • In Vault: {ammo.count} rds
                   </Text>
@@ -1009,7 +1016,7 @@ export default function RangeChecklistScreen() {
                       style={[styles.iconChoice, isSelected && styles.iconChoiceSelected]}
                       onPress={() => setPresetModalIcon(ic)}
                     >
-                      <Ionicons name={ic as any} size={20} color={isSelected ? '#38bdf8' : '#94a3b8'} />
+                      <Ionicons name={ic as any} size={20} color={isSelected ? '#ffffff' : '#94a3b8'} />
                     </Pressable>
                   );
                 })}
@@ -1430,8 +1437,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconChoiceSelected: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: '#0284c7',
     borderColor: '#38bdf8',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 2,
   },
   modalItemsList: {
     flexDirection: 'row',
@@ -1472,45 +1484,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   modalAddBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 14,
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 16,
     justifyContent: 'center',
     borderRadius: 8,
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   modalAddBtnText: {
-    color: '#38bdf8',
+    color: '#ffffff',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 13,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 10,
+    gap: 12,
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
   modalCancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 10,
     backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
   },
   modalCancelText: {
-    color: '#cbd5e1',
-    fontSize: 13,
+    color: '#f1f5f9',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   modalSaveBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
     backgroundColor: '#10b981',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   modalSaveText: {
-    color: '#fff',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: 'bold',
   }
 });
