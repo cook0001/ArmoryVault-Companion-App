@@ -495,6 +495,40 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && !data.isLocked) {
+          // Merge any pending offline queue edits over the fresh cache so pending changes remain visible
+          try {
+            const queueStr = await AsyncStorage.getItem('offline_queue');
+            if (queueStr) {
+              const queue: SyncQueueItem[] = JSON.parse(queueStr);
+              if (Array.isArray(queue) && queue.length > 0 && Array.isArray(data.firearms)) {
+                queue.forEach(item => {
+                  if (item.type === 'firearm_update') {
+                    const itemData: any = item.data || item;
+                    const fId = String(item.firearmId || itemData.firearmId || itemData.id);
+                    const idx = data.firearms.findIndex((f: any) => String(f.id) === fId);
+                    if (idx >= 0) {
+                      const { photoBase64: _p1, photosBase64: _p2, ...cleanData } = itemData;
+                      data.firearms[idx] = { ...data.firearms[idx], ...cleanData };
+                    }
+                  } else if (item.type === 'new_firearm') {
+                    const itemData: any = item.data || item;
+                    const { photoBase64: _p1, photosBase64: _p2, ...cleanData } = itemData;
+                    const serialMatch = cleanData.serial_number && data.firearms.some((f: any) => f.serial_number && f.serial_number.toLowerCase() === cleanData.serial_number.toLowerCase());
+                    if (!serialMatch) {
+                      data.firearms.unshift({
+                        id: Date.now(),
+                        ...cleanData,
+                        is_sold: false,
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          } catch (mergeErr) {
+            console.warn('Could not merge offline queue into fresh cache:', mergeErr);
+          }
+
           await AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
           const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setLastCacheTime(now);

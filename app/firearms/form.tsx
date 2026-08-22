@@ -265,6 +265,10 @@ export default function FirearmFormScreen() {
         photosBase64: newBase64Photos.length > 0 ? newBase64Photos : undefined,
       };
 
+      // Strip base64 payloads from local cache storage to prevent AsyncStorage size explosion
+      const { photoBase64: _p1, photosBase64: _p2, ...cleanLocalPayload } = payload;
+      const previewPhotoUri = photos.length > 0 ? photos[0].uri : '';
+
       if (isEditMode) {
         // Dispatch firearm_update sync item
         await addToQueue({
@@ -277,25 +281,28 @@ export default function FirearmFormScreen() {
           },
         });
 
-        // Optimistically update local inventory cache
-        const cacheStr = await AsyncStorage.getItem('inventory_cache');
-        if (cacheStr) {
-          const cache = JSON.parse(cacheStr);
-          if (cache.firearms) {
-            const idx = cache.firearms.findIndex((f: any) => String(f.id) === String(id));
-            if (idx >= 0) {
-              cache.firearms[idx] = {
-                ...cache.firearms[idx],
-                ...payload,
-                // keep local preview photo if new one added
-                image_path: photos.length > 0 ? photos[0].uri : cache.firearms[idx].image_path,
-              };
-              await AsyncStorage.setItem('inventory_cache', JSON.stringify(cache));
+        // Optimistically update local inventory cache safely without base64 bloat
+        try {
+          const cacheStr = await AsyncStorage.getItem('inventory_cache');
+          if (cacheStr) {
+            const cache = JSON.parse(cacheStr);
+            if (cache.firearms && Array.isArray(cache.firearms)) {
+              const idx = cache.firearms.findIndex((f: any) => String(f.id) === String(id));
+              if (idx >= 0) {
+                cache.firearms[idx] = {
+                  ...cache.firearms[idx],
+                  ...cleanLocalPayload,
+                  image_path: previewPhotoUri || cache.firearms[idx].image_path,
+                };
+                await AsyncStorage.setItem('inventory_cache', JSON.stringify(cache));
+              }
             }
           }
+        } catch (cacheErr) {
+          console.warn('Could not optimistically update local inventory cache:', cacheErr);
         }
 
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         showSuccess('Firearm Updated', `${trimmedMake} ${trimmedModel} updates queued for desktop sync.`);
       } else {
         // Dispatch new_firearm sync item
@@ -306,27 +313,35 @@ export default function FirearmFormScreen() {
         });
 
         // Optimistically add to local inventory cache with temp ID
-        const cacheStr = await AsyncStorage.getItem('inventory_cache');
-        if (cacheStr) {
-          const cache = JSON.parse(cacheStr);
-          const tempFirearm = {
-            id: Date.now(),
-            ...payload,
-            image_path: photos.length > 0 ? photos[0].uri : '',
-            is_sold: false,
-          };
-          cache.firearms = [tempFirearm, ...(cache.firearms || [])];
-          await AsyncStorage.setItem('inventory_cache', JSON.stringify(cache));
+        try {
+          const cacheStr = await AsyncStorage.getItem('inventory_cache');
+          if (cacheStr) {
+            const cache = JSON.parse(cacheStr);
+            const tempFirearm = {
+              id: Date.now(),
+              ...cleanLocalPayload,
+              image_path: previewPhotoUri,
+              is_sold: false,
+            };
+            cache.firearms = [tempFirearm, ...(cache.firearms || [])];
+            await AsyncStorage.setItem('inventory_cache', JSON.stringify(cache));
+          }
+        } catch (cacheErr) {
+          console.warn('Could not optimistically add to local inventory cache:', cacheErr);
         }
 
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         showSuccess('Firearm Added', `${trimmedMake} ${trimmedModel} queued for desktop sync.`);
       }
 
-      router.replace('/firearms');
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/firearms');
+      }
     } catch (e: any) {
       console.error('Error saving firearm:', e);
-      showError('Save Failed', 'Could not queue firearm updates. Please try again.');
+      showError('Save Failed', e?.message || 'Could not queue firearm updates. Please try again.');
     } finally {
       setIsSaving(false);
     }

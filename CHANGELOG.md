@@ -1,4 +1,11 @@
 # Changelog
+## [2.6.0-nightly.49] - 2026-08-22 (Nightly Test Build)
+### Fixed
+- **Optimistic Cache Sanitization & Save Exception Prevention (`app/firearms/form.tsx`)**:
+  - Stripped raw base64 photo payloads from local `inventory_cache` storage to eliminate `AsyncStorage` and SQLite CursorWindow size limit overflow exceptions.
+  - Wrapped optimistic cache writes in isolated try-catch boundaries so local storage issues never trigger a false "Save Failed" error when sync queueing succeeds.
+  - Added pending offline queue preservation in `refreshCache` (`context/SyncContext.tsx`) to prevent fresh desktop cache downloads from overwriting unapproved local mobile edits.
+
 ## [2.6.0-nightly.48] - 2026-08-22 (Nightly Test Build)
 ### Added
 - **Mobile Firearm Creation & Editing System (`app/firearms/form.tsx`)**:
