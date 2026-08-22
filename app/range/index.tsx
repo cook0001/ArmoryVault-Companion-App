@@ -5,10 +5,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSync } from '../../context/SyncContext';
+import { useDialog } from '../../context/DialogContext';
 
 export default function RangeSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ firearmId?: string }>();
+  const { addToQueue } = useSync();
+  const { showToast, showError } = useDialog();
 
   const [firearms, setFirearms] = useState<any[]>([]);
   const [ammoList, setAmmoList] = useState<any[]>([]);
@@ -71,12 +75,12 @@ export default function RangeSessionScreen() {
 
   const handleQueueRangeSession = async () => {
     if (!selectedFirearmId) {
-      alert('Please select a firearm');
+      showError('Firearm Required', 'Please select a firearm for this range session.');
       return;
     }
     const rounds = parseInt(roundsFired) || 0;
     if (rounds <= 0) {
-      alert('Please enter rounds fired');
+      showError('Rounds Required', 'Please enter a valid count of rounds fired.');
       return;
     }
 
@@ -92,22 +96,21 @@ export default function RangeSessionScreen() {
         timestamp: new Date().toISOString()
       };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newSession);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
+      await addToQueue(
+        newSession,
+        `Queued range session with ${selectedFirearm?.make} ${selectedFirearm?.model} (${rounds} rds)!`
+      );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      alert(`Queued range session with ${selectedFirearm?.make} ${selectedFirearm?.model} (${rounds} rds)!`);
       router.back();
     } catch (e) {
       console.error(e);
-      alert('Failed to save range session');
+      showError('Error', 'Failed to save range session');
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 110 }}>
       {/* 1. Firearm Selector */}
       <Text style={styles.sectionHeader}>1. Select Firearm</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorRow}>
@@ -153,10 +156,10 @@ export default function RangeSessionScreen() {
             onPress={() => setSelectedAmmoId(ammo.id)}
           >
             <Text style={[styles.ammoTitle, selectedAmmoId === ammo.id && styles.activeText]}>
-              {ammo.manufacturer || ''} {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''}
+              {ammo.manufacturer} {ammo.caliber}
             </Text>
             <Text style={styles.ammoSubtitle}>
-              In Stock: {ammo.count} rds
+              {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''} • {ammo.count} rds in vault
             </Text>
           </Pressable>
         ))}
@@ -166,37 +169,35 @@ export default function RangeSessionScreen() {
       <Text style={styles.sectionHeader}>3. Rounds Fired</Text>
       <TextInput
         style={styles.roundsInput}
-        keyboardType="number-pad"
+        keyboardType="numeric"
         value={roundsFired}
         onChangeText={setRoundsFired}
-        placeholder="e.g. 50"
+        selectTextOnFocus
       />
-
       <View style={styles.stepperRow}>
-        {[25, 50, 100, 150, 200, 250, 500].map(amt => (
+        {['10', '20', '50', '100', '150', '200'].map(val => (
           <Pressable
-            key={amt}
+            key={val}
             style={styles.stepperChip}
-            onPress={() => setRoundsFired(String(amt))}
+            onPress={() => setRoundsFired(val)}
           >
-            <Text style={styles.stepperText}>{amt} rds</Text>
+            <Text style={styles.stepperText}>+{val}</Text>
           </Pressable>
         ))}
       </View>
 
-      {/* 4. Notes */}
-      <Text style={styles.sectionHeader}>4. Target / Session Notes</Text>
+      {/* 4. Notes & Target Photo */}
+      <Text style={styles.sectionHeader}>4. Notes & Target Image</Text>
       <TextInput
         style={styles.textArea}
+        placeholder="Session notes, zero adjustments, target groupings, conditions..."
+        placeholderTextColor="#64748b"
         multiline
         numberOfLines={3}
         value={notes}
         onChangeText={setNotes}
-        placeholder="e.g. 25 yards zeroing, tight 1-inch grouping, ran flawlessly..."
-        placeholderTextColor="#64748b"
       />
 
-      {/* 5. Target Photo */}
       <Pressable style={styles.photoButton} onPress={takePhoto}>
         <Ionicons name="camera" size={18} color="#fff" style={{ marginRight: 8 }} />
         <Text style={styles.photoBtnText}>{photo ? 'Retake Target Photo' : 'Capture Target / Grouping Photo'}</Text>

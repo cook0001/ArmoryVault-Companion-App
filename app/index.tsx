@@ -1,328 +1,300 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import {
+  CartridgesIcon,
+  GunpowderIcon,
+  SafeIcon,
+} from './components/CustomMobileIcons';
+import { useSync } from '../context/SyncContext';
 
 export default function Home() {
   const router = useRouter();
-  const [syncedIp, setSyncedIp] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState<boolean | null>(null);
-  const [desktopDevice, setDesktopDevice] = useState<string | null>(null);
-  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
-  const [dashboardStats, setDashboardStats] = useState<{firearms: number, ammo: number, components: number, skus?: number} | null>(null);
-  const [syncProgress, setSyncProgress] = useState<string | null>(null);
-  const [lastCacheTime, setLastCacheTime] = useState<string | null>(null);
+  const {
+    syncedIp,
+    isOnline,
+    isVaultLocked,
+    desktopDevice,
+    offlineQueueCount,
+    dashboardStats,
+    syncProgress,
+    lastCacheTime,
+    lastSyncTime,
+    isSyncing,
+    autoSyncEnabled,
+    triggerSync,
+    loadStatus,
+    refreshCache,
+    remoteLockVault,
+  } = useSync();
+
   const [refreshing, setRefreshing] = useState(false);
+  const [showLockConfirmModal, setShowLockConfirmModal] = useState(false);
+  const [isLocking, setIsLocking] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       loadStatus();
-    }, [])
+    }, [loadStatus])
   );
-
-  const loadStatus = async () => {
-    try {
-      const ip = await AsyncStorage.getItem('server_ip');
-      setSyncedIp(ip);
-
-      const queue = await AsyncStorage.getItem('offline_queue');
-      if (queue) {
-        const parsed = JSON.parse(queue);
-        setOfflineQueueCount(parsed.length || 0);
-      } else {
-        setOfflineQueueCount(0);
-      }
-      
-      const cachedStats = await AsyncStorage.getItem('dashboard_cache');
-      if (cachedStats) {
-        setDashboardStats(JSON.parse(cachedStats));
-      }
-
-      const cacheTime = await AsyncStorage.getItem('inventory_cache_time');
-      if (cacheTime) {
-        setLastCacheTime(cacheTime);
-      }
-      
-      if (ip) {
-        // Ping desktop server with timeout
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
-          const pingRes = await fetch(`${ip}/api/ping`, { signal: controller.signal });
-          clearTimeout(timeoutId);
-
-          if (pingRes.ok) {
-            const data = await pingRes.json();
-            setIsOnline(true);
-            if (data.device) setDesktopDevice(data.device);
-
-            // Server is confirmed online; fetch summary stats and offline cache in background
-            fetch(`${ip}/api/inventory/summary`)
-              .then(async res => {
-                if (!res.ok) return null;
-                const text = await res.text();
-                try { return JSON.parse(text); } catch { return null; }
-              })
-              .then(summaryData => {
-                if (summaryData && summaryData.success) {
-                  const stats = { firearms: summaryData.firearms, ammo: summaryData.ammo, components: summaryData.components };
-                  setDashboardStats(stats);
-                  AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
-                }
-              })
-              .catch(() => {});
-
-            fetch(`${ip}/api/inventory/cache`)
-              .then(async res => {
-                if (!res.ok) return null;
-                const text = await res.text();
-                try { return JSON.parse(text); } catch { return null; }
-              })
-              .then(cacheData => {
-                if (cacheData && cacheData.success) {
-                  AsyncStorage.setItem('inventory_cache', JSON.stringify(cacheData));
-                  const now = new Date().toLocaleTimeString();
-                  setLastCacheTime(now);
-                  AsyncStorage.setItem('inventory_cache_time', now);
-                  
-                  const skuCount = cacheData.skus ? Object.keys(cacheData.skus).length : 0;
-                  setDashboardStats(prev => ({
-                    firearms: cacheData.firearms?.length || prev?.firearms || 0,
-                    ammo: (cacheData.ammo || []).reduce((sum: number, a: any) => sum + (Number(a.count) || 0), 0),
-                    components: cacheData.components?.length || prev?.components || 0,
-                    skus: skuCount
-                  }));
-                }
-              })
-              .catch(() => {});
-          } else {
-            setIsOnline(false);
-          }
-        } catch {
-          // Server offline or unreachable - remain in offline cache mode
-          setIsOnline(false);
-        }
-      } else {
-        setIsOnline(false);
-      }
-    } catch (e) {
-      console.warn('loadStatus error:', e);
-    }
-  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadStatus();
+    if (syncedIp && isOnline && !isVaultLocked) {
+      await refreshCache(true);
+    }
     setRefreshing(false);
   };
 
-  const handleSyncNow = async () => {
-    if (!syncedIp) {
-      alert('Please pair with the desktop app first');
-      return;
-    }
-    
-    try {
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      let queue = queueStr ? JSON.parse(queueStr) : [];
-      
-      if (queue.length === 0) return;
+  const handleManualSync = async () => {
+    await triggerSync({ manual: true });
+  };
 
-      const chunkSize = 20;
-      let processedCount = 0;
-      let chunksTotal = Math.ceil(queue.length / chunkSize);
-
-      for (let i = 0; i < chunksTotal; i++) {
-        setSyncProgress(`Syncing chunk ${i + 1} of ${chunksTotal}...`);
-        const chunk = queue.slice(0, chunkSize);
-        
-        const response = await fetch(`${syncedIp}/api/sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ items: chunk }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'No response body');
-          throw new Error(`Server returned ${response.status}: ${errorText}`);
-        }
-
-        const data = await response.json();
-        if (data.success) {
-          processedCount += data.processed || chunk.length;
-          queue = queue.slice(chunkSize);
-          await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
-          setOfflineQueueCount(queue.length);
-        } else {
-           throw new Error('Sync endpoint returned success: false');
-        }
-      }
-
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSyncProgress(null);
-      alert(`Successfully synced ${processedCount} items to desktop!`);
-      loadStatus();
-
-    } catch (e: any) {
-      console.error(e);
-      setSyncProgress(null);
-      if (e.message && e.message.includes('Network request failed')) {
-        alert(`Network Error: Ensure your phone and PC are on the same Wi-Fi network.`);
-      } else {
-        alert(`Sync error: ${e.message}`);
-      }
-    }
+  const handleExecuteRemoteLock = async () => {
+    setIsLocking(true);
+    await remoteLockVault();
+    setIsLocking(false);
+    setShowLockConfirmModal(false);
   };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
-    >
-      {/* 1. Connection Status Beacon */}
-      <View style={styles.connectionBanner}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <View style={[styles.beaconDot, isOnline ? styles.beaconOnline : styles.beaconOffline]} />
-          <View>
-            <Text style={styles.beaconStatusText}>
-              {isOnline ? 'VAULT SERVER ONLINE' : syncedIp ? 'OFFLINE CACHE MODE' : 'NOT PAIRED'}
-            </Text>
-            <Text style={styles.beaconSubText}>
-              {desktopDevice ? `${desktopDevice} (${syncedIp})` : syncedIp ? syncedIp : 'Scan Desktop QR to pair'}
-            </Text>
-          </View>
-        </View>
-
-        {!syncedIp && (
-          <Pressable style={styles.pairButton} onPress={() => router.push('/scanner')}>
-            <Ionicons name="qr-code-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-            <Text style={styles.pairButtonText}>Pair</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* 2. Hero Pending Sync Card */}
-      {offlineQueueCount > 0 && (
-        <View style={styles.syncCard}>
-          <View style={styles.syncCardHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{offlineQueueCount}</Text>
-              </View>
-              <Text style={styles.syncCardTitle}>Pending Offline Changes</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0f172a' }} edges={['top']}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
+        {/* ─── Hero Landing Section ─── */}
+        <View style={styles.heroSection}>
+          {/* Shield Brand */}
+          <View style={styles.heroBrandRow}>
+            <View style={styles.heroShield}>
+              <Ionicons name="shield-checkmark" size={32} color="#34d399" />
+            </View>
+            <View>
+              <Text style={styles.heroTitle}>ArmoryVault</Text>
+              <Text style={styles.heroSubtitle}>Field Companion</Text>
             </View>
           </View>
-          <Text style={styles.syncCardDesc}>
-            Range trips, stock adjustments, and scans saved locally on device.
-          </Text>
 
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-            <Pressable style={[styles.syncActionBtn, { backgroundColor: '#334155' }]} onPress={() => router.push('/outbox')}>
-              <Text style={styles.syncActionBtnText}>Review ({offlineQueueCount})</Text>
-            </Pressable>
+          {/* Connection Status Pill */}
+          <Pressable 
+            style={[
+              styles.heroStatusPill,
+              isVaultLocked ? styles.statusPillLocked : isOnline ? styles.statusPillOnline : styles.statusPillOffline
+            ]}
+            onPress={!syncedIp ? () => router.push('/scanner') : undefined}
+          >
+            <View style={[
+              styles.heroPillDot, 
+              { backgroundColor: isVaultLocked ? '#ef4444' : isOnline ? '#34d399' : syncedIp ? '#fbbf24' : '#64748b' }
+            ]} />
+            <Text style={styles.heroPillText}>
+              {isVaultLocked ? 'VAULT LOCKED' : isOnline ? 'CONNECTED' : syncedIp ? 'OFFLINE MODE' : 'TAP TO PAIR'}
+            </Text>
+            {isOnline && !isVaultLocked && autoSyncEnabled && (
+              <View style={{ backgroundColor: 'rgba(52,211,153,0.3)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 4 }}>
+                <Text style={{ color: '#34d399', fontSize: 8, fontWeight: '800' }}>SYNC</Text>
+              </View>
+            )}
+          </Pressable>
 
-            <Pressable 
-              style={[styles.syncActionBtn, { backgroundColor: syncProgress ? '#64748b' : '#10b981', flex: 1.2 }]}
-              onPress={syncProgress ? undefined : handleSyncNow}
-            >
-              <Ionicons name="cloud-upload-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.syncActionBtnText}>
-                {syncProgress ? syncProgress : 'Sync to Desktop'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
-      {/* 3. Action Hub Grid */}
-      <Text style={styles.sectionHeader}>Vault Quick Actions</Text>
-      <View style={styles.gridContainer}>
-        {/* Universal Scan */}
-        <Pressable style={styles.gridCard} onPress={() => router.push('/scanner')}>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
-            <Ionicons name="barcode-outline" size={24} color="#3b82f6" />
-          </View>
-          <Text style={styles.gridCardTitle}>Universal Scan</Text>
-          <Text style={styles.gridCardSub}>Barcodes & QR Labels</Text>
-        </Pressable>
-
-        {/* Range Companion */}
-        <Pressable style={styles.gridCard} onPress={() => router.push('/range')}>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-            <Ionicons name="flash-outline" size={24} color="#10b981" />
-          </View>
-          <Text style={styles.gridCardTitle}>Range Mode</Text>
-          <Text style={styles.gridCardSub}>Log Sessions & Targets</Text>
-        </Pressable>
-
-        {/* Firearms Vault */}
-        <Pressable style={styles.gridCard} onPress={() => router.push('/firearms')}>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
-            <Ionicons name="shield-checkmark-outline" size={24} color="#a855f7" />
-          </View>
-          <Text style={styles.gridCardTitle}>Firearms Vault</Text>
-          <Text style={styles.gridCardSub}>
-            {dashboardStats ? `${dashboardStats.firearms} Registered` : 'Browse Guns'}
-          </Text>
-        </Pressable>
-
-        {/* Ammo & Supplies */}
-        <Pressable style={styles.gridCard} onPress={() => router.push('/inventory')}>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-            <Ionicons name="cube-outline" size={24} color="#f59e0b" />
-          </View>
-          <Text style={styles.gridCardTitle}>Ammo & Supplies</Text>
-          <Text style={styles.gridCardSub}>
-            {dashboardStats ? `${dashboardStats.ammo.toLocaleString()} rds cached` : 'Stock & Powders'}
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* 4. Inventory Cache Overview */}
-      <View style={styles.overviewCard}>
-        <View style={styles.overviewHeader}>
-          <Text style={styles.overviewTitle}>Cached Vault Summary</Text>
-          {lastCacheTime && (
-            <Text style={styles.cacheTimeBadge}>✓ Synced {lastCacheTime}</Text>
+          {desktopDevice && (
+            <Text style={styles.heroDeviceText}>
+              {desktopDevice} • {syncedIp}
+            </Text>
           )}
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{dashboardStats?.firearms || 0}</Text>
-            <Text style={styles.statLabel}>Firearms</Text>
+        {/* ─── Vault Stats Bar ─── */}
+        <View style={styles.statsBar}>
+          <View style={styles.statBlock}>
+            <SafeIcon size={16} color="#a78bfa" />
+            <Text style={styles.statBlockNumber}>{dashboardStats?.firearms || 0}</Text>
+            <Text style={styles.statBlockLabel}>Firearms</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{(dashboardStats?.ammo || 0).toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Rounds</Text>
+          <View style={styles.statsBarDivider} />
+          <View style={styles.statBlock}>
+            <CartridgesIcon size={16} color="#f59e0b" />
+            <Text style={styles.statBlockNumber}>{(dashboardStats?.ammo || 0).toLocaleString()}</Text>
+            <Text style={styles.statBlockLabel}>Rounds</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{dashboardStats?.components || 0}</Text>
-            <Text style={styles.statLabel}>Components</Text>
+          <View style={styles.statsBarDivider} />
+          <View style={styles.statBlock}>
+            <GunpowderIcon size={16} color="#60a5fa" />
+            <Text style={styles.statBlockNumber}>{dashboardStats?.components || 0}</Text>
+            <Text style={styles.statBlockLabel}>Components</Text>
           </View>
         </View>
-      </View>
 
-      {/* Outbox Bottom Banner */}
-      <Pressable style={styles.outboxBar} onPress={() => router.push('/outbox')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="file-tray-full-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
-          <Text style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: 14 }}>Offline Sync Outbox</Text>
+        {/* ─── Remote Lock + Pair Actions ─── */}
+        {isOnline && !isVaultLocked && (
+          <Pressable 
+            style={styles.remoteLockBannerBtn} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+              setShowLockConfirmModal(true);
+            }}
+          >
+            <Ionicons name="lock-closed" size={14} color="#f87171" style={{ marginRight: 6 }} />
+            <Text style={{ color: '#f87171', fontSize: 12, fontWeight: '700' }}>Remote Lock Desktop</Text>
+          </Pressable>
+        )}
+
+        {/* ─── Hero Pending Sync Card ─── */}
+        {offlineQueueCount > 0 && (
+          <View style={styles.syncCard}>
+            <View style={styles.syncCardHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingBadgeText}>{offlineQueueCount}</Text>
+                </View>
+                <Text style={styles.syncCardTitle}>Pending Offline Changes</Text>
+              </View>
+            </View>
+            <Text style={styles.syncCardDesc}>
+              {isOnline && autoSyncEnabled && !isVaultLocked
+                ? 'Transmitting changes to desktop automatically in the background...'
+                : 'Range trips, stock adjustments, and scans saved locally on device.'}
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <Pressable style={[styles.syncActionBtn, { backgroundColor: '#334155' }]} onPress={() => router.push('/outbox')}>
+                <Text style={styles.syncActionBtnText}>Review ({offlineQueueCount})</Text>
+              </Pressable>
+
+              <Pressable 
+                style={[
+                  styles.syncActionBtn, 
+                  { backgroundColor: (isSyncing || syncProgress || isVaultLocked) ? '#64748b' : '#10b981', flex: 1.2 }
+                ]}
+                onPress={(isSyncing || syncProgress || isVaultLocked) ? undefined : handleManualSync}
+              >
+                <Ionicons 
+                  name={isSyncing ? "sync" : "cloud-upload-outline"} 
+                  size={16} 
+                  color="#fff" 
+                  style={{ marginRight: 6 }} 
+                />
+                <Text style={styles.syncActionBtnText}>
+                  {syncProgress ? syncProgress : isSyncing ? 'Syncing...' : isVaultLocked ? 'Desktop Locked' : 'Sync to Desktop'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* ─── Companion Action Grid ─── */}
+        <Text style={styles.sectionHeader}>Companion Tools</Text>
+        <View style={styles.gridContainer}>
+          {/* Universal Scan */}
+          <Pressable style={styles.gridCard} onPress={() => router.push('/scanner')}>
+            <View style={[styles.iconCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+              <Ionicons name="barcode-outline" size={24} color="#38bdf8" />
+            </View>
+            <Text style={styles.gridCardTitle}>Universal Scan</Text>
+            <Text style={styles.gridCardSub}>Barcodes & QR Labels</Text>
+          </Pressable>
+
+          {/* Range Companion */}
+          <Pressable style={styles.gridCard} onPress={() => router.push('/range')}>
+            <View style={[styles.iconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+              <Ionicons name="locate-outline" size={24} color="#10b981" />
+            </View>
+            <Text style={styles.gridCardTitle}>Range Mode</Text>
+            <Text style={styles.gridCardSub}>Log Sessions & Targets</Text>
+          </Pressable>
+
+          {/* Firearms Vault */}
+          <Pressable style={styles.gridCard} onPress={() => router.push('/firearms')}>
+            <View style={[styles.iconCircle, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
+              <SafeIcon size={24} color="#a855f7" />
+            </View>
+            <Text style={styles.gridCardTitle}>Firearms Vault</Text>
+            <Text style={styles.gridCardSub}>
+              {dashboardStats ? `${dashboardStats.firearms} Registered` : 'Browse Guns'}
+            </Text>
+          </Pressable>
+
+          {/* Ammo & Supplies */}
+          <Pressable style={styles.gridCard} onPress={() => router.push('/inventory')}>
+            <View style={[styles.iconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+              <CartridgesIcon size={24} color="#f59e0b" />
+            </View>
+            <Text style={styles.gridCardTitle}>Ammo & Supplies</Text>
+            <Text style={styles.gridCardSub}>
+              {dashboardStats ? `${dashboardStats.ammo.toLocaleString()} rds cached` : 'Stock & Powders'}
+            </Text>
+          </Pressable>
+
+          {/* Bench Voice Memos */}
+          <Pressable style={styles.gridCard} onPress={() => router.push('/voice-memos')}>
+            <View style={[styles.iconCircle, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
+              <Ionicons name="mic-outline" size={24} color="#c084fc" />
+            </View>
+            <Text style={styles.gridCardTitle}>Voice Memos</Text>
+            <Text style={styles.gridCardSub}>Air-Gapped Audio Logs</Text>
+          </Pressable>
+
+          {/* Offline Sync Outbox */}
+          <Pressable style={styles.gridCard} onPress={() => router.push('/outbox')}>
+            <View style={[styles.iconCircle, { backgroundColor: offlineQueueCount > 0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(148, 163, 184, 0.15)' }]}>
+              <Ionicons 
+                name="cloud-upload-outline" 
+                size={24} 
+                color={offlineQueueCount > 0 ? '#38bdf8' : '#94a3b8'} 
+              />
+            </View>
+            <Text style={styles.gridCardTitle}>Sync Outbox</Text>
+            <Text style={styles.gridCardSub}>
+              {offlineQueueCount === 0 ? '0 Pending Items' : `${offlineQueueCount} Pending ${offlineQueueCount === 1 ? 'Item' : 'Items'}`}
+            </Text>
+          </Pressable>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 13, marginRight: 4 }}>
-            {offlineQueueCount} Items
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
-        </View>
-      </Pressable>
-    </ScrollView>
+
+        {/* Remote Lock Confirmation Modal */}
+        <Modal visible={showLockConfirmModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalIconBox}>
+                <Ionicons name="lock-closed" size={32} color="#f87171" />
+              </View>
+              
+              <Text style={styles.modalTitle}>Remote Lock Desktop Vault?</Text>
+              
+              <Text style={styles.modalBody}>
+                This will immediately lock the database on <Text style={{ color: '#fff', fontWeight: 'bold' }}>{desktopDevice || 'Desktop'}</Text> and purge master encryption keys from PC memory. Your mobile offline cache will remain available for range use.
+              </Text>
+
+              <View style={{ width: '100%', gap: 8, marginTop: 16 }}>
+                <Pressable 
+                  style={[styles.confirmLockBtn, isLocking && { opacity: 0.6 }]} 
+                  onPress={handleExecuteRemoteLock}
+                  disabled={isLocking}
+                >
+                  <Ionicons name="lock-closed-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.confirmLockBtnText}>
+                    {isLocking ? 'Locking Desktop...' : 'Yes, Lock Desktop Vault'}
+                  </Text>
+                </Pressable>
+
+                <Pressable 
+                  style={styles.cancelLockBtn} 
+                  onPress={() => setShowLockConfirmModal(false)}
+                  disabled={isLocking}
+                >
+                  <Text style={styles.cancelLockBtnText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -332,98 +304,171 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#0f172a',
   },
-  connectionBanner: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 14,
+  /* ─── Hero Landing Section ─── */
+  heroSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(100,116,139,0.15)',
+  },
+  heroBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    gap: 14,
+    marginBottom: 14,
+  },
+  heroShield: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: 'rgba(52,211,153,0.1)',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(52,211,153,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  beaconDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 10,
-  },
-  beaconOnline: {
-    backgroundColor: '#10b981',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  beaconOffline: {
-    backgroundColor: '#f59e0b',
-  },
-  beaconStatusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#cbd5e1',
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#f8fafc',
     letterSpacing: 0.5,
   },
-  beaconSubText: {
+  heroSubtitle: {
     fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 1,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
   },
-  pairButton: {
-    backgroundColor: '#3b82f6',
+  heroStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 6,
   },
-  pairButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+  statusPillOnline: {
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    borderColor: 'rgba(52,211,153,0.3)',
   },
+  statusPillLocked: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderColor: 'rgba(239,68,68,0.3)',
+  },
+  statusPillOffline: {
+    backgroundColor: 'rgba(100,116,139,0.1)',
+    borderColor: 'rgba(100,116,139,0.2)',
+  },
+  heroPillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  heroPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#e2e8f0',
+    letterSpacing: 0.8,
+  },
+  heroDeviceText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+
+  /* ─── Vault Stats Bar ─── */
+  statsBar: {
+    flexDirection: 'row',
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginVertical: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  statBlock: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 2,
+  },
+  statBlockNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#f8fafc',
+    marginTop: 2,
+  },
+  statBlockLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+  },
+  statsBarDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(100,116,139,0.2)',
+  },
+
+  remoteLockBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+    marginBottom: 14,
+  },
+
+  /* ─── Pending Sync Card ─── */
   syncCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: '#334155',
   },
   syncCardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 6,
   },
   pendingBadge: {
-    backgroundColor: '#ef4444',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
     marginRight: 8,
   },
   pendingBadgeText: {
     color: '#fff',
-    fontSize: 11,
     fontWeight: 'bold',
+    fontSize: 12,
   },
   syncCardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#f8fafc',
   },
   syncCardDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94a3b8',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   syncActionBtn: {
-    paddingVertical: 11,
+    paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -432,111 +477,117 @@ const styles = StyleSheet.create({
   },
   syncActionBtnText: {
     color: '#fff',
-    fontWeight: 'bold',
     fontSize: 13,
+    fontWeight: '700',
   },
+
+  /* ─── Action Grid ─── */
   sectionHeader: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#94a3b8',
+    fontWeight: '700',
+    color: '#64748b',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-    paddingHorizontal: 2,
+    letterSpacing: 0.8,
+    marginBottom: 12,
   },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 18,
   },
   gridCard: {
-    width: '48%',
     backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
+    width: '48%',
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
   },
   iconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   gridCardTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#f8fafc',
+    marginBottom: 2,
   },
   gridCardSub: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 2,
+    fontSize: 11,
+    color: '#64748b',
   },
-  overviewCard: {
+
+  /* ─── Remote Lock Modal ─── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
     backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 22,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  modalIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 14,
   },
-  overviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  overviewTitle: {
-    fontSize: 14,
+  modalTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#f8fafc',
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  cacheTimeBadge: {
-    color: '#10b981',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-  },
-  statLabel: {
-    fontSize: 12,
+  modalBody: {
+    fontSize: 13,
     color: '#94a3b8',
-    marginTop: 2,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 12,
   },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: '#334155',
-  },
-  outboxBar: {
-    backgroundColor: '#1e293b',
+  confirmLockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    paddingVertical: 13,
     borderRadius: 10,
-    padding: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    width: '100%',
+  },
+  confirmLockBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  cancelLockBtn: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 30,
-  }
+    justifyContent: 'center',
+    backgroundColor: '#334155',
+    paddingVertical: 12,
+    borderRadius: 10,
+    width: '100%',
+  },
+  cancelLockBtnText: {
+    color: '#cbd5e1',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
 });

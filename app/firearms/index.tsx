@@ -101,8 +101,9 @@ export default function FirearmsScreen() {
                 <Text style={styles.makeLabel}>{item.make}</Text>
                 <Text style={styles.modelTitle}>{item.model}</Text>
               </View>
-              <View style={styles.roundsBadge}>
-                <Text style={styles.roundsBadgeText}>🎯 {item.total_rounds || 0} rds</Text>
+              <View style={[styles.roundsBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                <Ionicons name="locate-outline" size={11} color="#34d399" />
+                <Text style={styles.roundsBadgeText}>{item.total_rounds || 0} rds</Text>
               </View>
             </View>
 

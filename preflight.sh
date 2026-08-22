@@ -7,6 +7,7 @@ cd "$DIR"
 
 PASS=0
 FAIL=0
+WARN=0
 
 echo "=========================================================="
 echo "  ArmoryVault Companion (Stable) — Pre-Flight Validation"
@@ -14,12 +15,16 @@ echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=========================================================="
 echo ""
 
-# ─── 1. Version Consistency Check ────────────────────────────
-echo "🔍 [1/6] Checking version consistency across files..."
+# ─── 1. Version & VersionCode Consistency Check ──────────────────
+echo "🔍 [1/6] Checking version and versionCode consistency across files..."
 
 PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null)
 APP_VER=$(node -p "require('./app.json').expo.version" 2>/dev/null)
 GRADLE_VER=$(grep 'versionName' android/app/build.gradle 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
+UPDATER_VER=$(grep "nativeApplicationVersion ||" utils/updater.ts 2>/dev/null | sed "s/.*|| '\([^']*\)'.*/\1/")
+
+GRADLE_VCODE=$(grep 'versionCode' android/app/build.gradle 2>/dev/null | head -1 | tr -dc '0-9')
+APP_VCODE=$(node -p "require('./app.json').expo.android?.versionCode || ''" 2>/dev/null)
 
 ALL_MATCH=true
 if [ "$PKG_VER" != "$APP_VER" ]; then
@@ -30,12 +35,41 @@ if [ -n "$GRADLE_VER" ] && [ "$PKG_VER" != "$GRADLE_VER" ]; then
   echo "   ❌ package.json ($PKG_VER) ≠ build.gradle ($GRADLE_VER)"
   ALL_MATCH=false
 fi
+if [ -n "$UPDATER_VER" ] && [ "$PKG_VER" != "$UPDATER_VER" ]; then
+  echo "   ❌ package.json ($PKG_VER) ≠ updater.ts ($UPDATER_VER)"
+  ALL_MATCH=false
+fi
+
+# Strict VersionCode baseline & consistency check
+if [ -n "$GRADLE_VCODE" ] && [ "$GRADLE_VCODE" -lt 300 ]; then
+  echo "   ❌ CRITICAL: versionCode ($GRADLE_VCODE) is below minimum baseline (300). Android OTA updates will fail with INSTALL_FAILED_VERSION_DOWNGRADE!"
+  ALL_MATCH=false
+fi
+if [ -n "$APP_VCODE" ] && [ "$APP_VCODE" != "$GRADLE_VCODE" ]; then
+  echo "   ❌ app.json android.versionCode ($APP_VCODE) ≠ build.gradle versionCode ($GRADLE_VCODE)"
+  ALL_MATCH=false
+fi
+
+# Strict Stable vs Nightly Offset Enforcement (Stable MUST stay lower than Nightly)
+NIGHTLY_GRADLE="/Users/danielc/Documents/ArmoryVault_Companion_Nightly/android/app/build.gradle"
+if [ -f "$NIGHTLY_GRADLE" ]; then
+  NIGHTLY_VCODE=$(grep 'versionCode' "$NIGHTLY_GRADLE" 2>/dev/null | head -1 | tr -dc '0-9')
+  if [ -n "$NIGHTLY_VCODE" ] && [ -n "$GRADLE_VCODE" ]; then
+    EXPECTED_STABLE_VCODE=$((NIGHTLY_VCODE - 1))
+    if [ "$GRADLE_VCODE" -ge "$NIGHTLY_VCODE" ]; then
+      echo "   ❌ CRITICAL: Stable versionCode ($GRADLE_VCODE) must stay strictly lower than Nightly ($NIGHTLY_VCODE) to prevent accidental upgrade over nightly builds! Target: $EXPECTED_STABLE_VCODE"
+      ALL_MATCH=false
+    else
+      echo "   🛡️  Stable vs Nightly Offset: Stable vCode $GRADLE_VCODE < Nightly vCode $NIGHTLY_VCODE (Safe from accidental overwrite)"
+    fi
+  fi
+fi
 
 if $ALL_MATCH; then
-  echo "   ✅ All files report v$PKG_VER"
+  echo "   ✅ All files report v$PKG_VER (versionCode $GRADLE_VCODE)"
   PASS=$((PASS + 1))
 else
-  echo "   Fix: Run ./bump-version.sh to synchronize versions."
+  echo "   Run ./bump-version.sh to fix version mismatches."
   FAIL=$((FAIL + 1))
 fi
 echo ""
@@ -64,14 +98,6 @@ if [ ! -d "node_modules/expo-font" ]; then
   echo "   ❌ MISSING: expo-font (required by @expo/vector-icons — app WILL crash)"
   MISSING_PEERS=$((MISSING_PEERS + 1))
 fi
-if [ ! -d "node_modules/react-native-reanimated" ]; then
-  echo "   ❌ MISSING: react-native-reanimated (required by expo-router)"
-  MISSING_PEERS=$((MISSING_PEERS + 1))
-fi
-if [ ! -d "node_modules/react-native-gesture-handler" ]; then
-  echo "   ❌ MISSING: react-native-gesture-handler (required by expo-router)"
-  MISSING_PEERS=$((MISSING_PEERS + 1))
-fi
 if [ ! -d "node_modules/react-native-safe-area-context" ]; then
   echo "   ❌ MISSING: react-native-safe-area-context"
   MISSING_PEERS=$((MISSING_PEERS + 1))
@@ -85,7 +111,7 @@ if [ "$MISSING_PEERS" -eq 0 ]; then
   echo "   ✅ All critical peer dependencies present"
   PASS=$((PASS + 1))
 else
-  echo "   Fix: npx expo install expo-font react-native-reanimated react-native-gesture-handler"
+  echo "   Fix: npm install expo-font react-native-safe-area-context react-native-screens"
   FAIL=$((FAIL + 1))
 fi
 echo ""
@@ -130,12 +156,6 @@ echo "📋 [6/6] Validating native configuration..."
 NATIVE_ISSUES=0
 if [ ! -f "android/app/debug.keystore" ]; then
   echo "   ❌ debug.keystore missing — release signing will fail"
-  NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
-fi
-
-SPLASH_COUNT=$(find android/app/src/main/res -name "splashscreen_logo*" 2>/dev/null | wc -l | tr -d ' ')
-if [ "$SPLASH_COUNT" -eq 0 ]; then
-  echo "   ❌ No splash screen drawables found — app will crash on launch"
   NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
 fi
 

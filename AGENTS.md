@@ -19,3 +19,13 @@ Always use `npm` for installing dependencies. Do NOT use `yarn` or `pnpm`. This 
 
 # Desktop Sync Compatibility
 Any changes to JSON payloads, database schemas, or API routes used for syncing with the ArmoryVault Desktop app MUST be backwards compatible. If breaking changes are absolutely required, you MUST also update the ArmoryVault Desktop Electron app in tandem to match. If the desktop app repository is not currently open, ask the user for its path so you can update it simultaneously.
+
+# 7. Icon System & Emoji Ban (Strict)
+- **Zero Emoji Placeholders**: NEVER use raw emojis (e.g., 🎯, 🛡️, 🤝, 🎖️, ⏳, 🔇, 🔭, 📐, 📍, ℹ️, ✔, ⚠️, 📦, 🏷️, 🔑, etc.) as icon placeholders in UI navigation, filter chips, headers, badges, stat cards, tables, or buttons across both Desktop and Mobile applications.
+- **Custom & Vector Icons Only**: Always use dedicated custom SVG icon components (e.g., from `src/components/CustomIcons.tsx` or `app/components/CustomIcons.tsx`) or standard vector icon libraries (`lucide-react` on Desktop, `@expo/vector-icons` / Ionicons on Mobile). Maintain consistent theme colors, stroke weights, and sizing across all views.
+
+# 8. Android Native VersionCode Monotonic Increase (Strict)
+- **Strict VersionCode Increment**: In `android/app/build.gradle` and `app.json`, `versionCode` MUST strictly increment with every build and NEVER be decremented, reset, or set below the established production baseline (currently `>= 300`). Setting a `versionCode` lower than or equal to an installed build causes Android PackageInstaller and the in-app OTA updater to immediately reject APK installations with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed / Update not installed").
+- **Stable vs Nightly Offset**: The Stable release build `versionCode` MUST strictly stay exactly one code version lower than the corresponding Nightly build (e.g., Nightly `versionCode 301` → Stable `versionCode 300`).
+
+

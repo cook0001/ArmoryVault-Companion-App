@@ -4,9 +4,15 @@ import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { CartridgesIcon, GunpowderIcon } from '../components/CustomMobileIcons';
+import { useSync } from '../../context/SyncContext';
+import { useDialog } from '../../context/DialogContext';
 
 export default function InventoryScreen() {
   const router = useRouter();
+  const { addToQueue, refreshCache } = useSync();
+  const { showToast, showError } = useDialog();
+
   const [activeTab, setActiveTab] = useState<'ammo' | 'components'>('ammo');
   const [ammoList, setAmmoList] = useState<any[]>([]);
   const [componentsList, setComponentsList] = useState<any[]>([]);
@@ -40,25 +46,8 @@ export default function InventoryScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      const ip = await AsyncStorage.getItem('server_ip');
-      if (ip) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${ip}/api/inventory/cache`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success) {
-            await AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
-            setAmmoList(data.ammo || []);
-            setComponentsList(data.components || []);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Inventory cache refresh error (offline):', e);
-    }
+    await refreshCache(true);
+    await loadCachedInventory();
     setRefreshing(false);
   };
 
@@ -72,7 +61,7 @@ export default function InventoryScreen() {
     if (!adjustItem) return;
     const parsed = parseInt(adjustCount) || 0;
     if (parsed <= 0) {
-      alert('Please enter a valid count');
+      showError('Invalid Count', 'Please enter a valid quantity greater than 0.');
       return;
     }
 
@@ -85,17 +74,16 @@ export default function InventoryScreen() {
         timestamp: new Date().toISOString()
       };
 
-      const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newLog);
-      await AsyncStorage.setItem('offline_queue', JSON.stringify(queue));
+      await addToQueue(
+        newLog,
+        `Queued ${adjustAction === 'remove' ? '-' : '+'}${parsed} for sync!`
+      );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      alert(`Queued ${adjustAction === 'remove' ? '-' : '+'}${parsed} for sync!`);
       setAdjustItem(null);
     } catch (e) {
       console.error(e);
-      alert('Failed to save adjustment');
+      showError('Error', 'Failed to save adjustment');
     }
   };
 
@@ -130,7 +118,7 @@ export default function InventoryScreen() {
           style={[styles.tab, activeTab === 'ammo' && styles.activeTab]}
           onPress={() => setActiveTab('ammo')}
         >
-          <Ionicons name="cube-outline" size={16} color={activeTab === 'ammo' ? '#fff' : '#94a3b8'} style={{ marginRight: 6 }} />
+          <CartridgesIcon size={16} color={activeTab === 'ammo' ? '#fff' : '#94a3b8'} style={{ marginRight: 6 }} />
           <Text style={[styles.tabText, activeTab === 'ammo' && styles.activeTabText]}>
             Ammunition ({ammoList.length})
           </Text>
@@ -140,7 +128,7 @@ export default function InventoryScreen() {
           style={[styles.tab, activeTab === 'components' && styles.activeTab]}
           onPress={() => setActiveTab('components')}
         >
-          <Ionicons name="flask-outline" size={16} color={activeTab === 'components' ? '#fff' : '#94a3b8'} style={{ marginRight: 6 }} />
+          <GunpowderIcon size={16} color={activeTab === 'components' ? '#fff' : '#94a3b8'} style={{ marginRight: 6 }} />
           <Text style={[styles.tabText, activeTab === 'components' && styles.activeTabText]}>
             Reloading ({componentsList.length})
           </Text>
@@ -148,15 +136,14 @@ export default function InventoryScreen() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#94a3b8" style={{ marginRight: 8 }} />
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={18} color="#64748b" style={{ marginRight: 8 }} />
         <TextInput
           style={styles.searchInput}
-          placeholder={activeTab === 'ammo' ? 'Search caliber, brand, bullet type...' : 'Search components, powders, primers...'}
+          placeholder={activeTab === 'ammo' ? "Filter by caliber, brand, bullet..." : "Filter by name, manufacturer..."}
           placeholderTextColor="#64748b"
           value={searchQuery}
           onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
         />
         {searchQuery.length > 0 && (
           <Pressable onPress={() => setSearchQuery('')}>
@@ -186,7 +173,7 @@ export default function InventoryScreen() {
           data={filteredAmmo}
           keyExtractor={(item) => String(item.id)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -239,7 +226,7 @@ export default function InventoryScreen() {
           data={filteredComponents}
           keyExtractor={(item) => String(item.id)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -319,38 +306,41 @@ export default function InventoryScreen() {
                   </Pressable>
                 </View>
 
-                {/* Count Input */}
+                {/* Stepper Input */}
                 <TextInput
                   style={styles.modalInput}
-                  keyboardType="number-pad"
+                  keyboardType="numeric"
                   value={adjustCount}
                   onChangeText={setAdjustCount}
-                  autoFocus
+                  selectTextOnFocus
                 />
 
-                {/* Quick Steppers */}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 20 }}>
-                  {(adjustItem.isAmmo ? [20, 50, 100, 250, 500, 1400] : [1, 50, 100, 500, 1000]).map(amt => (
+                {/* Preset Chips */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                  {(adjustItem.isAmmo ? ['20', '50', '100', '250', '500'] : ['50', '100', '500', '1000']).map(val => (
                     <Pressable
-                      key={amt}
+                      key={val}
                       style={styles.stepperChip}
-                      onPress={() => setAdjustCount(String(amt))}
+                      onPress={() => setAdjustCount(val)}
                     >
-                      <Text style={styles.stepperText}>{amt}</Text>
+                      <Text style={styles.stepperText}>{val}</Text>
                     </Pressable>
                   ))}
                 </View>
 
                 {/* Modal Buttons */}
                 <View style={styles.modalButtons}>
-                  <Pressable style={[styles.modalBtn, { backgroundColor: '#475569' }]} onPress={() => setAdjustItem(null)}>
+                  <Pressable
+                    style={[styles.modalBtn, { backgroundColor: '#334155' }]}
+                    onPress={() => setAdjustItem(null)}
+                  >
                     <Text style={styles.modalBtnText}>Cancel</Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.modalBtn, { backgroundColor: adjustAction === 'remove' ? '#ef4444' : '#10b981' }]}
+                    style={[styles.modalBtn, { backgroundColor: adjustAction === 'remove' ? '#dc2626' : '#10b981' }]}
                     onPress={handleSaveAdjustment}
                   >
-                    <Text style={styles.modalBtnText}>{adjustAction === 'remove' ? 'Deduct' : 'Add'}</Text>
+                    <Text style={styles.modalBtnText}>Save</Text>
                   </Pressable>
                 </View>
               </>
@@ -378,13 +368,13 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     flexDirection: 'row',
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
     borderRadius: 8,
   },
   activeTab: {
-    backgroundColor: '#334155',
+    backgroundColor: '#3b82f6',
   },
   tabText: {
     color: '#94a3b8',
@@ -392,15 +382,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   activeTabText: {
-    color: '#f8fafc',
+    color: '#ffffff',
   },
-  searchContainer: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#334155',
     marginBottom: 10,
@@ -408,7 +398,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: '#f8fafc',
-    fontSize: 15,
+    fontSize: 14,
   },
   chipRow: {
     flexDirection: 'row',
@@ -416,15 +406,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   chip: {
-    backgroundColor: '#1e293b',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: 16,
+    backgroundColor: '#1e293b',
     borderWidth: 1,
     borderColor: '#334155',
   },
   activeChip: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
   },
   chipText: {
@@ -433,21 +423,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeChipText: {
-    color: '#60a5fa',
-    fontWeight: 'bold',
+    color: '#ffffff',
   },
   card: {
     backgroundColor: '#1e293b',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -456,47 +440,46 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   itemManufacturer: {
-    fontSize: 12,
-    fontWeight: 'bold',
     color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: 'bold',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   itemTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
     color: '#f8fafc',
+    fontSize: 16,
+    fontWeight: 'bold',
     marginTop: 2,
   },
   itemSubtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
+    color: '#cbd5e1',
+    fontSize: 13,
     marginTop: 2,
   },
   typeBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#334155',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginBottom: 4,
   },
   typeBadgeText: {
-    color: '#cbd5e1',
+    color: '#60a5fa',
     fontSize: 10,
     fontWeight: 'bold',
     textTransform: 'uppercase',
   },
   stockBadge: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#10b981',
-    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   stockBadgeText: {
-    color: '#10b981',
+    color: '#34d399',
     fontWeight: 'bold',
     fontSize: 13,
   },

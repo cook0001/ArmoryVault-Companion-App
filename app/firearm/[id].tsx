@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function FirearmScreen() {
   const { id } = useLocalSearchParams();
@@ -141,8 +142,9 @@ export default function FirearmScreen() {
                 <Text style={styles.serialBadgeText}>S/N: {firearmData.serial_number}</Text>
               </View>
             )}
-            <View style={styles.roundsBadge}>
-              <Text style={styles.roundsBadgeText}>🎯 {firearmData.total_rounds || 0} rds</Text>
+            <View style={[styles.roundsBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+              <Ionicons name="locate-outline" size={11} color="#34d399" />
+              <Text style={styles.roundsBadgeText}>{firearmData.total_rounds || 0} rds</Text>
             </View>
           </View>
         </View>

@@ -6,40 +6,55 @@ import { useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import LockedScreen from './locked';
 import { checkForUpdates } from '../utils/updater';
+import { DialogProvider } from '../context/DialogContext';
+import { SyncProvider } from '../context/SyncContext';
+import BottomTabBar from './components/BottomTabBar';
 
-export default function Layout() {
+function RootLayoutContent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [hasAuthHardware, setHasAuthHardware] = useState(false);
 
   useEffect(() => {
     checkDeviceAuth();
-    // Silently check for updates on startup
-    checkForUpdates(true);
+    // Silently check for updates on startup without blocking
+    try {
+      checkForUpdates(true).catch(() => {});
+    } catch {}
   }, []);
 
   const checkDeviceAuth = async () => {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-    if (compatible && enrolled) {
-      setHasAuthHardware(true);
-      handleAuthenticate();
-    } else {
-      setIsUnlocked(true); // No biometrics setup, proceed
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync().catch(() => false);
+      const enrolled = await LocalAuthentication.isEnrolledAsync().catch(() => false);
+      if (compatible && enrolled) {
+        setHasAuthHardware(true);
+        handleAuthenticate();
+      } else {
+        setIsUnlocked(true); // No biometrics setup, proceed
+      }
+    } catch (e) {
+      console.warn('Biometrics check error:', e);
+      setIsUnlocked(true);
     }
   };
 
   const handleAuthenticate = async () => {
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock ArmoryVault',
-      fallbackLabel: 'Use PIN',
-    });
-    if (result.success) {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock ArmoryVault',
+        fallbackLabel: 'Use PIN',
+      }).catch(() => ({ success: false }));
+      if (result && result.success) {
+        setIsUnlocked(true);
+      }
+    } catch (e) {
+      console.warn('Authentication error:', e);
       setIsUnlocked(true);
     }
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
       <Stack
         screenOptions={{
           headerStyle: {
@@ -49,47 +64,41 @@ export default function Layout() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+          contentStyle: {
+            backgroundColor: '#0f172a',
+          },
         }}
       >
         <Stack.Screen 
-        name="index" 
-        options={{ 
-          title: 'ArmoryVault Sync',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-          headerRight: () => (
-            <Link href="/settings" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                <Ionicons name="settings-outline" size={24} color="#fff" />
-              </Pressable>
-            </Link>
-          ),
-        }} 
-      />
-      <Stack.Screen 
-        name="settings" 
-        options={{ 
-          title: 'Settings',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />
-      <Stack.Screen 
-        name="scanner" 
-        options={{ 
-          title: 'Scan Item',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />
-      <Stack.Screen 
-        name="firearm/[id]" 
-        options={{ 
-          title: 'Firearm Log',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
-        }} 
-      />
+          name="index" 
+          options={{ 
+            headerShown: false,
+          }} 
+        />
+        <Stack.Screen 
+          name="settings" 
+          options={{ 
+            title: 'Settings',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen 
+          name="scanner" 
+          options={{ 
+            title: 'Scan Item',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
+        <Stack.Screen 
+          name="firearm/[id]" 
+          options={{ 
+            title: 'Firearm Log',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
         <Stack.Screen 
           name="outbox" 
           options={{ 
@@ -122,9 +131,18 @@ export default function Layout() {
             headerTintColor: '#fff',
           }} 
         />
+        <Stack.Screen 
+          name="voice-memos" 
+          options={{ 
+            title: 'Voice Memos',
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#fff',
+          }} 
+        />
         <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="component/[id]" options={{ title: 'Component Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
+      <BottomTabBar />
       {(!isUnlocked && hasAuthHardware) && (
         <View style={StyleSheet.absoluteFill}>
           <LockedScreen onUnlock={handleAuthenticate} />
@@ -132,5 +150,15 @@ export default function Layout() {
       )}
       <StatusBar style="light" />
     </View>
+  );
+}
+
+export default function Layout() {
+  return (
+    <DialogProvider>
+      <SyncProvider>
+        <RootLayoutContent />
+      </SyncProvider>
+    </DialogProvider>
   );
 }

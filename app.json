@@ -3,7 +3,7 @@
     "name": "ArmoryVault_Companion",
     "slug": "armoryvault-companion-app",
     "scheme": "armoryvault",
-    "version": "2.5.1",
+    "version": "2.6.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -24,8 +24,10 @@
     },
     "android": {
       "package": "com.armoryvault.companion",
-      "usesCleartextTraffic": true,
-      "permissions": ["REQUEST_INSTALL_PACKAGES"],
+      "versionCode": 300,
+      "permissions": [
+        "REQUEST_INSTALL_PACKAGES"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -49,7 +51,12 @@
           }
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-sharing",
+      "expo-mail-composer",
+      "expo-font",
+      "expo-audio",
+      "expo-asset"
     ],
     "extra": {
       "router": {},

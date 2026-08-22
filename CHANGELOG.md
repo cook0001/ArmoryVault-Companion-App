@@ -1,5 +1,14 @@
 # Changelog
- 
+
+## [2.6.0] - 2026-08-22
+### Added
+- **Air-Gapped Bench Voice Memos (`/voice-memos`)**: Native offline voice memo recorder using `expo-audio` SDK 57 engine with live audio waveform visualizers, firearm/lot tagging, and scoped local storage for capturing reloading notes and range thoughts hands-free.
+- **Floating Tactical Bottom Navigation (`BottomTabBar.tsx`)**: High-contrast, non-overlapping floating glassmorphism tab bar providing instant navigation across Home, Scanner, Vault, Ammo, and Outbox with zero element occlusion.
+- **Multi-Unit Barcode & Ammo Packaging Scanner (`/scanner`)**: Upgraded barcode scanner supporting custom package multipliers (`Boxes × Rounds/Box`), quick presets (20, 25, 50, 100, 250, 500, 1000 rds), packaging unit tags (`BOX`, `CAN`, `CASE`, `BRICK`), and instant inventory search drawer.
+- **Solid Tactical UI & Full-Width Dialog Standard**: Replaced default system dialogues with centered full-width modal dialogs (`DialogContext.tsx`) for destructive confirmations, sync prompts, and toast notifications.
+- **Strict Custom & Vector Icon Standard (Rule 7)**: Banned raw emoji placeholders across all screens in favor of dedicated themed vector icon components (`CartridgesIcon`, `GunpowderIcon`, `SafeIcon`, `Ionicons`).
+- **Android Native VersionCode Monotonic Standard (Rule 8)**: Baseline `versionCode >= 300` established (versionCode 300, maintained at exactly one code version below Nightly build 301) to guarantee clean, error-free OTA updates via the in-app updater.
+
 ## [2.5.1] - 2026-08-19
 ### Fixed
 - **Resilient Offline Cache & Network Handling**: Fixed noisy `java.net.ConnectException` and `CodedError` exceptions appearing on startup and screen focus when the desktop companion server is unreachable. Network pings and cache checks now use `AbortController` timeouts (2.5-4s) and gate background sync requests so the companion app transitions seamlessly and quietly into Offline Cache Mode.
