@@ -208,15 +208,39 @@ export default function ScannerScreen() {
         }
       }
 
-      // 1. Pairing QR Code
-      if (data.startsWith('armoryvault://sync')) {
-        const url = new URL(data);
-        const ip = url.searchParams.get('ip');
-        const port = url.searchParams.get('port');
-        const token = url.searchParams.get('token');
-        if (ip && port) {
-          await setServerIp(`http://${ip}:${port}`, token || undefined);
-          showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port}`);
+      // 1. Pairing QR Code (armoryvault://sync, armoryvault://pair, or http://...:3456)
+      const cleanData = (data || '').trim();
+      const lowerData = cleanData.toLowerCase();
+      if (
+        lowerData.startsWith('armoryvault://sync') ||
+        lowerData.startsWith('armoryvault://pair') ||
+        lowerData.includes(':3456')
+      ) {
+        let ip: string | null = null;
+        let port: string | null = '3456';
+        let token: string | null = null;
+
+        try {
+          // Normalize custom scheme to standard HTTP for universal WHATWG URL parsing
+          const httpUrlStr = cleanData.replace(/^armoryvault:\/\/(sync|pair)\??/i, 'http://dummy.local/?');
+          const parsedUrl = new URL(httpUrlStr);
+          ip = parsedUrl.searchParams.get('ip') || (parsedUrl.hostname !== 'dummy.local' ? parsedUrl.hostname : null);
+          port = parsedUrl.searchParams.get('port') || parsedUrl.port || '3456';
+          token = parsedUrl.searchParams.get('token');
+        } catch (e) {
+          // Robust regex fallback
+          const ipMatch = cleanData.match(/(?:ip=|\/\/)(1\d{2}\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|localhost|127\.0\.0\.1)/i);
+          const portMatch = cleanData.match(/port=(\d+)|:(\d{4,5})/i);
+          const tokenMatch = cleanData.match(/token=([a-zA-Z0-9_-]+)/i);
+          ip = ipMatch ? ipMatch[1] : null;
+          port = portMatch ? (portMatch[1] || portMatch[2]) : '3456';
+          token = tokenMatch ? tokenMatch[1] : null;
+        }
+
+        if (ip) {
+          const finalUrl = `http://${ip}:${port || '3456'}`;
+          await setServerIp(finalUrl, token || undefined);
+          showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port || '3456'}`);
           router.replace('/');
           return;
         }

@@ -115,7 +115,10 @@ export default function Settings() {
 
     setIsTesting(true);
     try {
-      const res = await fetch(`${url}/api/ping`, { method: 'GET' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${url}/api/ping`, { method: 'GET', signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
         await setServerIp(url);

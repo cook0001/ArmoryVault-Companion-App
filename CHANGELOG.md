@@ -1,4 +1,11 @@
 # Changelog
+## [2.6.0-nightly.47] - 2026-08-22 (Nightly Test Build)
+### Fixed
+- **Android Cleartext HTTP Traffic Unblocked (`android:usesCleartextTraffic="true"`)**:
+  - Configured `android:usesCleartextTraffic="true"` and `network_security_config.xml` in Android manifest and Expo config to permit direct Wi-Fi communication to desktop IP addresses (`http://192.168.x.x:3456`).
+  - Added universal pairing parser in `app/scanner.tsx` supporting case-insensitive QR codes, custom schemes, standard HTTP links, and fallback regex extraction.
+  - Added 6-second timeout abort protection to manual server connection tests in `app/settings.tsx`.
+
 ## [2.6.0-nightly.46] - 2026-08-22 (Nightly Test Build)
 ### Fixed
 - **Cache Refresh Return Value Fix (`context/SyncContext.tsx`)**:
