@@ -4,9 +4,12 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 
 # Version Control and Changelog
 
-After making any bug fixes or changes, ALWAYS automatically bump the version in `package.json`, `app.json`, and `android/app/build.gradle` (incrementing both `versionName` and `versionCode`) according to the versioning rules specified in `VersionControl`, and document the changes in `CHANGELOG.md`.
+After making any bug fixes or changes, ALWAYS automatically bump the version in `package.json`, `app.json`, and `android/app/build.gradle` (incrementing both `versionName` and strictly incrementing `versionCode` which must NEVER drop below 300) according to the versioning rules specified in `VersionControl`, and document the changes in `CHANGELOG.md`.
 
 Additionally, EVERY TIME before pushing to GitHub, you MUST ensure that the `CHANGELOG.md`, `README.md`, and `.gitignore` files are properly updated to reflect the new changes, scripts, or build artifacts.
+
+# Android Native VersionCode Monotonic Increase (Strict)
+In `android/app/build.gradle` and `app.json`, `versionCode` MUST strictly increment with every build and NEVER be decremented, reset, or set below the established production baseline (currently `>= 300`). Setting a `versionCode` lower than or equal to an installed build causes Android PackageInstaller and the in-app OTA updater to immediately reject APK installations with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed / Update not installed").
 
 # Native Android Integrity
 **Never blindly run `npx expo prebuild --clean`**. We have manually modified `android/app/build.gradle` (for native versioning) and other native files. Wiping the `android/` directory will destroy our custom native tweaks. You must explicitly back up and restore native modifications if you ever need to regenerate the native folders.

@@ -15,13 +15,16 @@ echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=========================================================="
 echo ""
 
-# ─── 1. Version Consistency Check ────────────────────────────
-echo "🔍 [1/6] Checking version consistency across files..."
+# ─── 1. Version & VersionCode Consistency Check ──────────────────
+echo "🔍 [1/6] Checking version and versionCode consistency across files..."
 
 PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null)
 APP_VER=$(node -p "require('./app.json').expo.version" 2>/dev/null)
 GRADLE_VER=$(grep 'versionName' android/app/build.gradle 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
 UPDATER_VER=$(grep "nativeApplicationVersion ||" utils/updater.ts 2>/dev/null | sed "s/.*|| '\([^']*\)'.*/\1/")
+
+GRADLE_VCODE=$(grep 'versionCode' android/app/build.gradle 2>/dev/null | head -1 | tr -dc '0-9')
+APP_VCODE=$(node -p "require('./app.json').expo.android?.versionCode || ''" 2>/dev/null)
 
 ALL_MATCH=true
 if [ "$PKG_VER" != "$APP_VER" ]; then
@@ -37,8 +40,36 @@ if [ -n "$UPDATER_VER" ] && [ "$PKG_VER" != "$UPDATER_VER" ]; then
   ALL_MATCH=false
 fi
 
+# Strict VersionCode baseline & consistency check
+if [ -n "$GRADLE_VCODE" ] && [ "$GRADLE_VCODE" -lt 300 ]; then
+  echo "   ❌ CRITICAL: versionCode ($GRADLE_VCODE) is below minimum baseline (300). Android OTA updates will fail with INSTALL_FAILED_VERSION_DOWNGRADE!"
+  ALL_MATCH=false
+fi
+if [ -n "$APP_VCODE" ] && [ "$APP_VCODE" != "$GRADLE_VCODE" ]; then
+  echo "   ❌ app.json android.versionCode ($APP_VCODE) ≠ build.gradle versionCode ($GRADLE_VCODE)"
+  ALL_MATCH=false
+fi
+
+# Active ADB device upgrade validation
+ADB_BIN="/usr/local/share/android-commandlinetools/platform-tools/adb"
+if [ ! -f "$ADB_BIN" ]; then ADB_BIN="adb"; fi
+if command -v "$ADB_BIN" &>/dev/null; then
+  DEVICE_ID=$($ADB_BIN devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -1 | awk '{print $1}')
+  if [ -n "$DEVICE_ID" ]; then
+    INSTALLED_VCODE=$($ADB_BIN -s "$DEVICE_ID" shell dumpsys package com.armoryvault.companion 2>/dev/null | grep 'versionCode=' | head -1 | sed 's/.*versionCode=\([0-9]*\).*/\1/')
+    if [ -n "$INSTALLED_VCODE" ] && [ -n "$GRADLE_VCODE" ]; then
+      if [ "$GRADLE_VCODE" -le "$INSTALLED_VCODE" ]; then
+        echo "   ❌ CRITICAL: Target versionCode ($GRADLE_VCODE) is <= device installed versionCode ($INSTALLED_VCODE). OTA update will be rejected by Android PackageInstaller!"
+        ALL_MATCH=false
+      else
+        echo "   📱 Connected Device ($DEVICE_ID): Target vCode $GRADLE_VCODE > Installed vCode $INSTALLED_VCODE (Upgrade guaranteed)"
+      fi
+    fi
+  fi
+fi
+
 if $ALL_MATCH; then
-  echo "   ✅ All files report v$PKG_VER"
+  echo "   ✅ All files report v$PKG_VER (versionCode $GRADLE_VCODE)"
   PASS=$((PASS + 1))
 else
   echo "   Run ./bump-version.sh to fix version mismatches."

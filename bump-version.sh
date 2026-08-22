@@ -59,9 +59,11 @@ node -e "
 const fs = require('fs');
 const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
 app.expo.version = '$NEW_VERSION';
+if (!app.expo.android) app.expo.android = {};
+app.expo.android.versionCode = $NEW_VCODE;
 fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
 "
-echo "   ✅ app.json → v$NEW_VERSION"
+echo "   ✅ app.json → v$NEW_VERSION (code $NEW_VCODE)"
 
 # ─── 3. build.gradle ─────────────────────────────────────────
 echo "🤖 Updating android/app/build.gradle..."
