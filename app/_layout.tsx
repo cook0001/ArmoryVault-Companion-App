@@ -8,7 +8,9 @@ import LockedScreen from './locked';
 import { checkForUpdates } from '../utils/updater';
 import { DialogProvider } from '../context/DialogContext';
 import { SyncProvider } from '../context/SyncContext';
+
 import BottomTabBar from './components/BottomTabBar';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function RootLayoutContent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -141,6 +143,10 @@ function RootLayoutContent() {
         />
         <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="component/[id]" options={{ title: 'Component Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/chronograph" options={{ title: 'Chronograph', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/grouping-calculator" options={{ title: 'Group Analyzer', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/ballistics" options={{ title: 'Ballistics Calculator', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="range/checklist" options={{ title: 'Range Checklist', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
       <BottomTabBar />
       {(!isUnlocked && hasAuthHardware) && (
@@ -155,10 +161,12 @@ function RootLayoutContent() {
 
 export default function Layout() {
   return (
-    <DialogProvider>
-      <SyncProvider>
-        <RootLayoutContent />
-      </SyncProvider>
-    </DialogProvider>
+    <ErrorBoundary>
+      <DialogProvider>
+        <SyncProvider>
+          <RootLayoutContent />
+        </SyncProvider>
+      </DialogProvider>
+    </ErrorBoundary>
   );
 }

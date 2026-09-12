@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { View, Pressable, Text, StyleSheet, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';

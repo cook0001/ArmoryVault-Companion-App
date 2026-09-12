@@ -18,11 +18,10 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-echo "Building release APK..."
-pushd "$SCRIPT_DIR/android" > /dev/null
-./gradlew assembleRelease
+DIR="$(cd "$(dirname "$0")" && pwd)"
+export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu 2>/dev/null || echo 8)
+pushd "$DIR/android" > /dev/null
+./gradlew assembleRelease --parallel --build-cache --max-workers=8
 popd > /dev/null
 
 if [ ! -f "$APK_PATH" ]; then

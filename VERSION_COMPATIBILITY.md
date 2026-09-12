@@ -40,26 +40,24 @@ The ArmoryVault platform operates on a **Local-First, Zero-Cloud P2P Model**:
 
 ---
 
-## 🏷️ Release Channel Strategy
+## 🏷️ Unified Release Strategy
 
-Both applications are released under synchronized dual-channel streams:
+The ArmoryVault ecosystem uses a single, unified release stream for both Desktop and Mobile applications:
 
-| Channel | Target Audience | Desktop Version Format | Mobile Version Format | Update Cadence |
-| :--- | :--- | :--- | :--- | :--- |
-| **Stable** | Production users seeking maximum stability | `vX.Y.Z` (e.g. `v2.7.4`, `v2.8.0`) | `vX.Y.Z` (e.g. `v2.5.1`, `v2.6.0`) | Monthly / Milestone releases |
-| **Nightly** | Testers, range shooters, and early adopters | `vX.Y.Z-nightly.N` (e.g. `v2.8.0-nightly.6`) | `vX.Y.Z-nightly.N` (e.g. `v2.6.0-nightly.42`) | Continuous / Daily builds |
+| Application | Production Tag Format | Distribution |
+| :--- | :--- | :--- |
+| **Desktop App** | `vX.Y.Z` (e.g. `v2.8.0`) | GitHub Releases (macOS dmg, Windows exe, Linux AppImage) |
+| **Mobile Companion** | `vX.Y.Z` (e.g. `v2.7.0`, versionCode $\ge$ 309) | GitHub Releases (Android APK) & In-App OTA Updater |
 
 ---
 
 ## 📊 Master Version Compatibility Matrix
 
-| Desktop Version | Mobile Version | Channel Pairing | Compatibility Status | Supported Capabilities |
-| :--- | :--- | :--- | :---: | :--- |
-| **`v2.8.0-nightly.x`**<br>*(e.g. `v2.8.0-nightly.6`)* | **`v2.6.0-nightly.x`**<br>*(e.g. `v2.6.0-nightly.42`)* | 🟢 **Nightly ↔ Nightly** | ⭐️ **Full (100%)** | • Full Inventory Sync (Firearms, Ammo, Components, Accessories)<br>• Mobile Chronograph velocity strings (`/api/chrono`)<br>• Target & Grouping Analysis sync (`/api/target-analysis`)<br>• Safe & Storage Location sync (`/api/storage-locations`)<br>• Ballistic DOPE Profiles sync (`/api/ballistic-profiles`)<br>• Real-time Pairing QR & Remote Vault Lock |
-| **`v2.7.0 – v2.7.4`** | **`v2.5.0 – v2.5.1`** | 🔵 **Stable ↔ Stable** | ⭐️ **Full (100%)** | • Core Local Wi-Fi Pairing & Ping<br>• Complete Inventory Caching & Summary views<br>• Range Sessions, Outbox Sync & Bill of Sale exports<br>• Offline Cache Mode |
-| **`v2.7.x` (Stable)** | **`v2.6.0-nightly.x`** | 🟡 **Stable Desktop + Nightly Mobile** | ⚠️ **Partial (Core Sync Works)** | • Core inventory syncing (`/api/sync`) functions normally.<br>• Chrono strings and Target analyses queue safely in Mobile Outbox and wait until Desktop is upgraded to Nightly. |
-| **`v2.8.0-nightly.x`** | **`v2.5.1` (Stable)** | 🟢 **Nightly Desktop + Stable Mobile** | ⭐️ **Full (Backward Compatible)** | • Desktop Nightly server implements 100% backward compatibility with all legacy `v2.5.x` payloads and endpoints. |
-| **`v2.4.x` and older** | **`v2.6.x` / `v2.5.x`** | 🔴 **Legacy** | ❌ **Unsupported** | • Legacy format before encrypted auth tokens. Upgrading both Desktop and Mobile is required. |
+| Desktop Version | Mobile Version | Compatibility Status | Supported Capabilities |
+| :--- | :--- | :---: | :--- |
+| **`v2.8.x`** *(Current)* | **`v2.7.x`** *(Current)* | ⭐️ **Full (100%)** | • Full Inventory Sync (Firearms, Ammo, Components, Accessories)<br>• Mobile Chronograph velocity strings (`/api/chrono`)<br>• Target & Grouping Analysis sync (`/api/target-analysis`)<br>• Safe & Storage Location sync (`/api/storage-locations`)<br>• Ballistic DOPE Profiles sync (`/api/ballistic-profiles`)<br>• Real-time Pairing QR & Remote Vault Lock<br>• Mobile Firearm Intake & Photo Upload |
+| **`v2.7.x`** | **`v2.6.x` / `v2.5.x`** | ⭐️ **Full (Core Sync)** | • Core Local Wi-Fi Pairing & Ping<br>• Complete Inventory Caching & Summary views<br>• Range Sessions, Outbox Sync & Bill of Sale exports |
+| **`v2.4.x` and older** | Any | ❌ **Unsupported** | • Legacy format before encrypted auth tokens. Upgrading is required. |
 
 ---
 
@@ -94,33 +92,21 @@ The Desktop application exposes the following REST endpoints on local port `3456
 
 ---
 
-## 🤖 Android Native VersionCode & Rollback Protocol
+## 🤖 Android Native VersionCode Protocol
 
-### Android Operating System Constraint
-Android's system `PackageManager` strictly prohibits **in-place version downgrades**. If an APK has a lower `versionCode` than the currently installed build on the device, Android aborts the installation with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed").
+### Android Operating System Invariant
+Android's system `PackageManager` strictly prohibits **in-place version downgrades**. If an APK has a lower or equal `versionCode` than the currently installed build on the device, Android aborts installation with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed").
 
 ### VersionCode Standard
-- **Production Baseline**: All Android builds maintain a monotonic `versionCode >= 300`.
-- **Nightly Builds**: Increment `versionCode` with every release (e.g. `301`, `302`, `303`...).
-- **Automated Validation**: `preflight.sh` automatically queries connected ADB devices to ensure the new build's `versionCode` is strictly greater than the installed build.
-
-### How to Rollback from Nightly to an Older Stable Build
-Because Android blocks in-place downgrades:
-1. **Sync Records**: In the Mobile app, open **Settings** or **Outbox** and tap **Sync Now** to ensure all pending mobile records are stored in your Desktop Vault.
-2. **Download Stable APK**: Tap **Rollback to Stable Release** -> **Download Stable APK** (or download from [GitHub Releases](https://github.com/cook0001/ArmoryVault-Companion-App/releases)).
-3. **Uninstall Nightly App**: Long-press the ArmoryVault Companion icon on your Android home screen and tap **Uninstall**.
-4. **Install Stable APK**: Open your phone's **Files / Downloads** app and tap the downloaded `app-release.apk`.
+- **Production Baseline**: All Android builds maintain a strictly monotonic `versionCode >= 309`.
+- **Monotonic Progression**: Every unified release increments `versionCode` (e.g., `309`, `310`, `311`...).
+- **Backward Compatibility**: Setting `versionCode 309` on `v2.7.0` enables all existing users who ran either Stable (`versionCode 300`) or Nightly (`versionCode 308`) to upgrade directly in-place without uninstalling.
+- **Automated Validation**: [`preflight.sh`](file:///Users/danielc/Documents/ArmoryVault_Companion_Stable/preflight.sh) automatically validates that the build's `versionCode` satisfies the baseline.
 
 ---
 
-## 🎯 Recommended Deployment Configurations
+## 🎯 Recommended Deployment Configuration
 
-### Scenario A: Precision Shooter & Beta Tester
-* **Desktop**: `v2.8.0-nightly.6` (or latest Nightly)
-* **Mobile**: `v2.6.0-nightly.42` (or latest Nightly)
-* **Benefits**: Real-time ballistic profiles, chronograph sync, shot grouping calculator, shotgun shell spec labels, custom vector tactical icons.
-
-### Scenario B: Production Vault & General Archival
-* **Desktop**: `v2.7.4` (or latest Stable `v2.8.0` once promoted)
-* **Mobile**: `v2.5.1` (or latest Stable `v2.6.0` once promoted)
-* **Benefits**: Maximum release stability, full offline inventory tracking, ATF Bound Book printing.
+* **Desktop**: `v2.8.0` (Unified Production Release)
+* **Mobile**: `v2.7.0` (Unified Production Release, `versionCode 309`)
+* **Capabilities**: Full offline inventory sync, real-time ballistic profiles, chronograph velocity strings, shot grouping calculator, mobile firearm intake & photo uploads, secure LAN pairing token exchange, and remote vault lock.

@@ -6,13 +6,9 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const REPO_LATEST_URL = 'https://api.github.com/repos/cook0001/ArmoryVault-Companion-App/releases/latest';
-const REPO_ALL_RELEASES_URL = 'https://api.github.com/repos/cook0001/ArmoryVault-Companion-App/releases';
-
-export type UpdateChannel = 'stable' | 'nightly';
 
 export interface CheckUpdateOptions {
   silent?: boolean;
-  channel?: UpdateChannel;
   onConfirm?: (options: {
     title: string;
     message: string;
@@ -24,24 +20,14 @@ export interface CheckUpdateOptions {
 }
 
 /**
- * Checks if a given version string is a pre-release / nightly / beta build.
- */
-export function isPrereleaseVersion(version: string): boolean {
-  const v = version.toLowerCase();
-  return v.includes('nightly') || v.includes('beta') || v.includes('alpha') || v.includes('rc') || v.includes('-');
-}
-
-/**
  * Gets the current installed version string.
  */
 export function getCurrentAppVersion(): string {
-  return (Application.nativeApplicationVersion || '2.6.0').replace(/^v/, '');
+  return (Application.nativeApplicationVersion || '2.7.0').replace(/^v/, '');
 }
 
 /**
- * Checks for updates or rollbacks according to the selected release channel.
- * GUARANTEE: Stable build versionCode is maintained at exactly 1 version lower than Nightly
- * to prevent accidental in-place upgrades over Nightly builds.
+ * Checks for updates against official GitHub releases.
  */
 export async function checkForUpdates(options: boolean | CheckUpdateOptions = true) {
   if (Platform.OS !== 'android') return;
@@ -51,99 +37,23 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
   const onAlert = typeof options === 'object' ? options.onAlert : undefined;
 
   try {
-    const savedChannel = await AsyncStorage.getItem('update_channel');
-    const channel: UpdateChannel = (typeof options === 'object' && options.channel) 
-      ? options.channel 
-      : (savedChannel === 'nightly' ? 'nightly' : 'stable');
-
-    let releaseData: any = null;
-
-    if (channel === 'nightly') {
-      const response = await fetch(REPO_ALL_RELEASES_URL);
-      if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
-      const releases = await response.json();
-      
-      // Find the latest nightly / prerelease or first release in the list
-      const nightly = releases.find((r: any) => r.prerelease || r.tag_name?.includes('nightly') || r.tag_name?.includes('beta'));
-      releaseData = nightly || releases[0];
-    } else {
-      const response = await fetch(REPO_LATEST_URL);
-      if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
-      releaseData = await response.json();
-    }
+    const response = await fetch(REPO_LATEST_URL);
+    if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
+    const releaseData = await response.json();
 
     if (!releaseData) throw new Error('No release data found on GitHub');
 
     const latestTag = releaseData.tag_name || '';
     const latestVersion = latestTag.replace(/^v/, '');
     const currentVersion = getCurrentAppVersion();
-    const isCurrentNightly = isPrereleaseVersion(currentVersion);
 
     const apkAsset = releaseData.assets?.find((asset: any) => asset.name?.endsWith('.apk'));
 
-    // CASE 1: USER IS ON A NIGHTLY BUILD AND TARGETING STABLE -> PREVENT ACCIDENTAL IN-PLACE UPGRADE
-    if (channel === 'stable' && isCurrentNightly) {
-      if (silent) {
-        // Never trigger automatic background prompts to downgrade/upgrade over nightly
-        return;
-      }
-      if (apkAsset) {
-        const title = 'Rollback to Official Stable Release';
-        const message = `You are currently on Nightly build (v${currentVersion}).\n\nTarget Stable Release: ${latestTag}\n\n⚠️ Protection Rule Active:\nStable builds maintain a versionCode lower than Nightly to prevent accidental in-place overwrites. To rollback:\n\n1. Ensure your local Outbox is synced to your Desktop Vault.\n2. Tap 'Download Stable APK' below.\n3. Uninstall the Nightly Companion app from your device.\n4. Install the downloaded Stable APK from your Downloads or notification shade.`;
-        
-        const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert, true);
-
-        if (onConfirm) {
-          onConfirm({
-            title,
-            message,
-            confirmText: 'Download Stable APK',
-            cancelText: 'Stay on Nightly',
-            onConfirm: doInstall,
-          });
-        } else {
-          Alert.alert(title, message, [
-            { text: 'Stay on Nightly', style: 'cancel' },
-            { text: 'Download Stable APK', onPress: doInstall },
-          ]);
-        }
-        return;
-      }
-    }
-
-    // CASE 2: USER IS ON STABLE AND SWITCHED TO NIGHTLY -> OFFER INSTALLING NIGHTLY
-    if (channel === 'nightly' && !isCurrentNightly) {
-      if (apkAsset && latestVersion !== currentVersion) {
-        const title = 'Switch to Nightly Test Channel';
-        const message = `You are currently on Stable (v${currentVersion}).\n\nA newer Nightly Test Build (${latestTag}) is available.\n\nWould you like to download and install this build?`;
-        
-        const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert);
-
-        if (onConfirm) {
-          onConfirm({
-            title,
-            message,
-            confirmText: 'Install Nightly Build',
-            cancelText: 'Stay on Stable',
-            onConfirm: doInstall,
-          });
-        } else {
-          Alert.alert(title, message, [
-            { text: 'Stay on Stable', style: 'cancel' },
-            { text: 'Install Nightly', onPress: doInstall },
-          ]);
-        }
-        return;
-      }
-    }
-
-    // CASE 3: STANDARD VERSION UPGRADE WITHIN THE SAME CHANNEL
     const isNewer = compareVersions(latestVersion, currentVersion) > 0;
 
     if (isNewer && apkAsset) {
-      const channelLabel = channel === 'nightly' ? 'Nightly Test Build' : 'Stable Release';
-      const title = channel === 'nightly' ? 'New Nightly Build Found' : 'New Update Available';
-      const message = `A newer ${channelLabel} (${latestTag}) is available.\n\nCurrent: v${currentVersion}\nLatest: ${latestTag}\n\nWould you like to download and install this update now?`;
+      const title = 'New Update Available';
+      const message = `A newer release (${latestTag}) is available.\n\nCurrent: v${currentVersion}\nLatest: ${latestTag}\n\nWould you like to download and install this update now?`;
 
       const doInstall = () => downloadAndInstallUpdate(apkAsset.browser_download_url, onAlert);
 
@@ -164,17 +74,15 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
       return;
     }
 
-    // UP TO DATE NOTIFICATION
+    // Up to date notification
     if (!silent) {
-      const channelLabel = channel === 'nightly' ? 'Nightly Test' : 'Stable';
-      const msg = `You are running the latest ${channelLabel} version (v${currentVersion}).`;
+      const msg = `You are running the latest version (v${currentVersion}).`;
       if (onAlert) {
         onAlert('Up to Date', msg);
       } else {
         Alert.alert('Up to Date', msg);
       }
     }
-
   } catch (error: any) {
     console.error('Update check failed:', error);
     if (!silent) {
@@ -189,15 +97,14 @@ export async function checkForUpdates(options: boolean | CheckUpdateOptions = tr
 }
 
 /**
- * Compare semantic / nightly versions (1 if a > b, -1 if a < b, 0 if equal)
+ * Compare semantic versions (1 if a > b, -1 if a < b, 0 if equal)
  */
-function compareVersions(a: string, b: string): number {
+export function compareVersions(a: string, b: string): number {
   if (a === b) return 0;
 
   const cleanA = a.replace(/^v/, '');
   const cleanB = b.replace(/^v/, '');
 
-  // Split into main version and prerelease tag
   const [mainA, preA] = cleanA.split('-');
   const [mainB, preB] = cleanB.split('-');
 
@@ -211,8 +118,8 @@ function compareVersions(a: string, b: string): number {
     if (valA < valB) return -1;
   }
 
-  // If base versions are equal, compare prerelease tags
-  if (preA && !preB) return -1; // standard version is newer than prerelease of same number
+  // If base versions are equal, standard release is newer than pre-release
+  if (preA && !preB) return -1;
   if (!preA && preB) return 1;
   if (preA && preB) {
     return preA.localeCompare(preB, undefined, { numeric: true });
@@ -226,8 +133,7 @@ function compareVersions(a: string, b: string): number {
  */
 export async function downloadAndInstallUpdate(
   downloadUrl: string,
-  onAlert?: (title: string, message: string) => void,
-  isRollback: boolean = false
+  onAlert?: (title: string, message: string) => void
 ) {
   if (Platform.OS !== 'android') return;
 

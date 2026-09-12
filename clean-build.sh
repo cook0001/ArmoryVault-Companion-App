@@ -9,7 +9,7 @@ ARCH="${1:-all}"
 SKIP_PREFLIGHT="${2:-}"
 
 echo "=========================================================="
-echo "  ArmoryVault Companion (Stable) — Clean Build Engine"
+echo "  ArmoryVault Companion — Clean Build Engine"
 echo "  Architecture: $( [ "$ARCH" = "all" ] && echo "All (armeabi-v7a, arm64-v8a, x86, x86_64)" || echo "$ARCH" )"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=========================================================="
@@ -33,7 +33,7 @@ fi
 
 # ─── 2. Back Up Native Modifications ────────────────────────
 echo "💾 Backing up native modifications..."
-BACKUP_DIR="/tmp/armoryvault-stable-native-backup-$(date +%s)"
+BACKUP_DIR="/tmp/armoryvault-native-backup-$(date +%s)"
 mkdir -p "$BACKUP_DIR"
 
 cp android/app/build.gradle "$BACKUP_DIR/" 2>/dev/null || true

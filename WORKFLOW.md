@@ -34,15 +34,7 @@
 
 ### One-Liner (Full Release)
 ```bash
-# Nightly
-./bump-version.sh 2.6.1-nightly.1 && \
-  vim CHANGELOG.md && \
-  ./clean-build.sh && \
-  ./smoke-test.sh && \
-  ./publish-nightly.sh
-
-# Stable
-./bump-version.sh 2.6.1 && \
+./bump-version.sh 2.7.1 && \
   vim CHANGELOG.md && \
   ./clean-build.sh && \
   ./smoke-test.sh && \
@@ -213,31 +205,17 @@ Restores native files from a backup snapshot.
 
 ## Release Workflows
 
-### Nightly Prerelease
+### Official Release
 ```bash
 # 1. Bump version
-./bump-version.sh 2.6.0-nightly.38
-
-# 2. Document changes in CHANGELOG.md
-# Add entry under: ## [2.6.0-nightly.38] - YYYY-MM-DD (Nightly Test Build)
-
-# 3. Build, validate, publish
-./clean-build.sh
-./smoke-test.sh
-./publish-nightly.sh          # Tags as --prerelease on GitHub
-```
-
-### Stable Release
-```bash
-# 1. Bump version (no -nightly suffix)
-./bump-version.sh 2.6.1
+./bump-version.sh 2.7.1
 
 # 2. Document changes in CHANGELOG.md
 
 # 3. Build, validate, publish
 ./clean-build.sh
 ./smoke-test.sh
-./publish-release.sh          # Tags as latest release on GitHub
+./publish-release.sh          # Tags as official release on GitHub
 ```
 
 ### Quick Republish (No Rebuild)

@@ -1,19 +1,413 @@
 # Changelog
 
-## [2.6.0] - 2026-08-22
-### Added
-- **Air-Gapped Bench Voice Memos (`/voice-memos`)**: Native offline voice memo recorder using `expo-audio` SDK 57 engine with live audio waveform visualizers, firearm/lot tagging, and scoped local storage for capturing reloading notes and range thoughts hands-free.
-- **Floating Tactical Bottom Navigation (`BottomTabBar.tsx`)**: High-contrast, non-overlapping floating glassmorphism tab bar providing instant navigation across Home, Scanner, Vault, Ammo, and Outbox with zero element occlusion.
-- **Multi-Unit Barcode & Ammo Packaging Scanner (`/scanner`)**: Upgraded barcode scanner supporting custom package multipliers (`Boxes × Rounds/Box`), quick presets (20, 25, 50, 100, 250, 500, 1000 rds), packaging unit tags (`BOX`, `CAN`, `CASE`, `BRICK`), and instant inventory search drawer.
-- **Solid Tactical UI & Full-Width Dialog Standard**: Replaced default system dialogues with centered full-width modal dialogs (`DialogContext.tsx`) for destructive confirmations, sync prompts, and toast notifications.
-- **Strict Custom & Vector Icon Standard (Rule 7)**: Banned raw emoji placeholders across all screens in favor of dedicated themed vector icon components (`CartridgesIcon`, `GunpowderIcon`, `SafeIcon`, `Ionicons`).
-- **Android Native VersionCode Monotonic Standard (Rule 8)**: Baseline `versionCode >= 300` established (versionCode 300, maintained at exactly one code version below Nightly build 301) to guarantee clean, error-free OTA updates via the in-app updater.
+## [2.7.0] - 2026-09-12 (Official Unified Release)
+### Unification & Modernization
+- **Unified Mobile Codebase**:
+  - Consolidated development and release pipelines into a single official release stream. Permanently retired the Nightly channel.
+  - Set native Android `versionCode 309`, guaranteeing seamless, in-place OTA upgrades for all users on prior Stable (`300`) and Nightly (`308`) builds.
+  - Simplified in-app updater to directly check official GitHub Releases and eliminated channel switching and rollback barriers.
+  - Streamlined `Settings` screen with a clean "App Updates" card.
+- **Promoted Cutting-Edge Features**:
+  - Full mobile firearm intake form, editing suite, and photo management (`app/firearms/form.tsx`).
+  - Barcode and serial number scanner with automated parsing heuristics and pairing token integration.
+  - Offline vault caching and local sync outbox queue with conflict safeguards.
+  - Ballistics calculators, MOA grouping tools, and range mode checklists.
+  - Global Error Boundary protecting the application lifecycle.
 
-## [2.5.1] - 2026-08-19
+## [2.6.0-nightly.49] - 2026-08-22 (Nightly Test Build)
 ### Fixed
-- **Resilient Offline Cache & Network Handling**: Fixed noisy `java.net.ConnectException` and `CodedError` exceptions appearing on startup and screen focus when the desktop companion server is unreachable. Network pings and cache checks now use `AbortController` timeouts (2.5-4s) and gate background sync requests so the companion app transitions seamlessly and quietly into Offline Cache Mode.
-- **Graceful Refresh Handling**: Added network timeouts and graceful offline warning handlers to manual pull-to-refresh on Firearms, Inventory, and Settings screens.
-- **Silent Startup Update Check**: Prevented console errors when the automatic GitHub update check runs while device is offline.
+- **Optimistic Cache Sanitization & Save Exception Prevention (`app/firearms/form.tsx`)**:
+  - Stripped raw base64 photo payloads from local `inventory_cache` storage to eliminate `AsyncStorage` and SQLite CursorWindow size limit overflow exceptions.
+  - Wrapped optimistic cache writes in isolated try-catch boundaries so local storage issues never trigger a false "Save Failed" error when sync queueing succeeds.
+  - Added pending offline queue preservation in `refreshCache` (`context/SyncContext.tsx`) to prevent fresh desktop cache downloads from overwriting unapproved local mobile edits.
+
+## [2.6.0-nightly.48] - 2026-08-22 (Nightly Test Build)
+### Added
+- **Mobile Firearm Creation & Editing System (`app/firearms/form.tsx`)**:
+  - Reusable tactical Firearm Form screen supporting full creation and editing of firearms directly on mobile.
+  - Make/model autocomplete chips, caliber selectors, action types, condition, purchase tracking, and storage location safe selector.
+  - Multi-photo capture and gallery picker with base64 synchronization.
+  - Added "+ Add Firearm" FAB and top header action buttons on `app/firearms/index.tsx`.
+  - Added "Edit Firearm" action button to `app/firearm/[id].tsx`.
+  - Barcode and serial number scanner integration linking directly to firearm detail views.
+
+## [2.6.0-nightly.47] - 2026-08-22 (Nightly Test Build)
+### Fixed
+- **Android Cleartext HTTP Traffic Unblocked (`android:usesCleartextTraffic="true"`)**:
+  - Configured `android:usesCleartextTraffic="true"` and `network_security_config.xml` in Android manifest and Expo config to permit direct Wi-Fi communication to desktop IP addresses (`http://192.168.x.x:3456`).
+  - Added universal pairing parser in `app/scanner.tsx` supporting case-insensitive QR codes, custom schemes, standard HTTP links, and fallback regex extraction.
+  - Added 6-second timeout abort protection to manual server connection tests in `app/settings.tsx`.
+
+## [2.6.0-nightly.46] - 2026-08-22 (Nightly Test Build)
+### Fixed
+- **Cache Refresh Return Value Fix (`context/SyncContext.tsx`)**:
+  - Resolved regression where `refreshCache` failed to return `true` on successful HTTP 200 payload, triggering a false error prompt.
+  - Added multi-version server compatibility supporting both token-authenticated (v2.8.0) and open LAN (v2.7.x) desktop hosts.
+
+## [2.6.0-nightly.45] - 2026-08-22 (Nightly Test Build)
+### Fixed
+- **Seamless Local Pairing & Token Handshake (`context/SyncContext.tsx` & `app/scanner.tsx`)**:
+  - Embedded pairing authorization token directly into QR code URI (`&token=...`) generated by desktop.
+  - Scanner now automatically ingests pairing token on first scan, eliminating 403 / 401 handshake errors on newly installed or re-paired devices.
+  - Enhanced `setServerIp` to support immediate explicit token storage alongside server connection.
+
+## [2.6.0-nightly.44] - 2026-08-22 (Nightly Test Build)
+### Added
+- **Global Error Boundary (`app/components/ErrorBoundary.tsx`)**:
+  - Implemented React Error Boundary wrapping the root application tree with graceful recovery and restart UI.
+- **Strict TypeScript Typing (`types/index.ts`)**:
+  - Centralized shared type interfaces (Firearm, Ammo, ReloadingComponent, Accessory, StorageLocation, SyncQueueItem) across mobile context, sync, and storage modules.
+- **Offline Sync Queue Protection**:
+  - Enforced 500-item maximum capacity with FIFO eviction and threshold warnings at 400+ items.
+- **Unit Testing Suite (`utils/storageCapacity.test.ts`)**:
+  - Configured Jest + ts-jest test runner with 21 unit tests covering container capacity calculations, default storage modes, and URI parsing formats.
+- **Secure Pairing Token Authentication**:
+  - Added Bearer token authentication headers across all P2P synchronization and remote lock endpoints.
+
+## [2.6.0-nightly.43] - 2026-08-22 (Nightly Test Build)
+### Added
+- **Storage Location QR Code Scanning & Deep Links (`app/scanner.tsx`)**:
+  - Full support for scanning storage location physical QR labels (`armoryvault://storage/{id}`, `armoryvault://location/{id}`, `AV-STORAGE-{id}`, `storage:{id}`).
+  - Added dedicated Storage Container Inspection Sheet displaying container type vector badge, live smart capacity utilization meter, item breakdown pills (Guns, Accs, Ammo, Powders), and stored items preview with "View in Inventory" 1-tap navigation.
+- **Dedicated Firearm Storage Capacity & Smart Tracking Modes (`utils/storageCapacity.ts`)**:
+  - Implemented client-side calculation matching desktop standard: Safes and cabinets track gun capacity only (auxiliary accessories, ammo boxes, and powders do not overflow gun slots).
+  - Supports `firearms`, `ammo`, and `all` container capacity modes with dynamic unit labels (`Guns`, `Ammo Lots`, `Items`).
+- **Mobile Inventory Storage Filtering (`app/inventory/index.tsx`)**:
+  - Added horizontal Storage Location pill filter bar on the Inventory screen to quickly view ammunition lots, components, and handload recipes assigned to specific safes, cabinets, or ammo cans.
+  - Interactive container capacity header displaying active container type, live capacity bar, and one-tap filter clearing.
+- **Offline Storage Location Caching (`context/SyncContext.tsx`)**:
+  - Automatically fetches and caches `/api/storage-locations` and `storageLocations` from `/api/inventory/cache` into AsyncStorage for full offline range and vault management.
+- **Custom Vector Storage Icons (`app/components/CustomMobileIcons.tsx`)**:
+  - Added dedicated vector SVG components for `CabinetIcon`, `GunCaseIcon`, and `VehicleVaultIcon` adhering strictly to Rule 7 (zero raw emojis).
+
+## [2.6.0-nightly.42] - 2026-08-21 (Nightly Test Build)
+### Changed
+- **Dialog & Update Popup Full-Width Layout (`DialogContext`)**:
+  - Resolved narrow button sizing issue on check-for-update and alert modals by applying `alignSelf: 'stretch'` and explicit `minHeight: 48` touch target dimensions across all single and dual-button dialogs.
+- **Strict Custom & Vector Icon Standard (Rule 7)**:
+  - Eliminated all emoji placeholders across mobile screens (Firearms, Range, Ballistics, Grouping Calculator, Scanner, Settings, Outbox, Voice Memos, Updater) in favor of Ionicons vector icons and custom icons.
+- **UI/UX Modal & Popup Button Redesign**:
+  - Replaced thin 1px outline boxes and faint blue border lines with rich, solid tactical buttons and tactile pill chips across all dialogs, popups, and sheets.
+  - Upgraded `DialogContext` confirm, alert, and toast action buttons with solid surfaces (`#0284c7`, `#10b981`, `#dc2626`, `#334155`), bold typography, and elevation shadows.
+  - Modernized Scanner popup preset chips (`20 rds`, `50 rds`, `100 rds`...), measurement units (`BOX`, `CAN`, `CASE`...), steppers, and action toggles with filled high-contrast states.
+  - Enhanced Quick Inventory adjustment dialogs, Recipe creation modals, Bill of Sale payment selectors, and Range checklist dialogs with solid button surfaces.
+
+## [2.6.0-nightly.40] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Fix Voice Memo Persistence — Migrate to `expo-file-system/legacy`**:
+  - Migrated `getInfoAsync` and `deleteAsync` calls to `expo-file-system/legacy` to avoid Expo SDK 57 runtime deprecation exceptions that prevented voice memos from being saved to `AsyncStorage`.
+  - Added resilient try/catch error handling around file-size calculation in `saveRecording` to ensure metadata records are always persisted to local storage regardless of file system state.
+
+## [2.6.0-nightly.39] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Restore Voice Memo Recording & Playback**:
+  - Implemented `startAudioRecording` and `stopAndSaveAudioRecording` using `expo-audio`'s `NativeAudioModule` / `AudioRecorder`.
+  - Added backward-compatible playback lifecycle wrappers (`stopAsync`, `unloadAsync`, `setOnPlaybackStatusUpdate`) on `playAudioMemo`.
+  - Resolved runtime `TypeError: undefined is not a function` in `voice-memos.tsx`.
+
+## [2.6.0-nightly.38] - 2026-08-20 (Nightly Test Build)
+### Upgraded
+- **Dependency Audit & Upgrades**:
+  - Migrated `expo-av` (v16.0.8, unmaintained) → `expo-audio` (v57.0.4, maintained) for audio recording/playback.
+  - Upgraded `@react-native-async-storage/async-storage` from v2.2.0 → v3.1.1 (scoped storage support, no API changes needed).
+  - Installed missing `expo-asset` peer dependency required by `expo-audio`.
+  - Updated 10 Expo SDK 57 packages to latest patch versions.
+  - Added `WORKFLOW.md` build & release documentation.
+- **System Tools**:
+  - Node.js 24.18.0 → 24.19.0 (LTS)
+  - OpenJDK 17.0.20 → 17.0.20.1
+
+### Health
+- `npx expo-doctor`: **21/21 checks passed** ✅
+- `./smoke-test.sh`: **8/8 checks passed** ✅
+
+## [2.6.0-nightly.37] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Fix Startup Crash — Remove ABI-Incompatible `expo-av` Native Module**:
+  - Removed `expo-av` (v16.0.8) which was compiled against an older JSI ABI incompatible with React Native 0.86.2. The `libexpo-av.so` native library crashed immediately during TurboModule initialization with `UnsatisfiedLinkError: cannot locate symbol "_ZNKR8facebook3jsi5Value8asObjectERNS0_7RuntimeE"`.
+  - Diagnosed via `adb logcat` crash capture on Google Pixel.
+  - Audio recording (bench voice memos) is temporarily disabled; text-only bench memos continue to work. Audio support will be restored when a maintained replacement module is available.
+
+## [2.6.0-nightly.36] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Fix Startup Crash — Missing `expo-font` Peer Dependency**:
+  - Installed `expo-font` (~57.0.1), which is a **required** peer dependency of `@expo/vector-icons`. Without this native module, standalone release APKs crash immediately on launch with "App keeps stopping" because the font-loading native bridge is missing.
+  - Diagnosed via `npx expo-doctor` which flagged the missing peer dependency as a crash risk outside Expo Go.
+- **Fix `app.json` Schema Errors for Expo SDK 57**:
+  - Removed deprecated `android.usesCleartextTraffic` field (already configured directly in `AndroidManifest.xml`).
+  - Removed deprecated `android.splash` block (splash screen drawables are already generated in the native `res/drawable-*` folders).
+
+
+## [2.6.0-nightly.35] - 2026-08-20 (Nightly Test Build)
+### Fixed
+- **Stable to Nightly Upgrade Startup Crash Fix & GitHub Release Deployment**:
+  - Purged stale CXX CMake cache bindings and rebuilt production release binaries with clean React Native autolinking.
+  - Verified elimination of `expo-updates` bundle-loading deadlock so upgrading from stable (v2.5.1) to nightly (v2.6.0-nightly.35) boots instantly without crashing.
+  - Updated in-app version metadata and fallback strings for accurate release channel checks.
+
+## [2.6.0-nightly.34] - 2026-08-19 (Nightly Test Build)
+### Fixed
+- **Fix Standalone Release APK Crash on Startup**:
+  - Removed unconfigured `expo-updates` package which caused native `ReactNativeHostHandler` startup deadlocks when attempting to resolve embedded JS bundle assets in standalone production APKs.
+  - Removed redundant `expo.modules.updates.ENABLED` metadata tag from `AndroidManifest.xml`.
+  - Added ProGuard keep rules for `react-native-worklets` and `react-native-gesture-handler` native bindings.
+
+## [2.6.0-nightly.33] - 2026-08-19 (Nightly Test Build)
+### Added
+- **Multi-Core Hardware Acceleration & Turbo Build Engine**:
+  - Expanded Gradle heap to `-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC` to eliminate GC swapping on multi-core host machines.
+  - Enabled multi-core Gradle parallel execution (`org.gradle.parallel=true`, `--max-workers=8`), native Gradle build caching (`org.gradle.caching=true`), and file system watching (`org.gradle.vfs.watch=true`).
+  - Added parallel C++ CMake compilation (`CMAKE_BUILD_PARALLEL_LEVEL=8`) across `publish-nightly.sh` and `publish-release.sh`.
+  - Created `build-local-fast.sh` for lightning-fast single-ABI (`arm64-v8a`) on-device testing.
+
+## [2.6.0-nightly.32] - 2026-08-19 (Nightly Test Build)
+### Fixed
+- **Gradle 9 & 10 Modern Groovy DSL Syntax Compliance**:
+  - Replaced legacy method-call syntax (`url '...'`, `ndkVersion ...`, `namespace '...'`, `signingConfig ...`, `shrinkResources ...`, `crunchPngs ...`, `useLegacyPackaging ...`, `ignoreAssetsPattern ...`) with modern assignment syntax (`=`) across `android/build.gradle` and `android/app/build.gradle`.
+  - Resolved all Groovy DSL deprecation warnings in the Gradle Problems Report, ensuring forward compatibility with Gradle 10.
+
+## [2.6.0-nightly.31] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Redesigned High-Definition Tactical Cyber Shield App Icon**:
+  - Replaced legacy Expo template icon with a custom 3D brushed titanium and gunmetal cyber shield app icon matching the ArmoryVault Desktop application.
+  - Features neon cyan (`#00f0ff`) and emerald green (`#10b981`) illuminated bevels, central mechanical combination vault dial and padlock shackle, set on a dark carbon-fiber textured plate.
+  - Generated full Android Adaptive Icon layers (`ic_launcher_foreground`, `ic_launcher_background`, `ic_launcher_monochrome`) across all mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+  - Added high-resolution splash screen emblem (`splashscreen_logo.png`) and updated native launcher colors to `#0b0f19` dark tactical theme.
+
+## [2.6.0-nightly.30] - 2026-08-18 (Nightly Test Build)
+### Fixed
+- **App Crash on Launch Fix & Standalone Local Boot**:
+  - Disabled `expo.modules.updates.ENABLED` in `AndroidManifest.xml` and removed legacy EAS update tags to eliminate runtime version mismatch crashes on launch.
+  - Replaced blocking initialization checks with non-blocking, exception-safe wrappers in `_layout.tsx` for biometrics and silent updates.
+  - Ensured the app boots 100% locally and instantaneously from its embedded release bundle with zero cloud dependencies.
+
+## [2.6.0-nightly.29] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Preserved Offline Mobile Cache during Desktop Vault Lock**:
+  - Maintained complete local offline mobile inventory cache across firearms, ammo lots, powders/primers, DOPE calculations, and range logs when locking the desktop database.
+  - Updated confirmation modal and status beacon to clarify that remote desktop lock secures the PC while keeping the mobile companion 100% functional for offline range sessions.
+
+## [2.6.0-nightly.28] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Remote Database Lock & Air-Gapped Cache Auto-Wipe**:
+  - Added 1-tap `[Lock Desktop]` button with confirmation modal in the mobile connection beacon to lock the desktop vault remotely.
+  - Automatically wipes mobile SQLite/AsyncStorage cached inventory, firearms, ammo, and summary counters whenever the desktop vault locks for security and privacy.
+  - Heartbeat automatically detects desktop lock/unlock transitions and safely resynchronizes when unlocked.
+
+## [2.6.0-nightly.27] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Position-Sorted Index Parser & Raw Barcode Inspector**:
+  - Implemented position-sorted index AAMVA parsing to seamlessly unpack single-strip continuous Florida PDF417 barcodes.
+  - Added collapsible "Inspect Raw Barcode String" console to the ID Preview sheet for full diagnostic visibility.
+
+## [2.6.0-nightly.26] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Florida Name Normalization (Last First Middle -> First Middle Last)**:
+  - Automatically recognizes and converts Florida DHSMV name ordering (`[Last] [First] [Middle]` or `[Last], [First] [Middle]`) into standard Legal Name order (`[First] [Middle] [Last]`).
+  - Enhanced ID Preview Sheet with clear badges (`2D Matrix` vs `1D Barcode`) and interactive guidance to easily rescan the 2D matrix for full address, DL#, and DOB.
+
+## [2.6.0-nightly.25] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Synchronous Scan-Lock & Instant Scanned ID Confirmation Modal**:
+  - Replaced asynchronous state checks with synchronous `useRef` locking to eliminate rapid multi-frame vibration and haptic feedback loops.
+  - Added interactive Scanned ID Confirmation Sheet displaying Legal Name, DL#, Street Address, and DOB with 1-tap "Apply to Bill of Sale Form" and "Rescan" actions.
+
+## [2.6.0-nightly.24] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Subfile Header DAQ Parser & Strict PDF417 Vision Isolation**:
+  - Configured CameraView to strictly isolate 2D `pdf417` optical capture when scanning driver's licenses, preventing hardware sensors from triggering on linear 1D barcodes.
+  - Added support for Florida DHSMV subfile headers where `DAQ` is concatenated with document identifiers without preceding line breaks.
+
+## [2.6.0-nightly.23] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Delimiter-Safe Regex Field Extractor for AAMVA Driver's Licenses**:
+  - Completely redesigned AAMVA field extraction to use strict delimiter-bounded pattern matching, preventing subfield truncation across Florida DHSMV and all 50 US State formats.
+  - Automatically extracts and formats: Full Legal Name, Residential Street Address, City, State, 5-Digit ZIP, DL/ID Number, and Date of Birth (`MM/DD/YYYY`).
+
+## [2.6.0-nightly.22] - 2026-08-18 (Nightly Test Build)
+### Added
+- **2D PDF417 Matrix Lock & Non-Dismissing Guidance**:
+  - In 2D Matrix mode, the scanner remains open and actively prompts the user if the top 1D barcode is encountered, ensuring the user aligns the 2D PDF417 matrix for full Address (Street, City, State, ZIP), DL#, and DOB extraction.
+  - Eliminated false/ghost state strings in the address field when only 1D data is present.
+
+## [2.6.0-nightly.21] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Scanner Viewfinder Mode Switcher & Non-Polluting Name Capture**:
+  - Added dedicated on-screen toggle between **2D Matrix (Full ID)** and **1D Barcode** with active camera remount keys to ensure hardware sensor isolation.
+  - Added parser support for prefix-only barcodes (`DL [LastName] [FirstName]`), routing names exclusively to `buyerName` and preventing false DL# field pollution.
+
+## [2.6.0-nightly.20] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Intelligent 1D Linear & 2D Matrix ID Field Parser**:
+  - Automatically isolates and parses 1D linear barcode formats (`DL# LastName FirstName`) into separate `buyerName` and `buyerDlNumber` fields.
+  - Full 2D AAMVA PDF417 support for extracting complete name, residential street address, city, state, zip code, and date of birth (`MM/DD/YYYY`).
+  - Added real-time scan feedback distinguishing full 2D auto-fills from 1D barcode captures.
+
+## [2.6.0-nightly.19] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Dedicated 2D PDF417 Driver's License Scanner Mode**:
+  - Configured ID scanner to strictly target 2D PDF417 matrix barcodes, preventing accidental capture of secondary 1D linear barcodes.
+  - Added full support for Track 1, Track 2, and AAMVA PDF417 formats.
+- **Persistent Multi-Rail Payment Profile**:
+  - Saved seller profile and payment accounts (Cash App, PayPal, Venmo, Stripe/Square, Zelle) auto-load across all sessions.
+  - Live auto-save on any payment handle edits inside the payment modal.
+
+## [2.6.0-nightly.18] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Florida & Multi-State AAMVA PDF417 Parser Overhaul**:
+  - Implemented token-boundary parser supporting Florida DHSMV `<` delimiters, multi-line formats, and concatenated field streams.
+  - Accurately maps Name, Street Address, City, State, 5-digit ZIP, DL Number, and formatted DOB (`MM/DD/YYYY`).
+- **Dynamic Pre-Filled Payment Links & QR Generator**:
+  - Direct integration for **Cash App Pay** (`$cashtag/amount`), **PayPal.me** (`paypal.me/user/amount`), **Venmo** (`venmo.com/user?txn=pay&amount=...`), **Stripe/Square**, and **Zelle**.
+  - Automatically generates scannable QR codes with exact dollar amount pre-filled and supports live preview testing.
+
+## [2.6.0-nightly.17] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Multi-Format AAMVA PDF417 Driver's License Parser**:
+  - Upgraded parser with support for all AAMVA specification revisions (2000–2020+), correctly extracting full legal names, street address, city, state, 5-digit zip code, DL/ID number, and date of birth.
+  - Added protection to prevent raw barcode strings from overflowing into input fields.
+- **Secure Card & Digital Payment Generator**:
+  - Added PCI-compliant instant Payment QR Code and checkout link generator directly inside the Bill of Sale form.
+  - Supports Apple Pay, Google Pay, Debit/Credit Card, and digital transfers with automated auth reference tagging.
+
+## [2.6.0-nightly.16] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Persistent Vault Owner / Seller Profile in Bill of Sale**:
+  - Saved seller profile (Name, Address, DL#, Phone, Email) auto-populates on every bill of sale.
+  - Prominent full-width Buyer ID scan banner with improved visual hierarchy.
+  - Payment method selector with Money Order / Check number tracking.
+- **Handload Recipe Lot # & Printable Ammo Box Labels**:
+  - Automatic Lot Number generation (`LOT-YYYYMMDD-XXX`) on new recipes and batches.
+  - 1-tap "Box Label" print generator creating 3.5" ammo box labels with embedded QR codes.
+  - Universal Scanner auto-detects `AV-RECIPE-` QR codes to load handload recipes.
+- **Ballistics DOPE Card Print Fix**:
+  - Replaced custom paper size styling with universal system print dialog via `Print.printAsync` for reliable AirPrint, Android Print, and PDF export.
+
+## [2.6.0-nightly.15] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Voice Memos & Outbox Polish**:
+  - **Firearm & Ammo Tagging in Voice Memos**: Tag memos to specific firearms or suspected bad ammo lots for diagnostic records.
+  - **1-Tap Privacy Wipe**: Purge all local voice logs with single-tap privacy protection.
+  - **Sync Outbox Enhancements**: Added 1-tap manual sync button with live transmission progress and clear outbox action.
+
+## [2.6.0-nightly.14] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Integrated Driver's License & CCW Barcode Scanner in Bill of Sale**:
+  - Embedded camera scanner directly in Bill of Sale form to scan 2D AAMVA PDF417 barcodes on Driver's Licenses and CCW permits.
+  - Automatically parses and populates legal full name, residential address, license number, DOB, and CCW permit details.
+- **Ballistics DOPE Enhancements**:
+  - **Handload Recipe Import**: 1-tap import of custom handload recipes to auto-populate muzzle velocity, bullet weight, and caliber in the solver.
+  - **Maximum Point Blank Range (MPBR) Calculator**: Automatically computes near zero, far zero, and max point-blank range for a 6" vital zone.
+  - **Pocket DOPE Card PDF Export**: Generate and share clean, waterproof-style pocket DOPE cards formatted for printing or offline field reference.
+
+## [2.6.0-nightly.13] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Ammo & Supplies Reloading Recipes & Valuation**:
+  - **Handload Recipes & Batches Tab**: Added dedicated recipes tab to record custom load recipes (Bullet, Powder, Grains, Primer, Brass, COAL) with velocity (fps), MOA group size, and batch tracking.
+  - **Vault Valuation Privacy Toggle**: 1-tap eye icon on the top banner to toggle display of total aggregate vault inventory valuation ($X,XXX.XX).
+  - **Cost-Per-Round (CPR) Readouts**: Live CPR pricing on ammunition lot cards.
+  - **Low-Stock Warning Indicators**: Visual warning badges when caliber counts drop below low-inventory thresholds.
+
+## [2.6.0-nightly.12] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Firearms Vault & Bill of Sale Overhaul**:
+  - **Category Filtering & Sorting**: Instant filter tabs (`All`, `Handguns`, `Rifles`, `Shotguns`, `Rimfire`, `NFA/Suppressed`) and sorting (`A-Z`, `Highest Round Count`).
+  - **1-Tap Scan Part Trigger**: Quick button on each firearm card to scan replacement parts and queue maintenance items to the desktop maintenance ledger.
+  - **FFL Dealer vs Private Sale Mode**: Added toggle for FFL Dealer Consignment/Transfer including FFL Number and Bound Book fields.
+  - **Concealed Carry License (CCL / CCW) Support**: Track CCW permit numbers, issuing states, and expiration dates.
+  - **Statutory Legal Affirmations**: Form 4473 style checkboxes for legal age, non-prohibited person status under 18 U.S.C. § 922(g), in-state residency, and lawful title.
+  - **Multi-Channel Distribution**: 1-tap Print (AirPrint/Android Print), native Share/SMS, and Email delivery.
+
+## [2.6.0-nightly.11] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Range Mode Enhancements**:
+  - **Incremental Rapid Round Steppers**: Added quick `+10`, `+25`, `+50`, and `+100` round steppers alongside preset chips.
+  - **Live Ammo Inventory Deduction Preview**: Displays live inventory deduction calculations and remaining rounds before queuing.
+  - **Collapsible Advanced Environmental Log**: Optional drawer for temperature (°F), wind speed/direction, and target distance.
+  - **Section Numbering & Layout Polish**: Streamlined sections from firearm selection to target photo zeroing and notes.
+
+## [2.6.0-nightly.10] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Universal Scanner Enhancements**:
+  - **Animated Laser Viewfinder**: Sweeping laser reticle animation across the camera scan target for high-precision visual scanning feedback.
+  - **Caliber-Aware Packaging Multiplier Dialog**:
+    - Pop-up dialog with interactive `Number of Boxes × Rounds/Box` multiplier with real-time total quantity calculation.
+    - Intelligent caliber-specific presets: 25 rds (defensive pistol), 20 rds (rifle), 50 rds (target pistol), 100 rds, 325/500 rds (rimfire brick), 1000 rds (case).
+    - Expanded packaging units: `Box`, `Case`, `Can (Ammo Can)`, `Sleeve`, `Brick`, `Loose (rds)`.
+  - **Smart Inventory Quick Lookup Drawer**:
+    - Bottom drawer with instant search filtering across cached ammo lots, calibers, components, and SKUs with 1-tap stock adjustment triggers without camera scanning.
+
+## [2.6.0-nightly.9] - 2026-08-18 (Nightly Test Build)
+### Added
+- **1-Tap Firearm Selection Reset in Range Prep**:
+  - Added a dedicated **"Reset Guns"** action button in the firearms selection header to quickly deselect all chosen firearms and allocated ammo without having to manually uncheck each card.
+  - Enhanced the top progress reset modal with dual options (**"Reset Everything"** vs **"Uncheck Items Only"**).
+
+## [2.6.0-nightly.8] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Intelligent Firearm Feeding Gear Classifier in Range Prep**:
+  - Automatically identifies action and feeding systems to suggest exact matching loading gear instead of generic detachable magazines:
+    - **Revolvers**: Speedloaders, moon clips, and speed strips.
+    - **Single-Shot & Break-Action Rifles/Pistols**: Cartridge belts and buttstock ammo cuffs.
+    - **Break-Action Shotguns (O/U & SxS)**: Waist shell pouches and shooting vests.
+    - **Tube-Fed Shotguns**: Side-saddles, elastic shell cards, and dump pouches.
+    - **Lever-Action Rifles**: Buttstock ammo sleeves and cartridge wallets.
+    - **Surplus & Clip-Fed Rifles (M1 Garand, SKS, Mosin, Mauser, Enfield)**: En bloc clips and stripper clips.
+- **Custom Bag Preset Builder**:
+  - Interactive preset creation modal to configure, name, iconize, and store persistent custom discipline packing lists.
+  - Delete and switch between custom and built-in presets seamlessly.
+- **Expanded Built-in Discipline Presets (10 Comprehensive Categories)**:
+  - Added **USPSA / IDPA Match**, **Defensive Carbine / 2-Gun**, **Clay & Trap / Skeet**, **Suppressed & Low-Light**, and **Youth & Novice Training**.
+
+## [2.6.0-nightly.7] - 2026-08-18 (Nightly Test Build)
+### Changed
+- **Dashboard Terminology**:
+  - Renamed the main tool grid section header from "Vault Quick Actions" to **"Companion Tools"** to accurately reflect the comprehensive module suite of the mobile application.
+
+## [2.6.0-nightly.6] - 2026-08-18 (Nightly Test Build)
+### Changed
+- **Dashboard Layout Optimization**:
+  - Moved the **Cached Vault Summary** card to the top of the dashboard directly below the connection status beacon.
+
+## [2.6.0-nightly.5] - 2026-08-18 (Nightly Test Build)
+### Changed
+- **Action Hub Sync Outbox Card**:
+  - Converted the bottom standalone banner into a dedicated 8th Quick Action Card in the primary Vault Quick Actions grid on the dashboard.
+  - Features real-time pending item count indicators, dynamic icon coloring, and balanced 2x4 action grid layout.
+
+## [2.6.0-nightly.4] - 2026-08-18 (Nightly Test Build)
+### Added
+- **User-Controlled Release Stream Switching & Instant Rollback Support**:
+  - Full channel toggle in Settings between **Official Stable** and **Nightly Pre-release** streams.
+  - **Intelligent Downgrade Engine**: When a user on a Nightly build selects Stable Channel, the auto-updater recognizes the pre-release state and offers a **"Rollback to Official Stable Release"** download, smoothly bypassing normal forward-only semver constraints.
+  - Dedicated **"Rollback to Latest Stable Release"** action button in Settings whenever a Nightly testing build is active.
+  - Instant auto-check when switching release channels with custom user confirmations.
+
+## [2.6.0-nightly.3] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Expanded Commercial Factory Caliber Database (35+ Standard Loads)**:
+  - Full commercial factory profiles across **Handguns & PCCs** (9mm 115gr/124gr/+P/147gr sub, .40 S&W, 10mm Auto target & 200gr hard cast, .45 ACP ball & +P, .380 ACP, .38 Spl, .357 Mag, .44 Mag, 5.7x28mm, .357 SIG), **Rifles & Carbines** (5.56 NATO M193/M855/MK262/V-MAX, .300 BLK sup/sub, 7.62x39mm, 6.5 Grendel, 6mm ARC), **Precision & Long Range** (.308 Win M80/FGMM/SMK, 6.5 Creedmoor ELD-M/ELD-X, .30-06, .300 Win Mag, .338 Lapua, 7.62x54mmR, .45-70 Gov, .50 BMG), and **Rimfire & Shotgun** (.22 LR standard/HV/hyper/Stinger, .22 WMR, .17 HMR, 12 Gauge slug/00 buckshot, 20 Gauge slug).
+- **Firearm Barrel Length Velocity Scaling Engine**:
+  - Caliber-tailored empirical velocity scaling ($\pm 10\text{--}45\text{ fps/inch}$) with non-linear short-barrel rifle (SBR) corrections.
+  - Quick barrel length presets per caliber (e.g. 7.5", 10.5", 11.5", 14.5", 16.0", 18.0", 20.0" for 5.56; 3.1", 3.7", 4.0", 4.5", 5.0", 16.0" for 9mm; 5.5", 7.5", 9.0", 10.5", 16.0" for .300 BLK).
+  - Steppers (`-0.5"`, `+0.5"`) and direct numeric input with real-time velocity comparison readout comparing manufacturer test barrel vs your actual barrel length.
+  - Live DOPE table updates reflecting true downrange drop and turret click corrections.
+
+## [2.6.0-nightly.2] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Target MOA Grouping Analyzer & Scope Zeroing Assistant**: Multi-step interactive touch canvas to scale paper targets, plot point of aim (POA), mark bullet holes (POI), and calculate Extreme Spread, Mean Radius, MOA, and Scope Turret Click Corrections (1/4 MOA, 1/2 MOA, 0.1 MIL).
+- **Range Bag Packing Checklist Mode ("Range Prep")**: Select firearms to bring -> automatically aggregates required ammunition lots, magazines, and range gear essentials with persistent packing progress and discipline presets (CCW, Precision Rifle, Steel Challenge).
+- **Maintenance Lifecycle Milestones & Malfunction Diagnostics**: Real-time wear gauges for recoil springs, extractor, and deep cleaning with 1-tap service resets. 1-tap failure diagnostics (FTF, FTE, Stovepipe, Double Feed, Light Strike) with root-cause analysis and gun-ammo compatibility warnings.
+- **Offline DOPE & Ballistic Drop Calculator**: Simple Mode (factory commercial ammo database across 12 popular calibers) and Advanced Mode (G1 numerical point-mass solver with environmental corrections and 500yd+ DOPE card).
+- **Private Bill of Sale PDF Generator & DL Scanner**: AAMVA 2D barcode scanner for buyer Driver's Licenses, statutory legal acknowledgments, dual touch signature canvas, watermarked 1-page PDF generation, 1-tap SMS/Email delivery to both parties, and permanent archival to the firearm details card.
+- **100% On-Device Bench Voice Memos**: Private, zero-cloud audio recording for range and bench notes with playback and 1-tap "Wipe All Voice Logs" purge controls for total privacy compliance.
+
+## [2.6.0-nightly.1] - 2026-08-18 (Nightly Test Build)
+### Added
+- **Automatic Desktop Synchronization**: When connected to the desktop vault over Wi-Fi, pending changes (range logs, stock audits, scans) automatically sync in the background without needing manual sync button taps.
+- **Tactical Dark Dialog & Toast System**: Completely overhauled popup confirmation dialogs with custom dark modals for destructive actions (Unpair, Delete item, Clear queue) and sleek auto-dismissing floating toasts for successes and quick adjustments.
+- **Update Channel Selector (Stable vs Nightly)**: Added in-app setting to toggle between Stable production releases and Nightly testing builds with dedicated APK routing.
+- **Nightly Build Website Download Grid Integration**: Added Android Mobile Companion download card to GitHub Pages website with live channel switching support.
 
 ## [2.5.0] - 2026-08-16
 ### Added

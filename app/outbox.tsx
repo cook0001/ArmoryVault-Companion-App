@@ -200,44 +200,44 @@ export default function Outbox() {
                   </View>
                   
                   {(item.type === 'ammo_adjustment' || item.type === 'component_adjustment' || item.type === 'universal_scan') && (
-                    <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{item.count} Units ({item.measurement || 'rds'})</Text>
+                    <Text style={styles.itemTitle}>{item.action === 'remove' ? '-' : '+'}{String(item.count)} Units ({String(item.measurement || 'rds')})</Text>
                   )}
 
                   {item.type === 'range_session' && (
                     <>
-                      <Text style={styles.itemTitle}>Firearm #{item.firearm_id} • {item.rounds_fired} Rounds</Text>
-                      {item.ammo_id && <Text style={styles.itemDesc}>Deducting Ammo ID: {item.ammo_id}</Text>}
-                      {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
+                      <Text style={styles.itemTitle}>Firearm #{String(item.firearm_id)} • {String(item.rounds_fired)} Rounds</Text>
+                      {item.ammo_id && <Text style={styles.itemDesc}>Deducting Ammo ID: {String(item.ammo_id)}</Text>}
+                      {item.notes && <Text style={styles.itemDesc}>"{String(item.notes)}"</Text>}
                       {item.malfunctions && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                           <Ionicons name="warning-outline" size={12} color="#ef4444" />
-                          <Text style={[styles.itemDesc, { color: '#ef4444' }]}>{item.malfunctions.length} Malfunctions Logged</Text>
+                          <Text style={[styles.itemDesc, { color: '#ef4444' }]}>{Array.isArray(item.malfunctions) ? item.malfunctions.length : 0} Malfunctions Logged</Text>
                         </View>
                       )}
                     </>
                   )}
 
                   {item.type === 'part_maintenance' && (
-                    <Text style={styles.itemTitle}>Part SKU: {item.upcOrId} for Firearm #{item.firearmId || 'General'}</Text>
+                    <Text style={styles.itemTitle}>Part SKU: {item.upcOrId} for Firearm #{String(item.firearmId || 'General')}</Text>
                   )}
                   
                   {item.type === 'firearm_log' && (
                     <>
                       <Text style={styles.itemTitle}>{item.logType === 'maintenance' ? 'Maintenance' : 'Range Log'}</Text>
-                      {item.roundCount > 0 && <Text style={styles.itemDesc}>{item.roundCount} Rounds Fired</Text>}
-                      {item.notes && <Text style={styles.itemDesc}>"{item.notes}"</Text>}
+                      {Number(item.roundCount) > 0 && <Text style={styles.itemDesc}>{String(item.roundCount)} Rounds Fired</Text>}
+                      {item.notes && <Text style={styles.itemDesc}>"{String(item.notes)}"</Text>}
                     </>
                   )}
 
                   {item.type === 'firearm_photo' && (
-                    <Text style={styles.itemTitle}>New Photo for Firearm #{item.firearmId}</Text>
+                    <Text style={styles.itemTitle}>New Photo for Firearm #{String(item.firearmId)}</Text>
                   )}
                   
                   <Text style={styles.timestamp}>{new Date(item.timestamp).toLocaleString()}</Text>
                 </View>
 
-                {item.photoBase64 && (
-                  <Image source={{ uri: item.photoBase64 }} style={styles.previewImage} />
+                {typeof item.photoBase64 === 'string' && item.photoBase64 && (
+                  <Image source={{ uri: item.photoBase64 as string }} style={styles.previewImage} />
                 )}
 
                 <Pressable style={styles.deleteButton} onPress={() => handleDelete(index)}>

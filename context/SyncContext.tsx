@@ -2,13 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useDialog } from './DialogContext';
+import type { SyncQueueItem, StorageLocation, DashboardStats } from '../types';
 
-export interface DashboardStats {
-  firearms: number;
-  ammo: number;
-  components: number;
-  skus?: number;
-}
+export type { DashboardStats } from '../types';
 
 interface SyncContextType {
   syncedIp: string | null;
@@ -19,22 +15,23 @@ interface SyncContextType {
   syncProgress: string | null;
   lastSyncTime: string | null;
   lastCacheTime: string | null;
-  offlineQueue: any[];
+  offlineQueue: SyncQueueItem[];
   offlineQueueCount: number;
   autoSyncEnabled: boolean;
   dashboardStats: DashboardStats | null;
+  storageLocations: StorageLocation[];
   
   // Actions
   loadStatus: () => Promise<void>;
   triggerSync: (options?: { manual?: boolean }) => Promise<boolean>;
-  addToQueue: (item: any | any[], successMessage?: string) => Promise<boolean>;
+  addToQueue: (item: SyncQueueItem | SyncQueueItem[], successMessage?: string) => Promise<boolean>;
   removeFromQueue: (index: number) => Promise<void>;
-  updateQueueItem: (index: number, updatedItem: any) => Promise<void>;
+  updateQueueItem: (index: number, updatedItem: SyncQueueItem) => Promise<void>;
   clearQueue: () => Promise<void>;
   refreshCache: (silent?: boolean) => Promise<boolean>;
   remoteLockVault: () => Promise<boolean>;
   setAutoSyncEnabled: (enabled: boolean) => Promise<void>;
-  setServerIp: (ip: string | null) => Promise<void>;
+  setServerIp: (ip: string | null, explicitToken?: string) => Promise<void>;
 }
 
 const SyncContext = createContext<SyncContextType | null>(null);
@@ -58,9 +55,22 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [lastCacheTime, setLastCacheTime] = useState<string | null>(null);
-  const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  const [offlineQueue, setOfflineQueue] = useState<SyncQueueItem[]>([]);
   const [autoSyncEnabled, setAutoSyncEnabledState] = useState<boolean>(true);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+
+  // Pairing token for authenticated API calls
+  const pairingTokenRef = useRef<string | null>(null);
+
+  // Helper to build auth headers for all authenticated API calls
+  const getAuthHeaders = useCallback((extra?: Record<string, string>) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...extra };
+    if (pairingTokenRef.current) {
+      headers['Authorization'] = `Bearer ${pairingTokenRef.current}`;
+    }
+    return headers;
+  }, []);
 
   // Refs for tracking in intervals/async closures
   const isSyncingRef = useRef(false);
@@ -85,13 +95,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       let res = await fetch(`${ip}/api/vault/lock`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       }).catch(() => null);
 
       if (!res || res.status === 404) {
         res = await fetch(`${ip}/api/lock`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
         }).catch(() => null);
       }
 
@@ -125,7 +135,11 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSyncedIpState(ip);
       syncedIpRef.current = ip;
 
-      // 2. Auto-Sync Setting
+      // 2a. Pairing Token
+      const token = await AsyncStorage.getItem('pairing_token');
+      pairingTokenRef.current = token;
+
+      // 3. Auto-Sync Setting
       const autoSyncStr = await AsyncStorage.getItem('auto_sync_enabled');
       const isAutoSync = autoSyncStr === null ? true : autoSyncStr === 'true';
       setAutoSyncEnabledState(isAutoSync);
@@ -133,7 +147,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 3. Offline Queue
       const queueStr = await AsyncStorage.getItem('offline_queue');
-      let currentQueue: any[] = [];
+      let currentQueue: SyncQueueItem[] = [];
       if (queueStr) {
         try {
           currentQueue = JSON.parse(queueStr);
@@ -153,6 +167,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const cacheTime = await AsyncStorage.getItem('inventory_cache_time');
       if (cacheTime) setLastCacheTime(cacheTime);
+
+      const cachedStorage = await AsyncStorage.getItem('storage_locations_cache');
+      if (cachedStorage) {
+        try {
+          setStorageLocations(JSON.parse(cachedStorage));
+        } catch {}
+      }
 
       const syncTime = await AsyncStorage.getItem('last_sync_time');
       if (syncTime) setLastSyncTime(syncTime);
@@ -178,7 +199,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (!locked) {
               // Fetch summary stats
-              fetch(`${ip}/api/inventory/summary`)
+              fetch(`${ip}/api/inventory/summary`, { headers: getAuthHeaders() })
                 .then(async res => {
                   if (!res.ok) return null;
                   const text = await res.text();
@@ -194,7 +215,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .catch(() => {});
 
               // Fetch inventory cache
-              fetch(`${ip}/api/inventory/cache`)
+              fetch(`${ip}/api/inventory/cache`, { headers: getAuthHeaders() })
                 .then(async res => {
                   if (!res.ok) return null;
                   const text = await res.text();
@@ -214,6 +235,21 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       components: data.components?.length || prev?.components || 0,
                       skus: skuCount
                     }));
+
+                    if (data.storageLocations) {
+                      setStorageLocations(data.storageLocations);
+                      AsyncStorage.setItem('storage_locations_cache', JSON.stringify(data.storageLocations));
+                    } else if (ip) {
+                      fetch(`${ip}/api/storage-locations`, { headers: getAuthHeaders() })
+                        .then(r => r.json())
+                        .then(sData => {
+                          if (sData && sData.locations) {
+                            setStorageLocations(sData.locations);
+                            AsyncStorage.setItem('storage_locations_cache', JSON.stringify(sData.locations));
+                          }
+                        })
+                        .catch(() => {});
+                    }
                   }
                 })
                 .catch(() => {});
@@ -243,7 +279,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Internal Sync Worker Function
   const triggerSyncInternal = async (
     targetIp: string, 
-    queueToProcess: any[], 
+    queueToProcess: SyncQueueItem[], 
     isManual: boolean
   ): Promise<boolean> => {
     if (isSyncingRef.current || queueToProcess.length === 0) return false;
@@ -263,9 +299,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const response = await fetch(`${targetIp}/api/sync`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ items: chunk }),
         });
 
@@ -354,15 +388,33 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [showError, showToast, showSuccess]);
 
   // Add Item(s) to Queue and Auto-Sync if Online
-  const addToQueue = useCallback(async (item: any | any[], successMessage?: string): Promise<boolean> => {
+  const MAX_QUEUE_SIZE = 500;
+  const addToQueue = useCallback(async (item: SyncQueueItem | SyncQueueItem[], successMessage?: string): Promise<boolean> => {
     try {
       const itemsToAdd = Array.isArray(item) ? item : [item];
       const queueStr = await AsyncStorage.getItem('offline_queue');
-      const queue = queueStr ? JSON.parse(queueStr) : [];
+      const queue: SyncQueueItem[] = queueStr ? JSON.parse(queueStr) : [];
       
-      const newQueue = [...queue, ...itemsToAdd];
+      let newQueue = [...queue, ...itemsToAdd];
+
+      // Enforce queue size limit with FIFO eviction
+      if (newQueue.length > MAX_QUEUE_SIZE) {
+        const evicted = newQueue.length - MAX_QUEUE_SIZE;
+        newQueue = newQueue.slice(-MAX_QUEUE_SIZE);
+        console.warn(`Queue limit reached: evicted ${evicted} oldest item(s)`);
+      }
+
       await AsyncStorage.setItem('offline_queue', JSON.stringify(newQueue));
       setOfflineQueue(newQueue);
+
+      // Warn when queue is getting large
+      if (newQueue.length > 400 && !isSyncingRef.current) {
+        showToast({
+          message: `Offline queue has ${newQueue.length} items. Connect to desktop to sync.`,
+          type: 'warning',
+          durationMs: 4000,
+        });
+      }
 
       if (successMessage) {
         showToast({
@@ -405,7 +457,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [offlineQueue, showToast, showError]);
 
   // Update Item in Queue
-  const updateQueueItem = useCallback(async (index: number, updatedItem: any) => {
+  const updateQueueItem = useCallback(async (index: number, updatedItem: SyncQueueItem) => {
     try {
       const newQueue = [...offlineQueue];
       newQueue[index] = updatedItem;
@@ -439,10 +491,44 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch(`${ip}/api/inventory/cache`);
+      const res = await fetch(`${ip}/api/inventory/cache`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && !data.isLocked) {
+          // Merge any pending offline queue edits over the fresh cache so pending changes remain visible
+          try {
+            const queueStr = await AsyncStorage.getItem('offline_queue');
+            if (queueStr) {
+              const queue: SyncQueueItem[] = JSON.parse(queueStr);
+              if (Array.isArray(queue) && queue.length > 0 && Array.isArray(data.firearms)) {
+                queue.forEach(item => {
+                  if (item.type === 'firearm_update') {
+                    const itemData: any = item.data || item;
+                    const fId = String(item.firearmId || itemData.firearmId || itemData.id);
+                    const idx = data.firearms.findIndex((f: any) => String(f.id) === fId);
+                    if (idx >= 0) {
+                      const { photoBase64: _p1, photosBase64: _p2, ...cleanData } = itemData;
+                      data.firearms[idx] = { ...data.firearms[idx], ...cleanData };
+                    }
+                  } else if (item.type === 'new_firearm') {
+                    const itemData: any = item.data || item;
+                    const { photoBase64: _p1, photosBase64: _p2, ...cleanData } = itemData;
+                    const serialMatch = cleanData.serial_number && data.firearms.some((f: any) => f.serial_number && f.serial_number.toLowerCase() === cleanData.serial_number.toLowerCase());
+                    if (!serialMatch) {
+                      data.firearms.unshift({
+                        id: Date.now(),
+                        ...cleanData,
+                        is_sold: false,
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          } catch (mergeErr) {
+            console.warn('Could not merge offline queue into fresh cache:', mergeErr);
+          }
+
           await AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
           const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setLastCacheTime(now);
@@ -458,11 +544,20 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             skus: skuCount
           });
 
-          if (!silent) {
-            showSuccess(
-              'Cache Updated', 
-              `Cached ${data.firearms?.length || 0} firearms, ${data.ammo?.length || 0} ammo lots, and ${data.components?.length || 0} reloading components.`
-            );
+          if (data.storageLocations) {
+            setStorageLocations(data.storageLocations);
+            await AsyncStorage.setItem('storage_locations_cache', JSON.stringify(data.storageLocations));
+          } else {
+            try {
+              const sRes = await fetch(`${ip}/api/storage-locations`, { headers: getAuthHeaders() });
+              if (sRes.ok) {
+                const sData = await sRes.json();
+                if (sData && sData.locations) {
+                  setStorageLocations(sData.locations);
+                  await AsyncStorage.setItem('storage_locations_cache', JSON.stringify(sData.locations));
+                }
+              }
+            } catch {}
           }
           return true;
         } else if (data?.isLocked) {
@@ -481,7 +576,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return false;
     }
-  }, [showSuccess, showError, showToast]);
+  }, [showSuccess, showError, showToast, getAuthHeaders]);
 
   // Set Auto-Sync Preference
   const setAutoSyncEnabled = useCallback(async (enabled: boolean) => {
@@ -494,15 +589,48 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [offlineQueue]);
 
-  // Set Server IP Address
-  const setServerIp = useCallback(async (ip: string | null) => {
+  // Set Server IP Address and initiate pairing
+  const setServerIp = useCallback(async (ip: string | null, explicitToken?: string) => {
     if (ip) {
       await AsyncStorage.setItem('server_ip', ip);
       setSyncedIpState(ip);
       syncedIpRef.current = ip;
+
+      if (explicitToken) {
+        pairingTokenRef.current = explicitToken;
+        await AsyncStorage.setItem('pairing_token', explicitToken);
+      }
+
+      // Attempt to pair and obtain auth token
+      try {
+        const pairHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        const activeToken = explicitToken || (await AsyncStorage.getItem('pairing_token'));
+        if (activeToken) {
+          pairHeaders['Authorization'] = `Bearer ${activeToken}`;
+        }
+
+        const pairRes = await fetch(`${ip}/api/pair`, {
+          method: 'POST',
+          headers: pairHeaders,
+          body: JSON.stringify({ deviceName: 'Mobile Companion' }),
+        });
+
+        if (pairRes.ok) {
+          const pairData = await pairRes.json();
+          if (pairData.pairingToken) {
+            pairingTokenRef.current = pairData.pairingToken;
+            await AsyncStorage.setItem('pairing_token', pairData.pairingToken);
+          }
+        }
+      } catch (e) {
+        console.warn('Pairing token exchange failed:', e);
+      }
+
       loadStatus();
     } else {
       await AsyncStorage.removeItem('server_ip');
+      await AsyncStorage.removeItem('pairing_token');
+      pairingTokenRef.current = null;
       setSyncedIpState(null);
       syncedIpRef.current = null;
       setIsOnline(false);
@@ -574,6 +702,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         offlineQueueCount: offlineQueue.length,
         autoSyncEnabled,
         dashboardStats,
+        storageLocations,
         loadStatus,
         triggerSync,
         addToQueue,

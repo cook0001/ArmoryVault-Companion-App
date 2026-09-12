@@ -21,13 +21,28 @@ import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { useSync } from '../context/SyncContext';
 import { useDialog } from '../context/DialogContext';
+import {
+  parseStorageUri,
+  getStorageCapacityUtilization,
+  StorageLocation,
+  StorageCapacityUtilization,
+} from '../utils/storageCapacity';
+import {
+  SafeIcon,
+  AmmoCanIcon,
+  CabinetIcon,
+  GunCaseIcon,
+  VehicleVaultIcon,
+  CartridgesIcon,
+  GunpowderIcon,
+} from './components/CustomMobileIcons';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const router = useRouter();
   const { type: expectedType } = useLocalSearchParams<{type: string}>();
   
-  const { addToQueue, setServerIp, removeFromQueue, offlineQueue } = useSync();
+  const { addToQueue, setServerIp, removeFromQueue, offlineQueue, storageLocations } = useSync();
   const { showSuccess, showError, showToast } = useDialog();
 
   const [scanned, setScanned] = useState(false);
@@ -52,6 +67,17 @@ export default function ScannerScreen() {
   const [boxCount, setBoxCount] = useState('1');
   const [roundsPerBox, setRoundsPerBox] = useState('50');
   const [measurement, setMeasurement] = useState('box');
+
+  // Storage Location Modal State
+  const [storageModalVisible, setStorageModalVisible] = useState(false);
+  const [scannedStorageData, setScannedStorageData] = useState<{
+    location: StorageLocation;
+    capUtil: StorageCapacityUtilization;
+    firearms: any[];
+    ammo: any[];
+    accessories: any[];
+    components: any[];
+  } | null>(null);
 
   // Animated Laser Line
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -139,14 +165,82 @@ export default function ScannerScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // 1. Pairing QR Code
-      if (data.startsWith('armoryvault://sync')) {
-        const url = new URL(data);
-        const ip = url.searchParams.get('ip');
-        const port = url.searchParams.get('port');
-        if (ip && port) {
-          await setServerIp(`http://${ip}:${port}`);
-          showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port}`);
+      // 0. Storage Location QR Code (armoryvault://storage/, AV-STORAGE-, storage:)
+      const storageId = parseStorageUri(data);
+      if (storageId !== null) {
+        const allLocations: StorageLocation[] = storageLocations && storageLocations.length > 0
+          ? storageLocations
+          : (cachedInventory?.storageLocations || []);
+        const foundLoc = allLocations.find((l: any) => l.id === storageId);
+
+        if (foundLoc) {
+          const locFirearms = (cachedInventory?.firearms || []).filter((f: any) => (foundLoc.firearmIds || []).includes(f.id));
+          const locAmmo = (cachedInventory?.ammo || []).filter((a: any) => (foundLoc.ammoIds || []).includes(a.id));
+          const locAccs = (cachedInventory?.accessories || []).filter((a: any) => (foundLoc.accessoryIds || []).includes(a.id));
+          const locComps = (cachedInventory?.components || []).filter((c: any) => (foundLoc.componentIds || []).includes(c.id));
+
+          const capUtil = getStorageCapacityUtilization(
+            foundLoc,
+            locFirearms.length,
+            locAccs.length,
+            locAmmo.length,
+            locComps.length
+          );
+
+          setScannedStorageData({
+            location: foundLoc,
+            capUtil,
+            firearms: locFirearms,
+            ammo: locAmmo,
+            accessories: locAccs,
+            components: locComps,
+          });
+          setStorageModalVisible(true);
+          return;
+        } else {
+          showToast({
+            title: 'Storage QR Scanned',
+            message: `Storage Location #${storageId} detected. Sync with desktop to load items.`,
+            type: 'info',
+          });
+          router.push('/inventory');
+          return;
+        }
+      }
+
+      // 1. Pairing QR Code (armoryvault://sync, armoryvault://pair, or http://...:3456)
+      const cleanData = (data || '').trim();
+      const lowerData = cleanData.toLowerCase();
+      if (
+        lowerData.startsWith('armoryvault://sync') ||
+        lowerData.startsWith('armoryvault://pair') ||
+        lowerData.includes(':3456')
+      ) {
+        let ip: string | null = null;
+        let port: string | null = '3456';
+        let token: string | null = null;
+
+        try {
+          // Normalize custom scheme to standard HTTP for universal WHATWG URL parsing
+          const httpUrlStr = cleanData.replace(/^armoryvault:\/\/(sync|pair)\??/i, 'http://dummy.local/?');
+          const parsedUrl = new URL(httpUrlStr);
+          ip = parsedUrl.searchParams.get('ip') || (parsedUrl.hostname !== 'dummy.local' ? parsedUrl.hostname : null);
+          port = parsedUrl.searchParams.get('port') || parsedUrl.port || '3456';
+          token = parsedUrl.searchParams.get('token');
+        } catch (e) {
+          // Robust regex fallback
+          const ipMatch = cleanData.match(/(?:ip=|\/\/)(1\d{2}\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|localhost|127\.0\.0\.1)/i);
+          const portMatch = cleanData.match(/port=(\d+)|:(\d{4,5})/i);
+          const tokenMatch = cleanData.match(/token=([a-zA-Z0-9_-]+)/i);
+          ip = ipMatch ? ipMatch[1] : null;
+          port = portMatch ? (portMatch[1] || portMatch[2]) : '3456';
+          token = tokenMatch ? tokenMatch[1] : null;
+        }
+
+        if (ip) {
+          const finalUrl = `http://${ip}:${port || '3456'}`;
+          await setServerIp(finalUrl, token || undefined);
+          showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port || '3456'}`);
           router.replace('/');
           return;
         }
@@ -154,8 +248,22 @@ export default function ScannerScreen() {
 
       // 2. Firearm QR Code (AV-FIREARM- or armoryvault://firearm/)
       if (data.startsWith('AV-FIREARM-') || data.startsWith('armoryvault://firearm/')) {
-        const id = data.replace('AV-FIREARM-', '').split('/').pop();
-        router.replace(`/firearms`);
+        const rawId = data.replace('AV-FIREARM-', '').replace('armoryvault://firearm/', '').trim();
+        try {
+          const cacheStr = await AsyncStorage.getItem('inventory_cache');
+          if (cacheStr) {
+            const cache = JSON.parse(cacheStr);
+            const found = (cache.firearms || []).find((f: any) =>
+              String(f.id) === rawId ||
+              (f.serial_number && f.serial_number.toLowerCase() === rawId.toLowerCase())
+            );
+            if (found) {
+              router.replace(`/firearm/${found.id}`);
+              return;
+            }
+          }
+        } catch (e) {}
+        router.replace('/firearms');
         return;
       }
 
@@ -705,6 +813,177 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Storage Location Inspection Dialog */}
+      <Modal visible={storageModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+            {scannedStorageData && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <View style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)'
+                  }}>
+                    {scannedStorageData.location.type === 'Safe' ? (
+                      <SafeIcon size={26} color="#34d399" />
+                    ) : scannedStorageData.location.type === 'AmmoCan' ? (
+                      <AmmoCanIcon size={26} color="#f59e0b" />
+                    ) : scannedStorageData.location.type === 'Cabinet' ? (
+                      <CabinetIcon size={26} color="#38bdf8" />
+                    ) : scannedStorageData.location.type === 'Case' ? (
+                      <GunCaseIcon size={26} color="#a78bfa" />
+                    ) : scannedStorageData.location.type === 'Vehicle' ? (
+                      <VehicleVaultIcon size={26} color="#fb7185" />
+                    ) : (
+                      <Ionicons name="cube-outline" size={26} color="#94a3b8" />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#f8fafc', fontSize: 17, fontWeight: '700' }} numberOfLines={1}>
+                      {scannedStorageData.location.name}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 6, marginTop: 3 }}>
+                      <View style={{
+                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                        borderColor: 'rgba(56, 189, 248, 0.3)',
+                        borderWidth: 1,
+                        paddingHorizontal: 6,
+                        paddingVertical: 1,
+                        borderRadius: 4
+                      }}>
+                        <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>
+                          {scannedStorageData.location.type}
+                        </Text>
+                      </View>
+                      <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                        ID: #{scannedStorageData.location.id}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Capacity Progress Meter */}
+                {scannedStorageData.capUtil.max ? (
+                  <View style={{
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.08)',
+                    borderRadius: 10,
+                    padding: 12,
+                    marginBottom: 14
+                  }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '600' }}>
+                        {scannedStorageData.capUtil.unitLabel} Capacity
+                      </Text>
+                      <Text style={{
+                        color: scannedStorageData.capUtil.isOverCapacity || (scannedStorageData.capUtil.percent && scannedStorageData.capUtil.percent >= 90) ? '#f87171' : '#34d399',
+                        fontSize: 12,
+                        fontWeight: '700'
+                      }}>
+                        {scannedStorageData.capUtil.used} / {scannedStorageData.capUtil.max} {scannedStorageData.capUtil.unitLabel} ({scannedStorageData.capUtil.percent}%)
+                      </Text>
+                    </View>
+                    <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                      <View style={{
+                        width: `${Math.min(100, scannedStorageData.capUtil.percent || 0)}%`,
+                        height: '100%',
+                        backgroundColor: scannedStorageData.capUtil.isOverCapacity || (scannedStorageData.capUtil.percent && scannedStorageData.capUtil.percent >= 90) ? '#ef4444' : '#38bdf8',
+                        borderRadius: 3
+                      }} />
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Breakdown Pills (Guns, Accs, Ammo, Powders) */}
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
+                  <View style={{ flex: 1, backgroundColor: 'rgba(167, 139, 250, 0.1)', borderWidth: 1, borderColor: 'rgba(167, 139, 250, 0.25)', borderRadius: 8, padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#c4b5fd', fontSize: 10, fontWeight: '700' }}>GUNS</Text>
+                    <Text style={{ color: '#f8fafc', fontSize: 16, fontWeight: '700', marginTop: 2 }}>{scannedStorageData.firearms.length}</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: 'rgba(96, 165, 250, 0.1)', borderWidth: 1, borderColor: 'rgba(96, 165, 250, 0.25)', borderRadius: 8, padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#93c5fd', fontSize: 10, fontWeight: '700' }}>ACCS</Text>
+                    <Text style={{ color: '#f8fafc', fontSize: 16, fontWeight: '700', marginTop: 2 }}>{scannedStorageData.accessories.length}</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.25)', borderRadius: 8, padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#fcd34d', fontSize: 10, fontWeight: '700' }}>AMMO</Text>
+                    <Text style={{ color: '#f8fafc', fontSize: 16, fontWeight: '700', marginTop: 2 }}>{scannedStorageData.ammo.length}</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: 'rgba(192, 132, 252, 0.1)', borderWidth: 1, borderColor: 'rgba(192, 132, 252, 0.25)', borderRadius: 8, padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#e9d5ff', fontSize: 10, fontWeight: '700' }}>POWDERS</Text>
+                    <Text style={{ color: '#f8fafc', fontSize: 16, fontWeight: '700', marginTop: 2 }}>{scannedStorageData.components.length}</Text>
+                  </View>
+                </View>
+
+                {/* Stored Items Preview */}
+                {scannedStorageData.firearms.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Stored Firearms:</Text>
+                    {scannedStorageData.firearms.map((f: any, i: number) => (
+                      <View key={f.id || i} style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 6, marginBottom: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#f1f5f9', fontSize: 13, fontWeight: '600' }}>{f.make} {f.model}</Text>
+                        <Text style={{ color: '#a78bfa', fontSize: 12 }}>{f.caliber}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {scannedStorageData.ammo.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Stored Ammunition:</Text>
+                    {scannedStorageData.ammo.map((a: any, i: number) => (
+                      <View key={a.id || i} style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 6, marginBottom: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#f1f5f9', fontSize: 13 }}>{a.manufacturer || ''} {a.caliber}</Text>
+                        <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '700' }}>{a.count} rds</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {scannedStorageData.capUtil.totalItems === 0 && (
+                  <View style={{ padding: 16, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 8, marginBottom: 14 }}>
+                    <Text style={{ color: '#64748b', fontSize: 13, fontStyle: 'italic' }}>This storage container is currently empty.</Text>
+                  </View>
+                )}
+
+                {/* Modal Buttons */}
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                  <Pressable
+                    style={{ flex: 1, backgroundColor: '#334155', padding: 12, borderRadius: 8, alignItems: 'center' }}
+                    onPress={() => {
+                      setStorageModalVisible(false);
+                      setScannedStorageData(null);
+                      setScanned(false);
+                    }}
+                  >
+                    <Text style={{ color: '#f8fafc', fontWeight: '600' }}>Close</Text>
+                  </Pressable>
+                  <Pressable
+                    style={{ flex: 1, backgroundColor: '#38bdf8', padding: 12, borderRadius: 8, alignItems: 'center' }}
+                    onPress={() => {
+                      const locId = scannedStorageData.location.id;
+                      setStorageModalVisible(false);
+                      setScannedStorageData(null);
+                      setScanned(false);
+                      router.push(`/inventory?storageId=${locId}` as any);
+                    }}
+                  >
+                    <Text style={{ color: '#0f172a', fontWeight: '700' }}>View in Inventory</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -860,6 +1139,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
+  // Modal & Drawer Styles
   drawerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',

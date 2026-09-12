@@ -2,6 +2,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // expo-audio (the maintained replacement for expo-av) provides the recording and playback APIs.
+// We use imperative APIs here since this is a utility module, not a React component.
+// Components that need recording should use the useAudioRecorder hook from expo-audio directly,
+// or call these utility functions for persistence and metadata management.
 let AudioModule: any = null;
 let createAudioPlayer: any = null;
 let setAudioModeAsync: any = null;
@@ -72,6 +75,7 @@ export async function configureAudioForRecording(): Promise<void> {
 
 /**
  * Returns the RecordingPresets for use with useAudioRecorder hook.
+ * Components should use: const recorder = useAudioRecorder(getRecordingPreset());
  */
 export function getRecordingPreset(): any {
   return RecordingPresets?.HIGH_QUALITY || {};
@@ -79,6 +83,7 @@ export function getRecordingPreset(): any {
 
 /**
  * Saves the recording from an AudioRecorder instance and persists the audio memo locally.
+ * The recorder should already be stopped (via recorder.stop()) before calling this.
  */
 export async function saveRecording(
   recorderUri: string | null,
@@ -178,6 +183,7 @@ export async function getAudioMemos(): Promise<AudioMemo[]> {
 
 /**
  * Starts audio recording on device using expo-audio.
+ * Returns an AudioRecorder instance or null if unavailable/denied.
  */
 export async function startAudioRecording(): Promise<any | null> {
   if (!AudioModule) return null;
@@ -221,6 +227,7 @@ export async function stopAndSaveAudioRecording(
 
 /**
  * Plays an audio recording from local storage using the new expo-audio API.
+ * Returns a player instance that the caller should release() when done.
  */
 export async function playAudioMemo(fileUri: string): Promise<any | null> {
   if (!createAudioPlayer || !fileUri) return null;

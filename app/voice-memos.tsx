@@ -11,7 +11,7 @@ import {
   getAudioMemos, 
   startAudioRecording, 
   stopAndSaveAudioRecording, 
-  saveTextBenchMemo, 
+  saveTextBenchMemo,
   deleteAudioMemo, 
   wipeAllAudioMemos, 
   playAudioMemo,

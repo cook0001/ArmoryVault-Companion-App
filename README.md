@@ -12,7 +12,7 @@ This mobile application connects securely over your local Wi-Fi to the ArmoryVau
 - **Private Bill of Sale PDF Generator:** Driver's License PDF417 scanner, statutory legal affirmations, dual touch signature canvas, and 1-tap SMS/Email/Print sharing.
 - **100% On-Device Bench Voice Memos:** Private, zero-cloud audio notes with instant playback and 1-tap "Wipe All Voice Logs" purge controls.
 - **Tactical Dark UI & Dialogs:** Custom dark confirmation modals and auto-dismissing toast notifications with haptics.
-- **Nightly & Stable Update Channels:** Select between official stable releases and nightly test builds in Settings.
+- **In-App OTA Updates:** Seamlessly check for official releases directly from Settings with 1-tap download and installation.
 
 ## Setup & Run
 This project uses Expo.
@@ -46,13 +46,10 @@ cd android
 ## Publishing Releases to GitHub
 You can use the provided scripts to automate GitHub releases:
 
-1. **Auto-Build & Publish Stable Release**: `./publish-release.sh`
+1. **Auto-Build & Publish Release**: `./publish-release.sh`
    *(Builds the release APK and publishes an official release to GitHub)*
 
-2. **Auto-Build & Publish Nightly Prerelease**: `./publish-nightly.sh`
-   *(Builds the release APK and publishes a Nightly pre-release to GitHub)*
-
-3. **Publish Only (No Build)**: `./publish-release-no-build.sh`
+2. **Publish Only (No Build)**: `./publish-release-no-build.sh`
    *(Instantly uploads the current build artifact to GitHub)*
 
 ## Build Workflow Tools
@@ -72,12 +69,12 @@ For complete documentation on workflows, native safety, and troubleshooting, see
 
 ### Recommended Build Flow
 ```bash
-./bump-version.sh 2.6.1-nightly.1   # 1. Bump version
-# Edit CHANGELOG.md                   # 2. Document changes
-./preflight.sh                        # 3. Validate everything
-./clean-build.sh                      # 4. Clean build (includes preflight)
-./smoke-test.sh                       # 5. Validate the APK
-./publish-nightly.sh                  # 6. Ship it
+./bump-version.sh 2.7.1      # 1. Bump version
+# Edit CHANGELOG.md          # 2. Document changes
+./preflight.sh               # 3. Validate everything
+./clean-build.sh             # 4. Clean build (includes preflight)
+./smoke-test.sh              # 5. Validate the APK
+./publish-release.sh         # 6. Ship it
 ```
 
 ## Running on iOS (iPhone)

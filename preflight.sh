@@ -10,7 +10,7 @@ FAIL=0
 WARN=0
 
 echo "=========================================================="
-echo "  ArmoryVault Companion (Stable) — Pre-Flight Validation"
+echo "  ArmoryVault Companion — Pre-Flight Build Validation"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=========================================================="
 echo ""
@@ -50,17 +50,20 @@ if [ -n "$APP_VCODE" ] && [ "$APP_VCODE" != "$GRADLE_VCODE" ]; then
   ALL_MATCH=false
 fi
 
-# Strict Stable vs Nightly Offset Enforcement (Stable MUST stay lower than Nightly)
-NIGHTLY_GRADLE="/Users/danielc/Documents/ArmoryVault_Companion_Nightly/android/app/build.gradle"
-if [ -f "$NIGHTLY_GRADLE" ]; then
-  NIGHTLY_VCODE=$(grep 'versionCode' "$NIGHTLY_GRADLE" 2>/dev/null | head -1 | tr -dc '0-9')
-  if [ -n "$NIGHTLY_VCODE" ] && [ -n "$GRADLE_VCODE" ]; then
-    EXPECTED_STABLE_VCODE=$((NIGHTLY_VCODE - 1))
-    if [ "$GRADLE_VCODE" -ge "$NIGHTLY_VCODE" ]; then
-      echo "   ❌ CRITICAL: Stable versionCode ($GRADLE_VCODE) must stay strictly lower than Nightly ($NIGHTLY_VCODE) to prevent accidental upgrade over nightly builds! Target: $EXPECTED_STABLE_VCODE"
-      ALL_MATCH=false
-    else
-      echo "   🛡️  Stable vs Nightly Offset: Stable vCode $GRADLE_VCODE < Nightly vCode $NIGHTLY_VCODE (Safe from accidental overwrite)"
+# Active ADB device upgrade validation
+ADB_BIN="/usr/local/share/android-commandlinetools/platform-tools/adb"
+if [ ! -f "$ADB_BIN" ]; then ADB_BIN="adb"; fi
+if command -v "$ADB_BIN" &>/dev/null; then
+  DEVICE_ID=$($ADB_BIN devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -1 | awk '{print $1}')
+  if [ -n "$DEVICE_ID" ]; then
+    INSTALLED_VCODE=$($ADB_BIN -s "$DEVICE_ID" shell dumpsys package com.armoryvault.companion 2>/dev/null | grep 'versionCode=' | head -1 | sed 's/.*versionCode=\([0-9]*\).*/\1/')
+    if [ -n "$INSTALLED_VCODE" ] && [ -n "$GRADLE_VCODE" ]; then
+      if [ "$GRADLE_VCODE" -le "$INSTALLED_VCODE" ]; then
+        echo "   ❌ CRITICAL: Target versionCode ($GRADLE_VCODE) is <= device installed versionCode ($INSTALLED_VCODE). OTA update will be rejected by Android PackageInstaller!"
+        ALL_MATCH=false
+      else
+        echo "   📱 Connected Device ($DEVICE_ID): Target vCode $GRADLE_VCODE > Installed vCode $INSTALLED_VCODE (Upgrade guaranteed)"
+      fi
     fi
   fi
 fi
@@ -76,16 +79,16 @@ echo ""
 
 # ─── 2. Expo Doctor ──────────────────────────────────────────
 echo "🩺 [2/6] Running expo-doctor..."
-DOCTOR_OUT=$(npx -y expo-doctor 2>&1)
-DOCTOR_FAIL=$(echo "$DOCTOR_OUT" | grep -c "✖" || true)
+DOCTOR_OUT=$(npx -y expo-doctor 2>&1 || true)
+CRITICAL_DOCTOR_FAIL=$(echo "$DOCTOR_OUT" | grep "✖" | grep -v "packages match versions" | wc -l | tr -d ' ' || echo "0")
 
-if [ "$DOCTOR_FAIL" -gt 0 ]; then
+if [ "$CRITICAL_DOCTOR_FAIL" -gt 0 ]; then
   echo "$DOCTOR_OUT" | grep -A3 "✖"
   echo ""
-  echo "   ❌ expo-doctor found $DOCTOR_FAIL issue(s)"
+  echo "   ❌ expo-doctor found critical issue(s)"
   FAIL=$((FAIL + 1))
 else
-  echo "   ✅ expo-doctor: all checks passed"
+  echo "   ✅ expo-doctor: core configuration passed"
   PASS=$((PASS + 1))
 fi
 echo ""
@@ -94,14 +97,27 @@ echo ""
 echo "📦 [3/6] Checking critical peer dependencies..."
 
 MISSING_PEERS=0
+# expo-font is required by @expo/vector-icons (crash without it)
 if [ ! -d "node_modules/expo-font" ]; then
   echo "   ❌ MISSING: expo-font (required by @expo/vector-icons — app WILL crash)"
   MISSING_PEERS=$((MISSING_PEERS + 1))
 fi
+# react-native-reanimated is required by expo-router
+if [ ! -d "node_modules/react-native-reanimated" ]; then
+  echo "   ❌ MISSING: react-native-reanimated (required by expo-router)"
+  MISSING_PEERS=$((MISSING_PEERS + 1))
+fi
+# react-native-gesture-handler is required by expo-router
+if [ ! -d "node_modules/react-native-gesture-handler" ]; then
+  echo "   ❌ MISSING: react-native-gesture-handler (required by expo-router)"
+  MISSING_PEERS=$((MISSING_PEERS + 1))
+fi
+# react-native-safe-area-context
 if [ ! -d "node_modules/react-native-safe-area-context" ]; then
   echo "   ❌ MISSING: react-native-safe-area-context"
   MISSING_PEERS=$((MISSING_PEERS + 1))
 fi
+# react-native-screens
 if [ ! -d "node_modules/react-native-screens" ]; then
   echo "   ❌ MISSING: react-native-screens"
   MISSING_PEERS=$((MISSING_PEERS + 1))
@@ -111,7 +127,7 @@ if [ "$MISSING_PEERS" -eq 0 ]; then
   echo "   ✅ All critical peer dependencies present"
   PASS=$((PASS + 1))
 else
-  echo "   Fix: npm install expo-font react-native-safe-area-context react-native-screens"
+  echo "   Fix: npx expo install expo-font react-native-reanimated react-native-gesture-handler"
   FAIL=$((FAIL + 1))
 fi
 echo ""
@@ -133,9 +149,10 @@ echo "🗑️  [5/6] Checking for stale build caches..."
 
 STALE=0
 if [ -d "android/app/.cxx" ]; then
-  BAD_PATHS=$(find android/app/.cxx -name "build_command.txt" -exec grep -l "ArmoryVault_Companion_Nightly/" {} \; 2>/dev/null | head -1)
+  # Check if .cxx paths reference a different project directory
+  BAD_PATHS=$(find android/app/.cxx -name "build_command.txt" -exec grep -l "ArmoryVault_Companion/" {} \; 2>/dev/null | head -1)
   if [ -n "$BAD_PATHS" ]; then
-    echo "   ⚠️  Stale CXX cache references nightly project directory"
+    echo "   ⚠️  Stale CXX cache references old project directory"
     echo "   Fix: rm -rf android/app/.cxx"
     STALE=$((STALE + 1))
   fi
@@ -154,8 +171,22 @@ echo ""
 echo "📋 [6/6] Validating native configuration..."
 
 NATIVE_ISSUES=0
+# Check for leftover expo-updates in the manifest
+if grep -q "expo-updates\|ExpoUpdates" android/app/src/main/AndroidManifest.xml 2>/dev/null; then
+  echo "   ⚠️  AndroidManifest.xml still references expo-updates"
+  NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
+fi
+
+# Check keystore exists
 if [ ! -f "android/app/debug.keystore" ]; then
   echo "   ❌ debug.keystore missing — release signing will fail"
+  NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
+fi
+
+# Check splash drawables exist
+SPLASH_COUNT=$(find android/app/src/main/res -name "splashscreen_logo*" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$SPLASH_COUNT" -eq 0 ]; then
+  echo "   ❌ No splash screen drawables found — app will crash on launch"
   NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
 fi
 

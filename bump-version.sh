@@ -6,19 +6,19 @@ cd "$DIR"
 
 # ─── Usage ───────────────────────────────────────────────────
 usage() {
-  echo "Usage: ./bump-version.sh <new-version> [new-version-code]"
+  echo "Usage: ./bump-version.sh <new-version>"
   echo ""
   echo "Bumps the version across all project files atomically."
   echo ""
   echo "Examples:"
-  echo "  ./bump-version.sh 2.6.0        # Auto-increments versionCode"
-  echo "  ./bump-version.sh 2.6.0 302    # Explicitly sets versionCode 302"
+  echo "  ./bump-version.sh 2.7.1    # Patch release"
+  echo "  ./bump-version.sh 2.8.0    # Minor feature release"
   echo ""
   echo "Files updated:"
-  echo "  • package.json             (version)"
-  echo "  • app.json                 (expo.version + expo.android.versionCode)"
+  echo "  • package.json         (version)"
+  echo "  • app.json             (expo.version)"
   echo "  • android/app/build.gradle (versionCode + versionName)"
-  echo "  • utils/updater.ts         (fallback version string)"
+  echo "  • utils/updater.ts     (fallback version string)"
   exit 1
 }
 
@@ -33,20 +33,10 @@ OLD_VCODE=$(grep 'versionCode' android/app/build.gradle 2>/dev/null | head -1 | 
 if [ -z "$OLD_VCODE" ]; then
   OLD_VCODE=0
 fi
-
-if [ -n "$2" ]; then
-  NEW_VCODE="$2"
-else
-  # Ensure baseline of >= 300
-  if [ "$OLD_VCODE" -lt 300 ]; then
-    NEW_VCODE=300
-  else
-    NEW_VCODE=$((OLD_VCODE + 1))
-  fi
-fi
+NEW_VCODE=$((OLD_VCODE + 1))
 
 echo "=========================================================="
-echo "  ArmoryVault Companion (Stable) — Version Bump"
+echo "  ArmoryVault Companion — Version Bump"
 echo "=========================================================="
 echo "  Old: v$OLD_VERSION (versionCode $OLD_VCODE)"
 echo "  New: v$NEW_VERSION (versionCode $NEW_VCODE)"
@@ -73,27 +63,37 @@ if (!app.expo.android) app.expo.android = {};
 app.expo.android.versionCode = $NEW_VCODE;
 fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
 "
-echo "   ✅ app.json → v$NEW_VERSION (versionCode $NEW_VCODE)"
+echo "   ✅ app.json → v$NEW_VERSION (code $NEW_VCODE)"
 
 # ─── 3. build.gradle ─────────────────────────────────────────
 echo "🤖 Updating android/app/build.gradle..."
 if [ -f "android/app/build.gradle" ]; then
   sed -i '' "s/versionCode [0-9]*/versionCode $NEW_VCODE/" android/app/build.gradle
-  sed -i '' "s/versionName \"[^\"]*\"/versionName \"$NEW_VERSION\"/" android/app/build.gradle
+  sed -i '' "s/versionName \".*\"/versionName \"$NEW_VERSION\"/" android/app/build.gradle
   echo "   ✅ build.gradle → v$NEW_VERSION (code $NEW_VCODE)"
 else
-  echo "   ⚠️  android/app/build.gradle not found"
+  echo "   ⚠️  android/app/build.gradle not found (run expo prebuild first)"
 fi
 
 # ─── 4. utils/updater.ts ─────────────────────────────────────
-echo "🔄 Updating utils/updater.ts fallback..."
+echo "🔄 Updating utils/updater.ts fallback version..."
 if [ -f "utils/updater.ts" ]; then
-  sed -i '' "s/nativeApplicationVersion || '[^']*'/nativeApplicationVersion || '$NEW_VERSION'/" utils/updater.ts
-  echo "   ✅ utils/updater.ts fallback → $NEW_VERSION"
+  if grep -q "nativeApplicationVersion || " utils/updater.ts; then
+    sed -i '' "s/nativeApplicationVersion || '$OLD_VERSION'/nativeApplicationVersion || '$NEW_VERSION'/" utils/updater.ts
+    echo "   ✅ updater.ts → v$NEW_VERSION"
+  else
+    echo "   ℹ️  updater.ts uses generic fallback (no change needed)"
+  fi
+else
+  echo "   ⚠️  utils/updater.ts not found (skipping)"
 fi
 
 echo ""
 echo "=========================================================="
-echo "  ✅ Version bumped to v$NEW_VERSION (code $NEW_VCODE)!"
+echo "  ✅ Version bumped to v$NEW_VERSION across all files!"
 echo "=========================================================="
 echo ""
+echo "Next steps:"
+echo "  1. Update CHANGELOG.md with release notes"
+echo "  2. Run ./preflight.sh to validate"
+echo "  3. Run ./publish-release.sh"
