@@ -1,4 +1,19 @@
 # Changelog
+
+## [2.7.0] - 2026-09-12 (Official Unified Release)
+### Unification & Modernization
+- **Unified Mobile Codebase**:
+  - Consolidated development and release pipelines into a single official release stream. Permanently retired the Nightly channel.
+  - Set native Android `versionCode 309`, guaranteeing seamless, in-place OTA upgrades for all users on prior Stable (`300`) and Nightly (`308`) builds.
+  - Simplified in-app updater to directly check official GitHub Releases and eliminated channel switching and rollback barriers.
+  - Streamlined `Settings` screen with a clean "App Updates" card.
+- **Promoted Cutting-Edge Features**:
+  - Full mobile firearm intake form, editing suite, and photo management (`app/firearms/form.tsx`).
+  - Barcode and serial number scanner with automated parsing heuristics and pairing token integration.
+  - Offline vault caching and local sync outbox queue with conflict safeguards.
+  - Ballistics calculators, MOA grouping tools, and range mode checklists.
+  - Global Error Boundary protecting the application lifecycle.
+
 ## [2.6.0-nightly.49] - 2026-08-22 (Nightly Test Build)
 ### Fixed
 - **Optimistic Cache Sanitization & Save Exception Prevention (`app/firearms/form.tsx`)**:

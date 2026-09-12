@@ -38,7 +38,7 @@ if [ -f "$DIR/android/$OUT_APK" ]; then
   echo ""
   echo "✅ Fast Local Build Complete!"
   echo "📦 APK Output: $DIR/android/$OUT_APK ($APK_SIZE)"
-  echo "💡 Tip: To build for all architectures for distribution, run ./publish-nightly.sh"
+  echo "💡 Tip: To build for all architectures for distribution, run ./publish-release.sh"
 else
   echo "❌ Error: Expected APK at $DIR/android/$OUT_APK not found."
   exit 1

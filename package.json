@@ -1,6 +1,6 @@
 {
   "name": "armoryvault_companion",
-  "version": "2.6.0-nightly.49",
+  "version": "2.7.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.11",
@@ -40,16 +40,30 @@
     "@types/react": "~19.2.18",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.12",
-    "typescript": "~7.0.2"
+    "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest"
   },
   "overrides": {
     "uuid": "^11.1.1"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "@react-native-async-storage/async-storage",
+        "jest",
+        "@types/jest",
+        "react",
+        "react-native-svg",
+        "hermes-compiler",
+        "typescript"
+      ]
+    }
   },
   "private": true
 }

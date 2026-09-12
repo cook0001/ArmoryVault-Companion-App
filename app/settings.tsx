@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndic
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { checkForUpdates, UpdateChannel, isPrereleaseVersion, getCurrentAppVersion } from '../utils/updater';
+import { checkForUpdates, getCurrentAppVersion } from '../utils/updater';
 import * as Application from 'expo-application';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -26,7 +26,6 @@ export default function Settings() {
   const [isTesting, setIsTesting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cacheStats, setCacheStats] = useState<{ firearms: number, ammo: number, components: number } | null>(null);
-  const [updateChannel, setUpdateChannel] = useState<UpdateChannel>('stable');
 
   useFocusEffect(
     useCallback(() => {
@@ -37,13 +36,6 @@ export default function Settings() {
   const loadSettingsData = async () => {
     try {
       if (syncedIp) setManualIp(syncedIp);
-
-      const channel = await AsyncStorage.getItem('update_channel');
-      if (channel === 'nightly') {
-        setUpdateChannel('nightly');
-      } else {
-        setUpdateChannel('stable');
-      }
 
       const cacheStr = await AsyncStorage.getItem('inventory_cache');
       if (cacheStr) {
@@ -60,43 +52,6 @@ export default function Settings() {
   };
 
   const currentVersionStr = getCurrentAppVersion();
-  const isCurrentBuildNightly = isPrereleaseVersion(currentVersionStr);
-
-  const triggerUpdateOrRollbackCheck = (targetChannel: UpdateChannel) => {
-    checkForUpdates({
-      silent: false,
-      channel: targetChannel,
-      onConfirm: (opts) => {
-        showConfirm({
-          title: opts.title,
-          message: opts.message,
-          confirmText: opts.confirmText,
-          cancelText: opts.cancelText,
-          type: opts.title.includes('Rollback') ? 'danger' : 'confirm',
-          onConfirm: opts.onConfirm,
-        });
-      },
-      onAlert: (title, message) => {
-        showAlert({ title, message, type: 'info' });
-      }
-    });
-  };
-
-  const handleChannelChange = async (newChannel: UpdateChannel) => {
-    setUpdateChannel(newChannel);
-    await AsyncStorage.setItem('update_channel', newChannel);
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    showToast({
-      title: 'Update Channel Changed',
-      message: `Now tracking ${newChannel === 'nightly' ? 'Nightly Pre-release' : 'Stable'} builds.`,
-      type: 'info'
-    });
-
-    // Automatically check for rollback or nightly upgrade upon switching
-    setTimeout(() => {
-      triggerUpdateOrRollbackCheck(newChannel);
-    }, 400);
-  };
 
   const handleTestConnection = async () => {
     const target = manualIp.trim();
@@ -183,7 +138,22 @@ export default function Settings() {
   };
 
   const handleCheckForUpdates = () => {
-    triggerUpdateOrRollbackCheck(updateChannel);
+    checkForUpdates({
+      silent: false,
+      onConfirm: (opts) => {
+        showConfirm({
+          title: opts.title,
+          message: opts.message,
+          confirmText: opts.confirmText,
+          cancelText: opts.cancelText,
+          type: 'confirm',
+          onConfirm: opts.onConfirm,
+        });
+      },
+      onAlert: (title, message) => {
+        showAlert({ title, message, type: 'info' });
+      }
+    });
   };
 
   return (
@@ -313,95 +283,37 @@ export default function Settings() {
         </Pressable>
       </View>
 
-      {/* 5. Update Channel & App Updates */}
-      <Text style={styles.sectionTitle}>Update Channel & Releases</Text>
+      {/* 5. App Updates */}
+      <Text style={styles.sectionTitle}>App Updates</Text>
       <View style={styles.card}>
-        <Text style={styles.settingLabel}>Release Channel</Text>
+        <Text style={styles.settingLabel}>Release Stream</Text>
         <Text style={styles.settingDescription}>
-          Select which release stream to receive APK updates from:
+          ArmoryVault Companion receives official releases directly from GitHub.
         </Text>
 
-        <View style={styles.channelRow}>
-          <Pressable
-            style={[styles.channelTab, updateChannel === 'stable' && styles.channelTabActive]}
-            onPress={() => handleChannelChange('stable')}
-          >
-            <Ionicons 
-              name="checkmark-circle" 
-              size={16} 
-              color={updateChannel === 'stable' ? '#10b981' : '#64748b'} 
-              style={{ marginRight: 6 }} 
-            />
-            <Text style={[styles.channelTabText, updateChannel === 'stable' && styles.channelTabTextActive]}>
-              Stable (Standard)
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.channelTab, updateChannel === 'nightly' && styles.channelTabNightlyActive]}
-            onPress={() => handleChannelChange('nightly')}
-          >
-            <Ionicons 
-              name="flash" 
-              size={16} 
-              color={updateChannel === 'nightly' ? '#f59e0b' : '#64748b'} 
-              style={{ marginRight: 6 }} 
-            />
-            <Text style={[styles.channelTabText, updateChannel === 'nightly' && styles.channelTabTextNightlyActive]}>
-              Nightly (Testing)
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 8 }}>
-          <Ionicons 
-            name={updateChannel === 'nightly' ? "flash-outline" : "shield-checkmark-outline"} 
-            size={14} 
-            color={updateChannel === 'nightly' ? "#f59e0b" : "#38bdf8"} 
-          />
-          <Text style={[styles.channelDescriptionText, { flex: 1, marginVertical: 0 }]}>
-            {updateChannel === 'nightly'
-              ? 'Tracking bleeding-edge test builds for new features, ballistics tools, and debugging.'
-              : 'Tracking thoroughly tested, official production releases.'}
-          </Text>
-        </View>
-
         {/* Current Build Status Badge */}
-        <View style={[styles.statusBadge, { backgroundColor: isCurrentBuildNightly ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)', borderColor: isCurrentBuildNightly ? '#f59e0b' : '#10b981', borderWidth: 1, marginBottom: 12 }]}>
+        <View style={[styles.statusBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10b981', borderWidth: 1, marginBottom: 12 }]}>
           <Ionicons 
-            name={isCurrentBuildNightly ? "flask-outline" : "shield-checkmark-outline"} 
+            name="shield-checkmark-outline" 
             size={16} 
-            color={isCurrentBuildNightly ? "#f59e0b" : "#10b981"} 
+            color="#10b981" 
             style={{ marginRight: 6 }} 
           />
-          <Text style={[styles.statusText, { color: isCurrentBuildNightly ? "#f59e0b" : "#10b981", fontWeight: 'bold' }]}>
-            Current Installed Build: v{currentVersionStr} ({isCurrentBuildNightly ? 'Nightly Pre-release' : 'Official Stable'})
+          <Text style={[styles.statusText, { color: '#10b981', fontWeight: 'bold' }]}>
+            Official Release: v{currentVersionStr}
           </Text>
         </View>
-
-        {/* Dedicated Rollback Button if currently on Nightly */}
-        {isCurrentBuildNightly && (
-          <Pressable 
-            style={[styles.dangerButton, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', borderWidth: 1, marginBottom: 10 }]} 
-            onPress={() => triggerUpdateOrRollbackCheck('stable')}
-          >
-            <Ionicons name="arrow-undo-outline" size={18} color="#ef4444" style={{ marginRight: 6 }} />
-            <Text style={[styles.dangerButtonText, { color: '#ef4444' }]}>
-              Rollback to Latest Stable Release
-            </Text>
-          </Pressable>
-        )}
 
         <Pressable style={styles.primaryButton} onPress={handleCheckForUpdates}>
           <Ionicons name="cloud-download-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
           <Text style={styles.primaryButtonText}>
-            Check for {updateChannel === 'nightly' ? 'Nightly Updates' : 'Stable Updates'}
+            Check for Updates
           </Text>
         </Pressable>
       </View>
 
       <Text style={styles.versionText}>
-        ArmoryVault Companion v{currentVersionStr} ({updateChannel.toUpperCase()})
+        ArmoryVault Companion v{currentVersionStr}
       </Text>
     </ScrollView>
   );
