@@ -13,7 +13,7 @@ import {
   BallisticsTrajectoryIcon,
   GunpowderIcon,
 } from '../components/CustomMobileIcons';
-import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, getPlusPBadgeText } from '../../utils/caliberHelpers';
 
 export default function RangeSessionScreen() {
   const router = useRouter();
@@ -258,34 +258,42 @@ export default function RangeSessionScreen() {
           <Text style={styles.ammoSubtitle}>Range / Handloaded ammo</Text>
         </Pressable>
 
-        {matchingAmmo.map(ammo => (
-          <Pressable
-            key={ammo.id}
-            style={[styles.ammoCard, selectedAmmoId === ammo.id && styles.ammoCardActive]}
-            onPress={() => setSelectedAmmoId(ammo.id)}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-              <CartridgesIcon size={13} color={selectedAmmoId === ammo.id ? '#f59e0b' : '#94a3b8'} />
-              <Text style={[styles.ammoTitle, selectedAmmoId === ammo.id && styles.activeText]}>
-                {ammo.manufacturer ? `${ammo.manufacturer} ` : ''}{formatAmmoSubtitle(ammo)}
+        {matchingAmmo.map(ammo => {
+          const plusP = getPlusPBadgeText(ammo);
+          const plusPTag = plusP ? ` [${plusP}]` : '';
+          return (
+            <Pressable
+              key={ammo.id}
+              style={[styles.ammoCard, selectedAmmoId === ammo.id && styles.ammoCardActive]}
+              onPress={() => setSelectedAmmoId(ammo.id)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                <CartridgesIcon size={13} color={selectedAmmoId === ammo.id ? '#f59e0b' : '#94a3b8'} />
+                <Text style={[styles.ammoTitle, selectedAmmoId === ammo.id && styles.activeText]}>
+                  {ammo.manufacturer ? `${ammo.manufacturer} ` : ''}{formatAmmoSubtitle(ammo)}{plusPTag}
+                </Text>
+              </View>
+              <Text style={styles.ammoSubtitle}>
+                In Stock: {ammo.count} rds
               </Text>
-            </View>
-            <Text style={styles.ammoSubtitle}>
-              In Stock: {ammo.count} rds
-            </Text>
-          </Pressable>
-        ))}
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       {/* Ammo Deduction Summary Pill */}
-      {selectedAmmo && parsedRounds > 0 && (
-        <View style={styles.deductionCard}>
-          <Ionicons name="information-circle-outline" size={16} color="#38bdf8" style={{ marginRight: 6 }} />
-          <Text style={styles.deductionText}>
-            Deducting <Text style={{ color: '#f8fafc', fontWeight: 'bold' }}>{parsedRounds} rds</Text> from {selectedAmmo.manufacturer} {selectedAmmo.caliber} (Remaining: {Math.max(0, selectedAmmo.count - parsedRounds)} rds)
-          </Text>
-        </View>
-      )}
+      {selectedAmmo && parsedRounds > 0 && (() => {
+        const plusP = getPlusPBadgeText(selectedAmmo);
+        const plusPTag = plusP ? ` [${plusP}]` : '';
+        return (
+          <View style={styles.deductionCard}>
+            <Ionicons name="information-circle-outline" size={16} color="#38bdf8" style={{ marginRight: 6 }} />
+            <Text style={styles.deductionText}>
+              Deducting <Text style={{ color: '#f8fafc', fontWeight: 'bold' }}>{parsedRounds} rds</Text> from {selectedAmmo.manufacturer} {selectedAmmo.caliber}{plusPTag} (Remaining: {Math.max(0, selectedAmmo.count - parsedRounds)} rds)
+            </Text>
+          </View>
+        );
+      })()}
 
       {/* 3. Rounds Fired */}
       <Text style={styles.sectionHeader}>3. Rounds Fired</Text>

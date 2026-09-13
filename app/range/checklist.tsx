@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useDialog } from '../../context/DialogContext';
 import { CartridgesIcon, SafeIcon } from '../components/CustomMobileIcons';
-import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, getPlusPBadgeText } from '../../utils/caliberHelpers';
 
 interface ChecklistItem {
   id: string;
@@ -548,9 +548,11 @@ export default function RangeChecklistScreen() {
         if (a) {
           const itemId = `ammo_${a.id}`;
           const ammoSub = formatAmmoSubtitle(a);
+          const plusP = getPlusPBadgeText(a);
+          const plusPTag = plusP ? ` [${plusP}]` : '';
           newItems.push({
             id: itemId,
-            label: `${count} rds • ${a.manufacturer || ''} ${a.caliber}`,
+            label: `${count} rds • ${a.manufacturer || ''} ${a.caliber}${plusPTag}`,
             category: 'ammo',
             packed: existingPackedMap.get(itemId) || false,
             subtext: `${ammoSub ? `${ammoSub} • ` : ''}In Vault: ${a.count} rds`
@@ -802,9 +804,15 @@ export default function RangeChecklistScreen() {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <CartridgesIcon size={14} color="#f59e0b" />
-                    <Text style={styles.ammoLotName}>
-                      {ammo.manufacturer} {ammo.caliber}
-                    </Text>
+                    {(() => {
+                      const plusP = getPlusPBadgeText(ammo);
+                      const plusPTag = plusP ? ` [${plusP}]` : '';
+                      return (
+                        <Text style={styles.ammoLotName}>
+                          {ammo.manufacturer} {ammo.caliber}{plusPTag}
+                        </Text>
+                      );
+                    })()}
                   </View>
                   <Text style={styles.ammoLotDesc}>
                     {formatAmmoSubtitle(ammo)} • In Vault: {ammo.count} rds

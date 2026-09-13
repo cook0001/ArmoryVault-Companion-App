@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
-import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, getPlusPBadgeText } from '../../utils/caliberHelpers';
 
 export default function ChronographScreen() {
   const router = useRouter();
@@ -107,7 +107,9 @@ export default function ChronographScreen() {
               const a = ammoList.find(am => am.id === selectedAmmoId);
               if (!a) return '';
               const sub = formatAmmoSubtitle(a);
-              return `${a.manufacturer || ''} ${a.caliber} ${sub}`.trim();
+              const plusP = getPlusPBadgeText(a);
+              const plusPTag = plusP ? ` [${plusP}]` : '';
+              return `${a.manufacturer || ''} ${a.caliber}${plusPTag} ${sub}`.trim();
             })()
           : undefined,
         shotVelocities: velocities,
@@ -191,18 +193,22 @@ export default function ChronographScreen() {
             const aCal = (a.caliber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
             return aCal.includes(fCal) || fCal.includes(aCal);
           })
-          .map(a => (
-            <Pressable
-              key={a.id}
-              style={[styles.selectorCard, selectedAmmoId === a.id && styles.selectorCardActive]}
-              onPress={() => setSelectedAmmoId(a.id)}
-            >
-              <Text style={[styles.selectorTitle, selectedAmmoId === a.id && { color: '#fff' }]}>
-                {a.manufacturer ? `${a.manufacturer} ` : ''}{formatAmmoSubtitle(a)}
-              </Text>
-              <Text style={styles.selectorSub}>{a.count} rds</Text>
-            </Pressable>
-          ))}
+          .map(a => {
+            const plusP = getPlusPBadgeText(a);
+            const plusPTag = plusP ? ` [${plusP}]` : '';
+            return (
+              <Pressable
+                key={a.id}
+                style={[styles.selectorCard, selectedAmmoId === a.id && styles.selectorCardActive]}
+                onPress={() => setSelectedAmmoId(a.id)}
+              >
+                <Text style={[styles.selectorTitle, selectedAmmoId === a.id && { color: '#fff' }]}>
+                  {a.manufacturer ? `${a.manufacturer} ` : ''}{formatAmmoSubtitle(a)}{plusPTag}
+                </Text>
+                <Text style={styles.selectorSub}>{a.count} rds</Text>
+              </Pressable>
+            );
+          })}
       </ScrollView>
 
       {/* Velocity Input */}

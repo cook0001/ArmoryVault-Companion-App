@@ -19,7 +19,7 @@ import {
   getStorageCapacityUtilization,
   StorageLocation,
 } from '../../utils/storageCapacity';
-import { formatAmmoSubtitle, formatShotgunSpecs, isShotgunAmmo } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, formatShotgunSpecs, getPlusPBadgeText, isShotgunAmmo } from '../../utils/caliberHelpers';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 
@@ -728,6 +728,7 @@ export default function InventoryScreen() {
             const cpr = item.cost_per_round || 0.45;
             const isShotgun = isShotgunAmmo(item);
             const shotgunSpecs = isShotgun ? formatShotgunSpecs(item) : null;
+            const plusPText = getPlusPBadgeText(item);
             const loc = (storageLocations || []).find((l: any) => l.id === item.storageLocationId);
 
             return (
@@ -737,9 +738,16 @@ export default function InventoryScreen() {
               >
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.itemTitle}>
-                      {item.manufacturer ? `${item.manufacturer} ` : ''}{item.caliber}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                      <Text style={styles.itemTitle}>
+                        {item.manufacturer ? `${item.manufacturer} ` : ''}{item.caliber}
+                      </Text>
+                      {plusPText ? (
+                        <View style={styles.plusPBadge}>
+                          <Text style={styles.plusPBadgeText}>{plusPText}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.itemSubtitle}>
                       {formatAmmoSubtitle(item)}
                     </Text>
@@ -752,6 +760,11 @@ export default function InventoryScreen() {
 
                 {/* Shotgun & Specification Chips Row */}
                 <View style={styles.specChipsRow}>
+                  {plusPText ? (
+                    <View style={styles.plusPBadge}>
+                      <Text style={styles.plusPBadgeText}>{plusPText}</Text>
+                    </View>
+                  ) : null}
                   {isShotgun && shotgunSpecs && (
                     <>
                       <View style={styles.specTypeBadge}>
@@ -1008,6 +1021,7 @@ export default function InventoryScreen() {
             {inspectingAmmo && (() => {
               const isShotgun = isShotgunAmmo(inspectingAmmo);
               const shotgunSpecs = isShotgun ? formatShotgunSpecs(inspectingAmmo) : null;
+              const plusPText = getPlusPBadgeText(inspectingAmmo);
               const loc = (storageLocations || []).find((l: any) => l.id === inspectingAmmo.storageLocationId);
               const cpr = inspectingAmmo.cost_per_round || 0.45;
               const totalVal = ((inspectingAmmo.count || 0) * cpr).toFixed(2);
@@ -1016,9 +1030,16 @@ export default function InventoryScreen() {
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                     <View style={{ flex: 1, paddingRight: 8 }}>
-                      <Text style={styles.modalTitle} numberOfLines={2}>
-                        {inspectingAmmo.manufacturer ? `${inspectingAmmo.manufacturer} ` : ''}{inspectingAmmo.caliber}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                        <Text style={styles.modalTitle} numberOfLines={2}>
+                          {inspectingAmmo.manufacturer ? `${inspectingAmmo.manufacturer} ` : ''}{inspectingAmmo.caliber}
+                        </Text>
+                        {plusPText ? (
+                          <View style={styles.plusPBadge}>
+                            <Text style={styles.plusPBadgeText}>{plusPText}</Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <Text style={[styles.itemSubtitle, { marginTop: 3 }]}>
                         {formatAmmoSubtitle(inspectingAmmo)}
                       </Text>
@@ -1030,6 +1051,11 @@ export default function InventoryScreen() {
 
                   {/* Badges Row */}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                    {plusPText ? (
+                      <View style={[styles.plusPBadge, { paddingHorizontal: 7, paddingVertical: 2.5 }]}>
+                        <Text style={[styles.plusPBadgeText, { fontSize: 10.5 }]}>{plusPText} HIGH PRESSURE</Text>
+                      </View>
+                    ) : null}
                     <View style={[styles.specTypeBadge, { backgroundColor: isShotgun ? 'rgba(245, 158, 11, 0.15)' : 'rgba(56, 189, 248, 0.15)', borderColor: isShotgun ? '#f59e0b' : '#38bdf8' }]}>
                       <Text style={[styles.specTypeBadgeText, { color: isShotgun ? '#f59e0b' : '#38bdf8' }]}>
                         {isShotgun ? (shotgunSpecs?.badgeText || 'SHOTGUN') : (inspectingAmmo.type === 'handload' ? 'HANDLOAD' : 'FACTORY AMMO')}
@@ -1070,6 +1096,14 @@ export default function InventoryScreen() {
                       <Text style={styles.specRowLabel}>Caliber / Gauge:</Text>
                       <Text style={styles.specRowVal}>{inspectingAmmo.caliber}</Text>
                     </View>
+                    {plusPText ? (
+                      <View style={styles.specRow}>
+                        <Text style={styles.specRowLabel}>Pressure Rating:</Text>
+                        <Text style={[styles.specRowVal, { color: '#ef4444', fontWeight: 'bold' }]}>
+                          {plusPText} High Pressure
+                        </Text>
+                      </View>
+                    ) : null}
                     {isShotgun && shotgunSpecs && (
                       <>
                         <View style={styles.specRow}>
@@ -1188,18 +1222,27 @@ export default function InventoryScreen() {
       <Modal visible={adjustItem !== null} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {adjustItem && (
-              <>
-                <Text style={styles.modalTitle} numberOfLines={2}>
-                  {adjustItem.isAmmo 
-                    ? `${adjustItem.item.manufacturer || ''} ${adjustItem.item.caliber}`
-                    : `${adjustItem.item.manufacturer || ''} ${adjustItem.item.name}`}
-                </Text>
-                {adjustItem.isAmmo && (
-                  <Text style={[styles.itemSubtitle, { marginBottom: 6 }]}>
-                    {formatAmmoSubtitle(adjustItem.item)}
-                  </Text>
-                )}
+            {adjustItem && (() => {
+              const plusPText = adjustItem.isAmmo ? getPlusPBadgeText(adjustItem.item) : null;
+              return (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                    <Text style={styles.modalTitle} numberOfLines={2}>
+                      {adjustItem.isAmmo 
+                        ? `${adjustItem.item.manufacturer || ''} ${adjustItem.item.caliber}`
+                        : `${adjustItem.item.manufacturer || ''} ${adjustItem.item.name}`}
+                    </Text>
+                    {plusPText ? (
+                      <View style={styles.plusPBadge}>
+                        <Text style={styles.plusPBadgeText}>{plusPText}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {adjustItem.isAmmo && (
+                    <Text style={[styles.itemSubtitle, { marginBottom: 6 }]}>
+                      {formatAmmoSubtitle(adjustItem.item)}
+                    </Text>
+                  )}
                 <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13, marginBottom: 14 }}>
                   Current Stock: {adjustItem.isAmmo ? adjustItem.item.count : adjustItem.item.quantity} {adjustItem.isAmmo ? 'rds' : (adjustItem.item.type === 'Powder' ? 'lbs' : 'units')}
                 </Text>
@@ -1255,7 +1298,8 @@ export default function InventoryScreen() {
                   </Pressable>
                 </View>
               </>
-            )}
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -1903,6 +1947,21 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 5,
     marginTop: 8,
+  },
+  plusPBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  plusPBadgeText: {
+    color: '#ef4444',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   specTypeBadge: {
     backgroundColor: 'rgba(245, 158, 11, 0.12)',

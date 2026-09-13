@@ -2,7 +2,9 @@ import {
   formatAmmoSubtitle,
   formatShotgunSpecs,
   formatShotSizeName,
+  getPlusPBadgeText,
   getStandardBuckshotPelletCount,
+  isPlusPAmmo,
   isShotgunAmmo,
 } from './caliberHelpers';
 
@@ -207,4 +209,44 @@ describe('caliberHelpers', () => {
       ).toBe('62gr Green Tip');
     });
   });
+
+  describe('isPlusPAmmo and getPlusPBadgeText', () => {
+    it('detects +P when isPlusP boolean is true', () => {
+      const ammo = { caliber: '9mm Luger', isPlusP: true };
+      expect(isPlusPAmmo(ammo)).toBe(true);
+      expect(getPlusPBadgeText(ammo)).toBe('+P');
+    });
+
+    it('detects +P when specified in caliber string', () => {
+      const ammo = { caliber: '9mm +P', isPlusP: false };
+      expect(isPlusPAmmo(ammo)).toBe(true);
+      expect(getPlusPBadgeText(ammo)).toBe('+P');
+    });
+
+    it('detects +P+ when specified in projectile or notes', () => {
+      const ammo1 = { caliber: '9mm Luger', projectile: '115gr JHP +P+' };
+      expect(isPlusPAmmo(ammo1)).toBe(true);
+      expect(getPlusPBadgeText(ammo1)).toBe('+P+');
+
+      const ammo2 = { caliber: '9mm Luger', notes: 'High velocity +P+ law enforcement load' };
+      expect(isPlusPAmmo(ammo2)).toBe(true);
+      expect(getPlusPBadgeText(ammo2)).toBe('+P+');
+    });
+
+    it('detects "Plus P" phrasing', () => {
+      const ammo = { caliber: '.38 Special', projectile: '125gr Plus P' };
+      expect(isPlusPAmmo(ammo)).toBe(true);
+      expect(getPlusPBadgeText(ammo)).toBe('+P');
+    });
+
+    it('returns false/null for standard non-+P ammunition', () => {
+      expect(isPlusPAmmo({ caliber: '9mm Luger' })).toBe(false);
+      expect(getPlusPBadgeText({ caliber: '9mm Luger' })).toBeNull();
+      expect(isPlusPAmmo(null)).toBe(false);
+      expect(getPlusPBadgeText(null)).toBeNull();
+      expect(isPlusPAmmo(undefined)).toBe(false);
+      expect(getPlusPBadgeText(undefined)).toBeNull();
+    });
+  });
 });
+

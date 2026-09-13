@@ -376,3 +376,25 @@ export const formatAmmoSubtitle = (ammo?: Partial<Ammo> | null, defaultFallback 
   }
   return combined || defaultFallback || 'Standard Load';
 };
+
+/**
+ * Detects whether an ammunition lot is rated +P or +P+ (High Pressure).
+ */
+export const isPlusPAmmo = (ammo?: Partial<Ammo> | null): boolean => {
+  if (!ammo) return false;
+  if (ammo.isPlusP) return true;
+  const text = `${ammo.caliber || ''} ${ammo.projectile || ''} ${ammo.notes || ''}`;
+  return /\+p\+?/i.test(text) || /\bplus\s*p\b/i.test(text);
+};
+
+/**
+ * Returns the exact badge text (+P or +P+) if the ammo is high pressure rated, or null otherwise.
+ */
+export const getPlusPBadgeText = (ammo?: Partial<Ammo> | null): '+P+' | '+P' | null => {
+  if (!ammo) return null;
+  const text = `${ammo.caliber || ''} ${ammo.projectile || ''} ${ammo.notes || ''}`;
+  if (/\+p\+/i.test(text)) return '+P+';
+  if (ammo.isPlusP || /\+p\b/i.test(text) || /\bplus\s*p\b/i.test(text)) return '+P';
+  return null;
+};
+

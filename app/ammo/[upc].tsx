@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
-import { formatAmmoSubtitle, formatShotgunSpecs, isShotgunAmmo } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, formatShotgunSpecs, getPlusPBadgeText, isShotgunAmmo } from '../../utils/caliberHelpers';
 
 export default function AmmoScreen() {
   const { upc } = useLocalSearchParams();
@@ -81,41 +81,66 @@ export default function AmmoScreen() {
       {matchedAmmo ? (() => {
         const isShotgun = isShotgunAmmo(matchedAmmo);
         const shotgunSpecs = isShotgun ? formatShotgunSpecs(matchedAmmo) : null;
+        const plusPText = getPlusPBadgeText(matchedAmmo);
         return (
           <View style={styles.card}>
-            <Text style={styles.ammoTitle}>
-              {matchedAmmo.manufacturer || ''} {matchedAmmo.caliber || ''}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+              <Text style={styles.ammoTitle}>
+                {matchedAmmo.manufacturer || ''} {matchedAmmo.caliber || ''}
+              </Text>
+              {plusPText ? (
+                <View style={styles.plusPBadge}>
+                  <Text style={styles.plusPBadgeText}>{plusPText}</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.ammoSubtitle}>
               {formatAmmoSubtitle(matchedAmmo)}
             </Text>
 
-            {isShotgun && shotgunSpecs && (
-              <View style={styles.specChipsRow}>
-                <View style={styles.specTypeBadge}>
-                  <Text style={styles.specTypeBadgeText}>{shotgunSpecs.badgeText}</Text>
+            <View style={styles.specChipsRow}>
+              {plusPText ? (
+                <View style={styles.plusPBadge}>
+                  <Text style={styles.plusPBadgeText}>{plusPText}</Text>
                 </View>
-                {shotgunSpecs.shellLength ? (
-                  <View style={styles.specChip}>
-                    <Text style={styles.specChipText}>{shotgunSpecs.shellLength}</Text>
+              ) : null}
+              {isShotgun && shotgunSpecs && (
+                <>
+                  <View style={styles.specTypeBadge}>
+                    <Text style={styles.specTypeBadgeText}>{shotgunSpecs.badgeText}</Text>
                   </View>
-                ) : null}
-                {shotgunSpecs.shotSize ? (
-                  <View style={styles.specChip}>
-                    <Text style={styles.specChipText}>{shotgunSpecs.shotSize}</Text>
-                  </View>
-                ) : null}
-                {shotgunSpecs.shotType === 'Buckshot' && shotgunSpecs.pelletCount ? (
-                  <View style={styles.specChip}>
-                    <Text style={styles.specChipText}>{shotgunSpecs.pelletCount}</Text>
-                  </View>
-                ) : shotgunSpecs.payload ? (
-                  <View style={styles.specChip}>
-                    <Text style={styles.specChipText}>{shotgunSpecs.payload}</Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
+                  {shotgunSpecs.shellLength ? (
+                    <View style={styles.specChip}>
+                      <Text style={styles.specChipText}>{shotgunSpecs.shellLength}</Text>
+                    </View>
+                  ) : null}
+                  {shotgunSpecs.shotSize ? (
+                    <View style={styles.specChip}>
+                      <Text style={styles.specChipText}>{shotgunSpecs.shotSize}</Text>
+                    </View>
+                  ) : null}
+                  {shotgunSpecs.shotType === 'Buckshot' && shotgunSpecs.pelletCount ? (
+                    <View style={styles.specChip}>
+                      <Text style={styles.specChipText}>{shotgunSpecs.pelletCount}</Text>
+                    </View>
+                  ) : shotgunSpecs.payload ? (
+                    <View style={styles.specChip}>
+                      <Text style={styles.specChipText}>{shotgunSpecs.payload}</Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
+              {!isShotgun && matchedAmmo.grain ? (
+                <View style={styles.specChip}>
+                  <Text style={styles.specChipText}>{matchedAmmo.grain}gr</Text>
+                </View>
+              ) : null}
+              {!isShotgun && matchedAmmo.projectile ? (
+                <View style={styles.specChip}>
+                  <Text style={styles.specChipText}>{matchedAmmo.projectile}</Text>
+                </View>
+              ) : null}
+            </View>
 
             {matchedAmmo.count !== undefined && (
               <View style={styles.stockBadge}>
@@ -329,5 +354,20 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     fontSize: 11,
     fontWeight: '600',
+  },
+  plusPBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  plusPBadgeText: {
+    color: '#ef4444',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });
