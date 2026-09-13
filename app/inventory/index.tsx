@@ -19,7 +19,7 @@ import {
   getStorageCapacityUtilization,
   StorageLocation,
 } from '../../utils/storageCapacity';
-import { formatAmmoSubtitle, isShotgunAmmo } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, formatShotgunSpecs, isShotgunAmmo } from '../../utils/caliberHelpers';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 
@@ -61,6 +61,9 @@ export default function InventoryScreen() {
 
   // Financial Value Toggle
   const [showValuation, setShowValuation] = useState(false);
+
+  // Inspect Ammo Modal
+  const [inspectingAmmo, setInspectingAmmo] = useState<any | null>(null);
 
   // Quick Adjustment Modal
   const [adjustItem, setAdjustItem] = useState<{ item: any, isAmmo: boolean } | null>(null);
@@ -723,8 +726,15 @@ export default function InventoryScreen() {
           renderItem={({ item }) => {
             const isLowStock = (item.count || 0) < 100;
             const cpr = item.cost_per_round || 0.45;
+            const isShotgun = isShotgunAmmo(item);
+            const shotgunSpecs = isShotgun ? formatShotgunSpecs(item) : null;
+            const loc = (storageLocations || []).find((l: any) => l.id === item.storageLocationId);
+
             return (
-              <View style={[styles.card, isLowStock && styles.lowStockCard]}>
+              <Pressable 
+                style={[styles.card, isLowStock && styles.lowStockCard]}
+                onPress={() => setInspectingAmmo(item)}
+              >
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemTitle}>
@@ -740,6 +750,51 @@ export default function InventoryScreen() {
                   </View>
                 </View>
 
+                {/* Shotgun & Specification Chips Row */}
+                <View style={styles.specChipsRow}>
+                  {isShotgun && shotgunSpecs && (
+                    <>
+                      <View style={styles.specTypeBadge}>
+                        <Text style={styles.specTypeBadgeText}>{shotgunSpecs.badgeText}</Text>
+                      </View>
+                      {shotgunSpecs.shellLength ? (
+                        <View style={styles.specChip}>
+                          <Text style={styles.specChipText}>{shotgunSpecs.shellLength}</Text>
+                        </View>
+                      ) : null}
+                      {shotgunSpecs.shotSize ? (
+                        <View style={styles.specChip}>
+                          <Text style={styles.specChipText}>{shotgunSpecs.shotSize}</Text>
+                        </View>
+                      ) : null}
+                      {shotgunSpecs.shotType === 'Buckshot' && shotgunSpecs.pelletCount ? (
+                        <View style={styles.specChip}>
+                          <Text style={styles.specChipText}>{shotgunSpecs.pelletCount}</Text>
+                        </View>
+                      ) : shotgunSpecs.payload ? (
+                        <View style={styles.specChip}>
+                          <Text style={styles.specChipText}>{shotgunSpecs.payload}</Text>
+                        </View>
+                      ) : null}
+                    </>
+                  )}
+                  {!isShotgun && item.grain ? (
+                    <View style={styles.specChip}>
+                      <Text style={styles.specChipText}>{item.grain}gr</Text>
+                    </View>
+                  ) : null}
+                  {!isShotgun && item.projectile ? (
+                    <View style={styles.specChip}>
+                      <Text style={styles.specChipText}>{item.projectile}</Text>
+                    </View>
+                  ) : null}
+                  {loc && (
+                    <View style={styles.locationChip}>
+                      <Text style={styles.locationChipText}>{loc.name}</Text>
+                    </View>
+                  )}
+                </View>
+
                 {isLowStock && (
                   <View style={styles.lowStockBadge}>
                     <Ionicons name="warning-outline" size={12} color="#ef4444" style={{ marginRight: 4 }} />
@@ -750,13 +805,23 @@ export default function InventoryScreen() {
                 <View style={styles.cardActions}>
                   <Pressable 
                     style={styles.adjustBtn} 
-                    onPress={() => openAdjustModal(item, true)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openAdjustModal(item, true);
+                    }}
                   >
                     <Ionicons name="swap-vertical" size={14} color="#38bdf8" style={{ marginRight: 4 }} />
                     <Text style={styles.adjustBtnText}>Quick Adjust Stock</Text>
                   </Pressable>
+                  <Pressable
+                    style={styles.detailsBtn}
+                    onPress={() => setInspectingAmmo(item)}
+                  >
+                    <Ionicons name="information-circle-outline" size={14} color="#94a3b8" style={{ marginRight: 4 }} />
+                    <Text style={styles.detailsBtnText}>Specs & Details</Text>
+                  </Pressable>
                 </View>
-              </View>
+              </Pressable>
             );
           }}
           ListEmptyComponent={
@@ -935,6 +1000,189 @@ export default function InventoryScreen() {
           />
         </View>
       )}
+
+      {/* Ammo Inspect / Detailed Specifications Modal */}
+      <Modal visible={inspectingAmmo !== null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 400 }]}>
+            {inspectingAmmo && (() => {
+              const isShotgun = isShotgunAmmo(inspectingAmmo);
+              const shotgunSpecs = isShotgun ? formatShotgunSpecs(inspectingAmmo) : null;
+              const loc = (storageLocations || []).find((l: any) => l.id === inspectingAmmo.storageLocationId);
+              const cpr = inspectingAmmo.cost_per_round || 0.45;
+              const totalVal = ((inspectingAmmo.count || 0) * cpr).toFixed(2);
+
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.modalTitle} numberOfLines={2}>
+                        {inspectingAmmo.manufacturer ? `${inspectingAmmo.manufacturer} ` : ''}{inspectingAmmo.caliber}
+                      </Text>
+                      <Text style={[styles.itemSubtitle, { marginTop: 3 }]}>
+                        {formatAmmoSubtitle(inspectingAmmo)}
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => setInspectingAmmo(null)} hitSlop={12} style={{ padding: 4 }}>
+                      <Ionicons name="close" size={22} color="#94a3b8" />
+                    </Pressable>
+                  </View>
+
+                  {/* Badges Row */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                    <View style={[styles.specTypeBadge, { backgroundColor: isShotgun ? 'rgba(245, 158, 11, 0.15)' : 'rgba(56, 189, 248, 0.15)', borderColor: isShotgun ? '#f59e0b' : '#38bdf8' }]}>
+                      <Text style={[styles.specTypeBadgeText, { color: isShotgun ? '#f59e0b' : '#38bdf8' }]}>
+                        {isShotgun ? (shotgunSpecs?.badgeText || 'SHOTGUN') : (inspectingAmmo.type === 'handload' ? 'HANDLOAD' : 'FACTORY AMMO')}
+                      </Text>
+                    </View>
+                    {isShotgun && shotgunSpecs?.shellLength ? (
+                      <View style={styles.specChip}>
+                        <Text style={styles.specChipText}>{shotgunSpecs.shellLength}</Text>
+                      </View>
+                    ) : null}
+                    {loc && (
+                      <View style={styles.locationChip}>
+                        <Text style={styles.locationChipText}>{loc.name}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Stock & Value Summary Box */}
+                  <View style={styles.modalStatBox}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.modalStatLabel}>CURRENT STOCK</Text>
+                      <Text style={styles.modalStatVal}>{inspectingAmmo.count || 0} rds</Text>
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center' }}>
+                      <Text style={styles.modalStatLabel}>COST / RND</Text>
+                      <Text style={[styles.modalStatVal, { color: '#38bdf8' }]}>${cpr.toFixed(2)}</Text>
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                      <Text style={styles.modalStatLabel}>TOTAL VALUE</Text>
+                      <Text style={[styles.modalStatVal, { color: '#10b981' }]}>${totalVal}</Text>
+                    </View>
+                  </View>
+
+                  {/* Detailed Specifications Grid */}
+                  <Text style={styles.modalSectionHeading}>SPECIFICATIONS</Text>
+                  <View style={styles.specsGrid}>
+                    <View style={styles.specRow}>
+                      <Text style={styles.specRowLabel}>Caliber / Gauge:</Text>
+                      <Text style={styles.specRowVal}>{inspectingAmmo.caliber}</Text>
+                    </View>
+                    {isShotgun && shotgunSpecs && (
+                      <>
+                        <View style={styles.specRow}>
+                          <Text style={styles.specRowLabel}>Shell Type:</Text>
+                          <Text style={styles.specRowVal}>{shotgunSpecs.shotType}</Text>
+                        </View>
+                        {shotgunSpecs.shellLength ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Shell Length:</Text>
+                            <Text style={styles.specRowVal}>{shotgunSpecs.shellLength}</Text>
+                          </View>
+                        ) : null}
+                        {shotgunSpecs.shotSize ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Shot Size:</Text>
+                            <Text style={styles.specRowVal}>{shotgunSpecs.shotSize}</Text>
+                          </View>
+                        ) : null}
+                        {shotgunSpecs.shotType === 'Buckshot' && shotgunSpecs.pelletCount ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Pellet Count:</Text>
+                            <Text style={styles.specRowVal}>{shotgunSpecs.pelletCount}</Text>
+                          </View>
+                        ) : null}
+                        {shotgunSpecs.payload ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Payload Weight:</Text>
+                            <Text style={styles.specRowVal}>{shotgunSpecs.payload}</Text>
+                          </View>
+                        ) : null}
+                      </>
+                    )}
+                    {!isShotgun && (
+                      <>
+                        {inspectingAmmo.grain ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Bullet Weight:</Text>
+                            <Text style={styles.specRowVal}>{inspectingAmmo.grain}gr</Text>
+                          </View>
+                        ) : null}
+                        {inspectingAmmo.projectile ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Projectile / Bullet:</Text>
+                            <Text style={styles.specRowVal}>{inspectingAmmo.projectile}</Text>
+                          </View>
+                        ) : null}
+                      </>
+                    )}
+                    {inspectingAmmo.type === 'handload' && (
+                      <>
+                        {inspectingAmmo.powder ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Powder & Charge:</Text>
+                            <Text style={styles.specRowVal}>
+                              {inspectingAmmo.powder}{inspectingAmmo.powderCharge ? ` (${inspectingAmmo.powderCharge}gr)` : ''}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {inspectingAmmo.primer || inspectingAmmo.primer_type ? (
+                          <View style={styles.specRow}>
+                            <Text style={styles.specRowLabel}>Primer:</Text>
+                            <Text style={styles.specRowVal}>{inspectingAmmo.primer_type || inspectingAmmo.primer}</Text>
+                          </View>
+                        ) : null}
+                      </>
+                    )}
+                    {loc && (
+                      <View style={styles.specRow}>
+                        <Text style={styles.specRowLabel}>Storage Location:</Text>
+                        <Text style={styles.specRowVal}>{loc.name}</Text>
+                      </View>
+                    )}
+                    {inspectingAmmo.upc_code ? (
+                      <View style={styles.specRow}>
+                        <Text style={styles.specRowLabel}>UPC / Barcode:</Text>
+                        <Text style={[styles.specRowVal, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
+                          {inspectingAmmo.upc_code}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {inspectingAmmo.notes ? (
+                      <View style={[styles.specRow, { borderBottomWidth: 0, flexDirection: 'column', alignItems: 'flex-start', gap: 2 }]}>
+                        <Text style={styles.specRowLabel}>Notes:</Text>
+                        <Text style={[styles.specRowVal, { color: '#cbd5e1' }]}>{inspectingAmmo.notes}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Actions */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                    <Pressable
+                      style={styles.cancelBtn}
+                      onPress={() => setInspectingAmmo(null)}
+                    >
+                      <Text style={styles.cancelBtnText}>Close</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.confirmBtn, { backgroundColor: '#38bdf8' }]}
+                      onPress={() => {
+                        const ammoToAdjust = inspectingAmmo;
+                        setInspectingAmmo(null);
+                        openAdjustModal(ammoToAdjust, true);
+                      }}
+                    >
+                      <Text style={[styles.confirmBtnText, { color: '#0f172a' }]}>Adjust Stock</Text>
+                    </Pressable>
+                  </View>
+                </ScrollView>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
 
       {/* Quick Adjustment Modal */}
       <Modal visible={adjustItem !== null} transparent animationType="fade">
@@ -1648,5 +1896,120 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  // Specification Chips & Details
+  specChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 8,
+  },
+  specTypeBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  specTypeBadgeText: {
+    color: '#f59e0b',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  specChip: {
+    backgroundColor: '#0f172a',
+    borderColor: '#334155',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  specChipText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  locationChip: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  locationChipText: {
+    color: '#38bdf8',
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  detailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginLeft: 8,
+  },
+  detailsBtnText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  modalStatBox: {
+    flexDirection: 'row',
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 12,
+  },
+  modalStatLabel: {
+    color: '#64748b',
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  modalStatVal: {
+    color: '#f8fafc',
+    fontSize: 13.5,
+    fontWeight: 'bold',
+  },
+  modalSectionHeading: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  specsGrid: {
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  specRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  specRowLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
+  },
+  specRowVal: {
+    color: '#f8fafc',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

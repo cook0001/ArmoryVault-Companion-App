@@ -107,6 +107,6 @@ Android's system `PackageManager` strictly prohibits **in-place version downgrad
 
 ## 🎯 Recommended Deployment Configuration
 
-* **Desktop**: `v2.8.1` (Unified Production Release)
-* **Mobile**: `v2.7.2` (Unified Production Release, `versionCode 311`)
-* **Capabilities**: Full offline inventory sync, real-time ballistic profiles, chronograph velocity strings, shot grouping calculator, mobile firearm intake & photo uploads, secure LAN pairing token exchange, remote vault lock, automated Bill of Sale archival & sync, and accurate shotgun shell specification formatting & search.
+* **Desktop**: `v2.8.2` (Unified Production Release)
+* **Mobile**: `v2.7.3` (Unified Production Release, `versionCode 312`)
+* **Capabilities**: Full offline inventory sync, real-time ballistic profiles, chronograph velocity strings, shot grouping calculator, mobile firearm intake & photo uploads, secure LAN pairing token exchange, remote vault lock, automated Bill of Sale archival & sync, and desktop-grade shotgun shell classification, specification badges, and inspecting modal.
