@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.7.4] - 2026-09-12
+### Added
+- **Overpressure (+P / +P+) Visual Badges & Pressure Rating Specifications**:
+  - Implemented high-pressure cartridge detection helpers (`isPlusPAmmo`, `getPlusPBadgeText`) in `utils/caliberHelpers.ts`, verifying both explicit `isPlusP: true` sync flags and heuristic string matches (`+P`, `+P+`, `Plus P`) across caliber, projectile, and notes.
+  - Added tactical red `+P` and `+P+` badge tags matching Desktop ArmoryVault styling (`rgba(239, 68, 68, 0.15)` background with `#ef4444` bold text and red border):
+    - **Ammo Inventory Cards (`app/inventory/index.tsx`)**: Rendered directly adjacent to the caliber name in the card header and in the specification chips row.
+    - **Ammo Inspect Modal (`app/inventory/index.tsx`)**: Displayed next to the modal header title, in the badges row (`+P HIGH PRESSURE`), and as a dedicated row in the specifications table (`Pressure Rating: +P High Pressure`).
+    - **Stock Adjustment Modal (`app/inventory/index.tsx`)**: Displayed directly beside the ammo lot title.
+    - **Ammo UPC Detail View (`app/ammo/[upc].tsx`)**: Displayed next to the caliber title and inside the specification chips row.
+    - **Barcode & SKU Scanner (`app/scanner.tsx`)**: Appended `[+P]` / `[+P+]` tag to scanned match dialogs, match titles, and drawer search results.
+    - **Range Session & Chronograph Logging (`app/range/index.tsx`, `app/range/chronograph.tsx`, `app/range/checklist.tsx`, `app/firearm/[id].tsx`)**: Appended `[+P]` to ammo selector cards, chronograph velocity data strings, range prep checklist packing items, and firearm detail deduction chips.
+  - Incremented native Android `versionCode` to `313`.
+
 ## [2.7.3] - 2026-09-12
 ### Added
 - **Desktop-Grade Shotgun Shell Specifications & Inspect Modal (`app/inventory/index.tsx`, `utils/caliberHelpers.ts`, `app/ammo/[upc].tsx`)**:

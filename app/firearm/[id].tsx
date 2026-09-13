@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 import { calculateFirearmWear } from '../../utils/maintenanceManager';
-import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, getPlusPBadgeText } from '../../utils/caliberHelpers';
 
 export default function FirearmScreen() {
   const { id } = useLocalSearchParams();
@@ -297,6 +297,8 @@ export default function FirearmScreen() {
                 </Pressable>
                 {availableAmmo.map(a => {
                   const sub = formatAmmoSubtitle(a);
+                  const plusP = getPlusPBadgeText(a);
+                  const plusPTag = plusP ? `[${plusP}] ` : '';
                   return (
                     <Pressable
                       key={a.id}
@@ -304,7 +306,7 @@ export default function FirearmScreen() {
                       onPress={() => setSelectedAmmoId(a.id)}
                     >
                       <Text style={[styles.ammoChipText, selectedAmmoId === a.id && styles.ammoChipTextActive]}>
-                        {a.manufacturer ? `${a.manufacturer} ` : ''}{sub ? `${sub} ` : ''}({a.count} rds)
+                        {a.manufacturer ? `${a.manufacturer} ` : ''}{plusPTag}{sub ? `${sub} ` : ''}({a.count} rds)
                       </Text>
                     </Pressable>
                   );
