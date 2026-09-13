@@ -7,6 +7,7 @@
   - Added npm scripts to `package.json` (`preflight`, `build:clean`, `build:fast`, `release`, `bump`) for standard build invocation.
   - Updated CI workflow (`.github/workflows/ci.yml`) and `README.md` to reference `scripts/preflight.sh`.
   - Updated `GOOGLE_PLAY_PUBLISHING_GUIDE.md` deployment path to point to `ArmoryVault_Desktop/website/`.
+  - Updated `SECURITY.md` supported release matrix to reflect `v2.7.11` (versionCode `320`) as current production baseline.
   - Strictly incremented native Android `versionCode` to `320` and bumped version to `2.7.11`.
 
 ## [2.7.10] - 2026-09-12
