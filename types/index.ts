@@ -22,6 +22,10 @@ export interface Firearm {
   maintenance_schedules?: MaintenanceScheduleItem[];
   is_sold: boolean;
   sold_date?: string;
+  sold_to_name?: string;
+  sold_price?: number | null;
+  sale_notes?: string;
+  documents?: { name: string; path: string; date_added?: string; transferId?: string }[];
   logs?: MaintenanceLog[];
   storageLocationId?: number;
   is_nfa?: boolean;
@@ -175,4 +179,23 @@ export interface NewFirearmPayload {
 
 export interface FirearmUpdatePayload extends Partial<NewFirearmPayload> {
   firearmId: number;
+}
+
+export interface BillOfSaleSyncItem extends SyncQueueItem {
+  type: 'bill_of_sale_transfer';
+  firearm_id?: number;
+  serial_number?: string;
+  transfer_id: string;
+  date: string;
+  buyer_name: string;
+  buyer_dl?: string;
+  buyer_address?: string;
+  buyer_phone?: string;
+  buyer_email?: string;
+  seller_name: string;
+  sale_price: number;
+  payment_method: string;
+  notes?: string;
+  pdf_base64?: string;
+  pdf_filename?: string;
 }

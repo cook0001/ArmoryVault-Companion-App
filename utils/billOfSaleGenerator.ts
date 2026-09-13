@@ -46,6 +46,7 @@ export interface BillOfSaleData {
   paymentMethod: string;
   checkOrMoNumber?: string;
   notes?: string;
+  [key: string]: unknown;
 }
 
 export function generateBillOfSaleHtml(data: BillOfSaleData): string {

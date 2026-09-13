@@ -8,6 +8,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Linking from 'expo-linking';
 import { useDialog } from '../../context/DialogContext';
 import { useSync } from '../../context/SyncContext';
+import * as FileSystem from 'expo-file-system/legacy';
 import { parseDriverLicenseBarcode, ParsedLicenseData } from '../../utils/pdf417Parser';
 import { 
   BillOfSaleData, 
@@ -318,9 +319,89 @@ export default function BillOfSaleScreen() {
       };
 
       const uri = await createBillOfSalePdf(billData);
-      setPdfUri(uri);
+
+      // Read PDF as base64 and store in permanent app storage
+      let base64Pdf: string | null = null;
+      let permanentUri = uri;
+      try {
+        base64Pdf = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+        if (FileSystem.documentDirectory) {
+          permanentUri = `${FileSystem.documentDirectory}bill_of_sale_${transferId}.pdf`;
+          await FileSystem.copyAsync({ from: uri, to: permanentUri }).catch(() => {
+            permanentUri = uri;
+          });
+        }
+      } catch (fsErr) {
+        console.warn('Could not read or copy Bill of Sale PDF:', fsErr);
+      }
+
+      setPdfUri(permanentUri);
+
+      // 1. Archive Bill of Sale to the Sold Firearm in local inventory cache
+      try {
+        const cacheStr = await AsyncStorage.getItem('inventory_cache');
+        if (cacheStr) {
+          const cache = JSON.parse(cacheStr);
+          const updatedFirearms = (cache.firearms || []).map((f: any) => {
+            if (f.id === selectedFirearm.id) {
+              const existingDocs = f.documents || [];
+              const docEntry = {
+                name: `Bill of Sale (${transferId})`,
+                path: permanentUri,
+                date_added: billData.date,
+                transferId
+              };
+              return {
+                ...f,
+                is_sold: true,
+                sold_date: billData.date,
+                sold_to_name: billData.buyerName,
+                sold_price: billData.salePrice,
+                condition: 'Sold / Transferred',
+                sale_notes: billData.notes || '',
+                documents: [...existingDocs.filter((d: any) => d.transferId !== transferId), docEntry]
+              };
+            }
+            return f;
+          });
+          await AsyncStorage.setItem('inventory_cache', JSON.stringify({ ...cache, firearms: updatedFirearms }));
+          setFirearms(updatedFirearms);
+        }
+      } catch (cacheErr) {
+        console.warn('Failed to update local firearm cache with bill of sale:', cacheErr);
+      }
+
+      // 2. Queue Bill of Sale Sync Item to Desktop
+      try {
+        const makeClean = (selectedFirearm.make || '').replace(/[^a-zA-Z0-9]/g, '_');
+        const modelClean = (selectedFirearm.model || '').replace(/[^a-zA-Z0-9]/g, '_');
+        const syncItem = {
+          type: 'bill_of_sale_transfer',
+          timestamp: new Date().toISOString(),
+          firearm_id: selectedFirearm.id,
+          serial_number: selectedFirearm.serial_number || '',
+          transfer_id: transferId,
+          date: billData.date,
+          buyer_name: billData.buyerName,
+          buyer_dl: billData.buyerDlNumber,
+          buyer_address: billData.buyerAddress,
+          buyer_phone: billData.buyerPhone,
+          buyer_email: billData.buyerEmail,
+          seller_name: billData.sellerName,
+          sale_price: billData.salePrice,
+          payment_method: billData.paymentMethod,
+          notes: billData.notes,
+          pdf_base64: base64Pdf ? `data:application/pdf;base64,${base64Pdf}` : undefined,
+          pdf_filename: `BillOfSale_${transferId}_${makeClean}_${modelClean}.pdf`,
+          data: billData
+        };
+        await addToQueue(syncItem, `Firearm marked sold & queued for Desktop sync (ID: ${transferId})`);
+      } catch (queueErr) {
+        console.warn('Failed to queue bill of sale for desktop sync:', queueErr);
+      }
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      showSuccess('Bill of Sale Ready', `Document ID: ${transferId}`);
+      showSuccess('Bill of Sale Saved', `Firearm archived as Sold & queued for Desktop (ID: ${transferId})`);
     } catch (e: any) {
       console.error(e);
       showError('PDF Error', e.message || 'Failed to generate Bill of Sale');
