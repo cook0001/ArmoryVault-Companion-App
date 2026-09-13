@@ -689,28 +689,21 @@ export default function InventoryScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{ maxHeight: 38, marginBottom: 8, paddingHorizontal: 16 }}
-          contentContainerStyle={{ gap: 6, alignItems: 'center' }}
+          style={styles.storageFilterScrollView}
+          contentContainerStyle={styles.storageFilterContent}
         >
           <Pressable
             style={[
-              {
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 16,
-                backgroundColor: selectedStorageId === null ? '#38bdf8' : 'rgba(255,255,255,0.05)',
-                borderWidth: 1,
-                borderColor: selectedStorageId === null ? '#38bdf8' : 'rgba(255,255,255,0.1)',
-              },
+              styles.storageFilterChip,
+              selectedStorageId === null && styles.storageFilterChipActive,
             ]}
             onPress={() => setSelectedStorageId(null)}
           >
             <Text
-              style={{
-                color: selectedStorageId === null ? '#0f172a' : '#94a3b8',
-                fontSize: 11,
-                fontWeight: '700',
-              }}
+              style={[
+                styles.storageFilterChipText,
+                selectedStorageId === null && styles.storageFilterChipTextActive,
+              ]}
             >
               All Storage
             </Text>
@@ -722,37 +715,27 @@ export default function InventoryScreen() {
               <Pressable
                 key={loc.id}
                 style={[
-                  {
-                    paddingHorizontal: 10,
-                    paddingVertical: 5,
-                    borderRadius: 16,
-                    backgroundColor: isSelected ? '#38bdf8' : 'rgba(255,255,255,0.05)',
-                    borderWidth: 1,
-                    borderColor: isSelected ? '#38bdf8' : 'rgba(255,255,255,0.1)',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 4,
-                  },
+                  styles.storageFilterChip,
+                  isSelected && styles.storageFilterChipActive,
                 ]}
                 onPress={() => setSelectedStorageId(isSelected ? null : loc.id)}
               >
                 {loc.type === 'Safe' ? (
-                  <SafeIcon size={12} color={isSelected ? '#0f172a' : '#34d399'} />
+                  <SafeIcon size={13} color={isSelected ? '#38bdf8' : '#34d399'} />
                 ) : loc.type === 'AmmoCan' ? (
-                  <AmmoCanIcon size={12} color={isSelected ? '#0f172a' : '#f59e0b'} />
+                  <AmmoCanIcon size={13} color={isSelected ? '#38bdf8' : '#f59e0b'} />
                 ) : loc.type === 'Cabinet' ? (
-                  <CabinetIcon size={12} color={isSelected ? '#0f172a' : '#38bdf8'} />
+                  <CabinetIcon size={13} color={isSelected ? '#38bdf8' : '#38bdf8'} />
                 ) : loc.type === 'Case' ? (
-                  <GunCaseIcon size={12} color={isSelected ? '#0f172a' : '#a78bfa'} />
+                  <GunCaseIcon size={13} color={isSelected ? '#38bdf8' : '#a78bfa'} />
                 ) : (
-                  <VehicleVaultIcon size={12} color={isSelected ? '#0f172a' : '#fb7185'} />
+                  <VehicleVaultIcon size={13} color={isSelected ? '#38bdf8' : '#fb7185'} />
                 )}
                 <Text
-                  style={{
-                    color: isSelected ? '#0f172a' : '#f1f5f9',
-                    fontSize: 11,
-                    fontWeight: '600',
-                  }}
+                  style={[
+                    styles.storageFilterChipText,
+                    isSelected && styles.storageFilterChipTextActive,
+                  ]}
                   numberOfLines={1}
                 >
                   {loc.name}
@@ -765,17 +748,7 @@ export default function InventoryScreen() {
 
       {/* Selected Storage Location Card Banner */}
       {selectedStorageLocation && storageCapUtil && (
-        <View
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 10,
-            backgroundColor: 'rgba(56, 189, 248, 0.08)',
-            borderColor: 'rgba(56, 189, 248, 0.25)',
-            borderWidth: 1,
-            borderRadius: 10,
-            padding: 10,
-          }}
-        >
+        <View style={styles.storageBanner}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {selectedStorageLocation.type === 'Safe' ? (
@@ -831,6 +804,7 @@ export default function InventoryScreen() {
       {activeTab === 'ammo' && (
         <FlatList
           data={filteredAmmo}
+          style={{ flex: 1 }}
           keyExtractor={(item) => String(item.id)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />}
           contentContainerStyle={{ paddingBottom: 110 }}
@@ -957,22 +931,31 @@ export default function InventoryScreen() {
       {activeTab === 'components' && (
         <View style={{ flex: 1 }}>
           {/* Component Filter Chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipRow}>
-            {['All', 'Powder', 'Primer', 'Case', 'Bullet'].map(filter => (
-              <Pressable
-                key={filter}
-                style={[styles.filterChip, componentFilter === filter && styles.filterChipActive]}
-                onPress={() => setComponentFilter(filter as any)}
-              >
-                <Text style={[styles.filterChipText, componentFilter === filter && styles.filterChipTextActive]}>
-                  {filter}
-                </Text>
-              </Pressable>
-            ))}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.componentFilterScrollView}
+            contentContainerStyle={styles.componentFilterContent}
+          >
+            {['All', 'Powder', 'Primer', 'Case', 'Bullet'].map(filter => {
+              const isSelected = componentFilter === filter;
+              return (
+                <Pressable
+                  key={filter}
+                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                  onPress={() => setComponentFilter(filter as any)}
+                >
+                  <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                    {filter}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
 
           <FlatList
             data={filteredComponents}
+            style={{ flex: 1 }}
             keyExtractor={(item) => String(item.id)}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />}
             contentContainerStyle={{ paddingBottom: 110 }}
@@ -1024,6 +1007,7 @@ export default function InventoryScreen() {
 
           <FlatList
             data={filteredRecipes}
+            style={{ flex: 1 }}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingBottom: 110 }}
             renderItem={({ item }) => (
@@ -1697,8 +1681,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 12,
+    paddingVertical: Platform.OS === 'ios' ? 9 : 6,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -1706,31 +1690,81 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#f8fafc',
     fontSize: 13,
+    paddingVertical: 0,
   },
-  filterChipRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
+  storageFilterScrollView: {
+    marginHorizontal: -16,
+    marginBottom: 10,
+    flexGrow: 0,
   },
-  filterChip: {
-    backgroundColor: '#1e293b',
+  storageFilterContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  storageFilterChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  storageFilterChipActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8',
+  },
+  storageFilterChipText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  storageFilterChipTextActive: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
+  },
+  storageBanner: {
+    marginBottom: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+  },
+  componentFilterScrollView: {
+    marginHorizontal: -16,
+    marginBottom: 10,
+    flexGrow: 0,
+  },
+  componentFilterContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  filterChip: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   filterChipActive: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     borderColor: '#38bdf8',
   },
   filterChipText: {
     color: '#94a3b8',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#0f172a',
+    color: '#38bdf8',
     fontWeight: 'bold',
   },
   newRecipeBtn: {
