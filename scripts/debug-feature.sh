@@ -18,6 +18,10 @@ set -uo pipefail
 # NOTE: We intentionally do NOT use set -e here. Diagnostic scripts should
 # run all checks even if individual ADB queries return non-zero exit codes.
 
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+cd "$ROOT_DIR"
+
 PACKAGE="com.armoryvault.companion"
 ANDROID_HOME="${ANDROID_HOME:-/usr/local/share/android-commandlinetools}"
 ADB="$ANDROID_HOME/platform-tools/adb"

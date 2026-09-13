@@ -12,6 +12,10 @@
 
 set -euo pipefail
 
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+cd "$ROOT_DIR"
+
 PACKAGE="com.armoryvault.companion"
 ACTIVITY=".MainActivity"
 ANDROID_HOME="${ANDROID_HOME:-/usr/local/share/android-commandlinetools}"

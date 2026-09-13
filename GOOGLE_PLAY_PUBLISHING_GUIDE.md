@@ -166,7 +166,7 @@ Complete each required item in the Console Dashboard:
 * Financial features (None).
 
 ### Step 3: Publish Dedicated Privacy Policy Page
-Deploy `privacy.html` to `Firearm_Inventory_software/website/` so it is hosted at `https://cook0001.github.io/ArmoryVault/privacy.html`.
+Deploy `privacy.html` to `ArmoryVault_Desktop/website/` so it is hosted at `https://cook0001.github.io/ArmoryVault/privacy.html`.
 
 ### Step 4: Build the Android App Bundle (`.aab`)
 * Choose either EAS Build (`eas build --platform android`) or local Gradle bundle (`./gradlew bundleRelease`).

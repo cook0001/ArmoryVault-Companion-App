@@ -2,7 +2,8 @@
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$DIR"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 # Accept a backup directory, or use the latest one
 BACKUP_DIR="${1:-$(cat /tmp/armoryvault-latest-backup-path 2>/dev/null || echo "")}"

@@ -37,10 +37,10 @@ This project uses Expo.
 ## Running on Android (Standalone APK)
 **Quick Install:** If you don't want to build the app yourself, you can download the latest pre-built `.apk` file directly from the [Releases](../../releases) tab and install it on your device!
 
-### ⚡ Turbo Fast Local Builds (Hardware Accelerated)
+### Turbo Fast Local Builds (Hardware Accelerated)
 For rapid on-device testing, use the single-ABI parallel build script:
 ```bash
-./build-local-fast.sh
+./scripts/build-local-fast.sh
 ```
 *(Leverages 8-core CPU parallelism, CMake `-j8`, Kotlin daemon, and Gradle build-caching to build for `arm64-v8a` modern phones in seconds)*
 
@@ -54,35 +54,35 @@ cd android
 ## Publishing Releases to GitHub
 You can use the provided scripts to automate GitHub releases:
 
-1. **Auto-Build & Publish Release**: `./publish-release.sh`
+1. **Auto-Build & Publish Release**: `./scripts/publish-release.sh`
    *(Builds the release APK and publishes an official release to GitHub)*
 
-2. **Publish Only (No Build)**: `./publish-release-no-build.sh`
+2. **Publish Only (No Build)**: `./scripts/publish-release-no-build.sh`
    *(Instantly uploads the current build artifact to GitHub)*
 
 ## Build Workflow Tools
 
 | Script | Purpose |
 |--------|---------|
-| `./preflight.sh` | **Run before every build.** Validates version consistency, runs `expo-doctor`, checks peer dependencies, verifies native autolinking, and detects stale caches. |
-| `./bump-version.sh <ver>` | Atomically bumps the version across `package.json`, `app.json`, `build.gradle`, and `updater.ts` in one command. |
-| `./clean-build.sh [arch]` | Purges all build caches (CXX, CMake, Gradle, Metro), backs up native modifications, runs preflight, and produces a fresh release APK. |
-| `./smoke-test.sh` | Post-build APK validation: checks size, JS bundle, native libs, manifest version, signature, and resources. |
-| `./crash-report.sh` | Device crash diagnostics: captures crash logs, fatal exceptions, ANRs, and system info from connected Android phone. |
-| `./debug-feature.sh` | On-device feature diagnostics: checks permissions, hardware, storage, Wi-Fi sync, biometrics, and runtime logs. |
-| `./native-backup.sh` | Snapshots all manually-modified native files (build.gradle, AndroidManifest, Kotlin sources, resources, keystore) for safe recovery. |
-| `./native-restore.sh [dir]` | Restores native files from a snapshot created by `native-backup.sh`. |
+| `./scripts/preflight.sh` | **Run before every build.** Validates version consistency, runs `expo-doctor`, checks peer dependencies, verifies native autolinking, and detects stale caches. |
+| `./scripts/bump-version.sh <ver>` | Atomically bumps the version across `package.json`, `app.json`, `build.gradle`, and `updater.ts` in one command. |
+| `./scripts/clean-build.sh [arch]` | Purges all build caches (CXX, CMake, Gradle, Metro), backs up native modifications, runs preflight, and produces a fresh release APK. |
+| `./scripts/smoke-test.sh` | Post-build APK validation: checks size, JS bundle, native libs, manifest version, signature, and resources. |
+| `./scripts/crash-report.sh` | Device crash diagnostics: captures crash logs, fatal exceptions, ANRs, and system info from connected Android phone. |
+| `./scripts/debug-feature.sh` | On-device feature diagnostics: checks permissions, hardware, storage, Wi-Fi sync, biometrics, and runtime logs. |
+| `./scripts/native-backup.sh` | Snapshots all manually-modified native files (build.gradle, AndroidManifest, Kotlin sources, resources, keystore) for safe recovery. |
+| `./scripts/native-restore.sh [dir]` | Restores native files from a snapshot created by `native-backup.sh`. |
 
 For complete documentation on workflows, native safety, and troubleshooting, see [WORKFLOW.md](./WORKFLOW.md).
 
 ### Recommended Build Flow
 ```bash
-./bump-version.sh 2.7.1      # 1. Bump version
-# Edit CHANGELOG.md          # 2. Document changes
-./preflight.sh               # 3. Validate everything
-./clean-build.sh             # 4. Clean build (includes preflight)
-./smoke-test.sh              # 5. Validate the APK
-./publish-release.sh         # 6. Ship it
+./scripts/bump-version.sh 2.7.10   # 1. Bump version
+# Edit CHANGELOG.md               # 2. Document changes
+./scripts/preflight.sh            # 3. Validate everything
+./scripts/clean-build.sh          # 4. Clean build (includes preflight)
+./scripts/smoke-test.sh           # 5. Validate the APK
+./scripts/publish-release.sh      # 6. Ship it
 ```
 
 ## Running on iOS (iPhone)

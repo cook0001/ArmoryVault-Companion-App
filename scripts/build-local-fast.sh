@@ -3,6 +3,7 @@ export ANDROID_HOME="/usr/local/share/android-commandlinetools"
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
 ARCH="${1:-arm64-v8a}"
 BUILD_TYPE="${2:-Release}"
 
@@ -14,7 +15,7 @@ echo "=========================================================="
 
 export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu 2>/dev/null || echo 8)
 
-pushd "$DIR/android" > /dev/null
+pushd "$ROOT_DIR/android" > /dev/null
 
 if [ "$BUILD_TYPE" = "Debug" ] || [ "$BUILD_TYPE" = "debug" ]; then
   TASK="assembleDebug"

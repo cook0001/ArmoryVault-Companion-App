@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.11] - 2026-09-13
+### Changed
+- **Script Reorganization & Build Script Standardization (`scripts/`, `package.json`, `.github/workflows/ci.yml`)**:
+  - Organized root workflow scripts into dedicated `scripts/` directory (`scripts/build-local-fast.sh`, `scripts/bump-version.sh`, `scripts/clean-build.sh`, `scripts/crash-report.sh`, `scripts/debug-feature.sh`, `scripts/native-backup.sh`, `scripts/native-restore.sh`, `scripts/preflight.sh`, `scripts/publish-release-no-build.sh`, `scripts/publish-release.sh`, `scripts/smoke-test.sh`).
+  - Added npm scripts to `package.json` (`preflight`, `build:clean`, `build:fast`, `release`, `bump`) for standard build invocation.
+  - Updated CI workflow (`.github/workflows/ci.yml`) and `README.md` to reference `scripts/preflight.sh`.
+  - Updated `GOOGLE_PLAY_PUBLISHING_GUIDE.md` deployment path to point to `ArmoryVault_Desktop/website/`.
+  - Strictly incremented native Android `versionCode` to `320` and bumped version to `2.7.11`.
+
 ## [2.7.10] - 2026-09-12
 ### Fixed
 - **Worklets & Reanimated Dependency Compatibility Fix (`package.json`, `package-lock.json`)**:

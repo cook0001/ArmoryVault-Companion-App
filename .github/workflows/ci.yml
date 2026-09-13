@@ -38,4 +38,4 @@ jobs:
         run: npx tsc --noEmit
 
       - name: 🚀 Run Pre-Flight Build Validation
-        run: bash preflight.sh
+        run: bash scripts/preflight.sh

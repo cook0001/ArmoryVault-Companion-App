@@ -2,7 +2,8 @@
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$DIR"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 # ─── Usage ───────────────────────────────────────────────────
 usage() {

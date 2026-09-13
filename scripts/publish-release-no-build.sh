@@ -2,6 +2,10 @@
 export ANDROID_HOME="/usr/local/share/android-commandlinetools"
 set -e
 
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+cd "$ROOT_DIR"
+
 APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
 
 # Check if the GitHub CLI is installed
@@ -18,14 +22,9 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu 2>/dev/null || echo 8)
-pushd "$DIR/android" > /dev/null
-./gradlew assembleRelease --parallel --build-cache --max-workers=8
-popd > /dev/null
-
 if [ ! -f "$APK_PATH" ]; then
-    echo "Error: Release APK not found at $APK_PATH even after building."
+    echo "Error: Release APK not found at $APK_PATH"
+    echo "Please build the APK first by running: cd android && ./gradlew assembleRelease"
     exit 1
 fi
 

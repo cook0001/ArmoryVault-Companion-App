@@ -3,7 +3,8 @@ export ANDROID_HOME="/usr/local/share/android-commandlinetools"
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$DIR"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 ARCH="${1:-all}"
 SKIP_PREFLIGHT="${2:-}"
