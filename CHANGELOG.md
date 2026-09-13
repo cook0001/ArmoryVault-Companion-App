@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.7.8] - 2026-09-12
+### Fixed & Enhanced
+- **Filter Chips & Layout Clipping Resolution Below Search Bar (`app/inventory/index.tsx`)**:
+  - Eliminated the restrictive `maxHeight: 38` and `paddingHorizontal: 16` on the storage location filter `ScrollView` that was slicing off the bottom borders, icons, and text descenders of chips on Android and iOS devices with font scaling.
+  - Upgraded both the Storage Location filter chips and Reloading Component filter chips to use edge-to-edge negative horizontal margins (`marginHorizontal: -16`) with `contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 3 }}`. Chips now align perfectly with the search bar on initial render, glide cleanly across the full viewport width when scrolled, and have vertical clearance preventing border clipping.
+  - Removed misaligned `marginHorizontal: 16` from the selected storage location banner (`storageBanner`), aligning it flush with the search bar, tab switcher, and inventory item cards.
+  - Added explicit `style={{ flex: 1 }}` to the `FlatList` across Ammo, Components, and Recipes views, preventing flex viewport miscalculations and layout overlap.
+  - Refined `TextInput` vertical padding in `searchContainer` to prevent platform-specific font clipping.
+  - Strictly incremented native Android `versionCode` to `317`.
+
 ## [2.7.7] - 2026-09-12
 ### Fixed & Enhanced
 - **+P / +P+ Overpressure Ammunition Tag Detection & Mobile Cache Synchronization (`utils/caliberHelpers.ts`, `app/inventory/index.tsx`, `app/ammo/[upc].tsx`, `app/scanner.tsx`)**:
