@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.2] - 2026-09-12
+### Fixed
+- **Shotgun Shell Specifications Display & Search (`utils/caliberHelpers.ts`, `app/inventory/index.tsx`, `app/scanner.tsx`)**:
+  - Resolved issue where shotgun shells erroneously displayed as `FMJ / Target` due to hardcoded fallback logic when `projectile` was unset and `grain` was 0.
+  - Implemented centralized `caliberHelpers` utilities (`isShotgunAmmo`, `formatShotgunSpecs`, `formatAmmoSubtitle`) to format real shotgun specifications (e.g., `2 3/4" • 00 Buck • 9 Pellets`, `2 3/4" • #8 Shot • 1 1/8 oz`, `Slug • 1 oz`, or `Shotgun Shell`).
+  - Updated shotgun specifications rendering across all mobile touchpoints: inventory cards & adjustment modal (`app/inventory/index.tsx`), UPC detail view (`app/ammo/[upc].tsx`), live barcode scanner & match prompts (`app/scanner.tsx`), range checklist packing lists (`app/range/checklist.tsx`), chronograph logging (`app/range/chronograph.tsx`), range session deduction selector (`app/range/index.tsx`), and firearm detail ammo chips (`app/firearm/[id].tsx`).
+  - Enhanced mobile inventory search and live barcode search queries to include shotgun-specific attributes (`shot_size`, `shell_length`, `oz_payload`), enabling rapid searching for terms like "buck", "slug", "12ga", or "#8".
+  - Incremented native Android `versionCode` to `311`.
+
 ## [2.7.1] - 2026-09-12
 ### Added
 - **Bill of Sale Firearm Archival & Desktop Synchronization**:

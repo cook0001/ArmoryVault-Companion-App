@@ -36,6 +36,7 @@ import {
   CartridgesIcon,
   GunpowderIcon,
 } from './components/CustomMobileIcons';
+import { formatAmmoSubtitle, isShotgunAmmo } from '../utils/caliberHelpers';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -292,14 +293,16 @@ export default function ScannerScreen() {
         if (cachedInventory && cachedInventory.ammo) {
           const found = cachedInventory.ammo.find((a: any) => String(a.id) === id);
           if (found) {
-            matchTitle = `${found.manufacturer || ''} ${found.caliber || ''} ${found.grain ? found.grain + 'gr ' : ''}${found.projectile || ''}`.trim();
+            const sub = formatAmmoSubtitle(found);
+            matchTitle = `${found.manufacturer || ''} ${found.caliber || ''} ${sub}`.trim();
             stockCount = found.count;
             caliber = found.caliber;
           }
         }
 
-        // Set default rounds/box (25 for defensive, 20 for rifle, 50 for general)
-        const defaultRpb = (caliber || '').toLowerCase().includes('5.56') || (caliber || '').toLowerCase().includes('.223') || (caliber || '').toLowerCase().includes('.308') ? '20' : '50';
+        // Set default rounds/box (25 for shotgun/defensive, 20 for rifle, 50 for general)
+        const isShotgun = isShotgunAmmo(caliber);
+        const defaultRpb = (caliber || '').toLowerCase().includes('5.56') || (caliber || '').toLowerCase().includes('.223') || (caliber || '').toLowerCase().includes('.308') ? '20' : isShotgun ? '25' : '50';
         setRoundsPerBox(defaultRpb);
         setBoxCount('1');
         setItemMatchInfo({ title: matchTitle, subtitle: `Ammo ID: ${id}`, stock: stockCount, caliber });
@@ -351,7 +354,8 @@ export default function ScannerScreen() {
         if (cachedInventory.ammo) {
           const foundAmmo = cachedInventory.ammo.find((a: any) => String(a.id) === data || a.upc_code === data);
           if (foundAmmo) {
-            matchTitle = `${foundAmmo.manufacturer || ''} ${foundAmmo.caliber || ''} ${foundAmmo.grain ? foundAmmo.grain + 'gr ' : ''}${foundAmmo.projectile || ''}`.trim();
+            const sub = formatAmmoSubtitle(foundAmmo);
+            matchTitle = `${foundAmmo.manufacturer || ''} ${foundAmmo.caliber || ''} ${sub}`.trim();
             stockCount = foundAmmo.count;
             caliber = foundAmmo.caliber;
             matchedType = 'ammo_adjustment';
@@ -440,12 +444,14 @@ export default function ScannerScreen() {
 
     // Search Ammo
     (cachedInventory.ammo || []).forEach((a: any) => {
-      const matchStr = `${a.manufacturer || ''} ${a.caliber || ''} ${a.projectile || ''} ${a.upc_code || ''}`.toLowerCase();
+      const shotFields = `${a.shot_size || ''} ${a.shell_length || ''} ${a.oz_payload || ''}`;
+      const matchStr = `${a.manufacturer || ''} ${a.caliber || ''} ${a.projectile || ''} ${shotFields} ${a.upc_code || ''}`.toLowerCase();
       if (matchStr.includes(q)) {
+        const sub = formatAmmoSubtitle(a);
         results.push({
           type: 'ammo',
           id: a.id,
-          title: `${a.manufacturer || ''} ${a.caliber || ''} ${a.grain ? `${a.grain}gr ` : ''}${a.projectile || ''}`,
+          title: `${a.manufacturer || ''} ${a.caliber || ''} ${sub}`.trim(),
           subtitle: `In Vault: ${a.count} rds • UPC: ${a.upc_code || 'N/A'}`,
           stock: a.count,
           caliber: a.caliber

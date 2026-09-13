@@ -19,6 +19,7 @@ import {
   getStorageCapacityUtilization,
   StorageLocation,
 } from '../../utils/storageCapacity';
+import { formatAmmoSubtitle, isShotgunAmmo } from '../../utils/caliberHelpers';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 
@@ -439,7 +440,18 @@ export default function InventoryScreen() {
       const mfg = (a.manufacturer || '').toLowerCase();
       const proj = (a.projectile || '').toLowerCase();
       const grain = String(a.grain || '');
-      return caliber.includes(q) || mfg.includes(q) || proj.includes(q) || grain.includes(q);
+      const shotSize = (a.shot_size || '').toLowerCase();
+      const shellLen = (a.shell_length || '').toLowerCase();
+      const payload = (a.oz_payload || '').toLowerCase();
+      return (
+        caliber.includes(q) ||
+        mfg.includes(q) ||
+        proj.includes(q) ||
+        grain.includes(q) ||
+        shotSize.includes(q) ||
+        shellLen.includes(q) ||
+        payload.includes(q)
+      );
     });
   }, [ammoList, searchQuery, selectedStorageId, selectedStorageLocation]);
 
@@ -719,7 +731,7 @@ export default function InventoryScreen() {
                       {item.manufacturer ? `${item.manufacturer} ` : ''}{item.caliber}
                     </Text>
                     <Text style={styles.itemSubtitle}>
-                      {item.grain ? `${item.grain}gr ` : ''}{item.projectile || 'FMJ / Target'}
+                      {formatAmmoSubtitle(item)}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -935,6 +947,11 @@ export default function InventoryScreen() {
                     ? `${adjustItem.item.manufacturer || ''} ${adjustItem.item.caliber}`
                     : `${adjustItem.item.manufacturer || ''} ${adjustItem.item.name}`}
                 </Text>
+                {adjustItem.isAmmo && (
+                  <Text style={[styles.itemSubtitle, { marginBottom: 6 }]}>
+                    {formatAmmoSubtitle(adjustItem.item)}
+                  </Text>
+                )}
                 <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13, marginBottom: 14 }}>
                   Current Stock: {adjustItem.isAmmo ? adjustItem.item.count : adjustItem.item.quantity} {adjustItem.isAmmo ? 'rds' : (adjustItem.item.type === 'Powder' ? 'lbs' : 'units')}
                 </Text>

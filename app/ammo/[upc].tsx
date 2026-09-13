@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
+import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
 
 export default function AmmoScreen() {
   const { upc } = useLocalSearchParams();
@@ -83,7 +84,7 @@ export default function AmmoScreen() {
             {matchedAmmo.manufacturer || ''} {matchedAmmo.caliber || ''}
           </Text>
           <Text style={styles.ammoSubtitle}>
-            {matchedAmmo.grain ? `${matchedAmmo.grain}gr ` : ''}{matchedAmmo.projectile || matchedAmmo.type || ''}
+            {formatAmmoSubtitle(matchedAmmo)}
           </Text>
           {matchedAmmo.count !== undefined && (
             <View style={styles.stockBadge}>

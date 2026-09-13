@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useDialog } from '../../context/DialogContext';
 import { CartridgesIcon, SafeIcon } from '../components/CustomMobileIcons';
+import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
 
 interface ChecklistItem {
   id: string;
@@ -546,12 +547,13 @@ export default function RangeChecklistScreen() {
         const a = ammoList.find(lot => String(lot.id) === ammoIdStr);
         if (a) {
           const itemId = `ammo_${a.id}`;
+          const ammoSub = formatAmmoSubtitle(a);
           newItems.push({
             id: itemId,
             label: `${count} rds • ${a.manufacturer || ''} ${a.caliber}`,
             category: 'ammo',
             packed: existingPackedMap.get(itemId) || false,
-            subtext: `${a.grain ? `${a.grain}gr ` : ''}${a.projectile || ''} (In Vault: ${a.count} rds)`
+            subtext: `${ammoSub ? `${ammoSub} • ` : ''}In Vault: ${a.count} rds`
           });
         }
       }
@@ -805,7 +807,7 @@ export default function RangeChecklistScreen() {
                     </Text>
                   </View>
                   <Text style={styles.ammoLotDesc}>
-                    {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''} • In Vault: {ammo.count} rds
+                    {formatAmmoSubtitle(ammo)} • In Vault: {ammo.count} rds
                   </Text>
                 </View>
 

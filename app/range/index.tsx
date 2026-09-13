@@ -13,6 +13,7 @@ import {
   BallisticsTrajectoryIcon,
   GunpowderIcon,
 } from '../components/CustomMobileIcons';
+import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
 
 export default function RangeSessionScreen() {
   const router = useRouter();
@@ -266,7 +267,7 @@ export default function RangeSessionScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 }}>
               <CartridgesIcon size={13} color={selectedAmmoId === ammo.id ? '#f59e0b' : '#94a3b8'} />
               <Text style={[styles.ammoTitle, selectedAmmoId === ammo.id && styles.activeText]}>
-                {ammo.manufacturer || ''} {ammo.grain ? `${ammo.grain}gr ` : ''}{ammo.projectile || ''}
+                {ammo.manufacturer ? `${ammo.manufacturer} ` : ''}{formatAmmoSubtitle(ammo)}
               </Text>
             </View>
             <Text style={styles.ammoSubtitle}>
