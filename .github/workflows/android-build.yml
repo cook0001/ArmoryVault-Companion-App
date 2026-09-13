@@ -1,0 +1,84 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - stable
+    tags:
+      - 'v*'
+    paths-ignore:
+      - '*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Android Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🔧 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install Dependencies
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      - name: 🏗️ Generate Native Android Project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: 🔑 Ensure Keystore Exists
+        run: |
+          if [ ! -f "android/app/debug.keystore" ]; then
+            echo "Generating debug keystore for build..."
+            keytool -genkey -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: 🔨 Build Release APK via Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease -PreactNativeArchitectures="arm64-v8a,armeabi-v7a,x86_64" --no-daemon
+
+      - name: 🔍 Verify Output APK
+        run: |
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          if [ -f "$APK_PATH" ]; then
+            ls -lh "$APK_PATH"
+          else
+            echo "❌ Error: Expected APK not found at $APK_PATH"
+            exit 1
+          fi
+
+      - name: 📤 Upload APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArmoryVault-Companion-v2.7.9-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
+
+      - name: 🚀 Attach to GitHub Release (on tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          echo "Attaching APK to release $TAG_NAME..."
+          gh release upload "$TAG_NAME" "android/app/build/outputs/apk/release/app-release.apk#ArmoryVault-Companion-$TAG_NAME.apk" --clobber || true
