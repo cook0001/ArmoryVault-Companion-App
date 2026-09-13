@@ -94,14 +94,6 @@ jobs:
             echo "Release $VERSION does not exist yet. Creating release and publishing APK..."
             gh release create "$VERSION" "$RELEASE_ASSET" \
               --title "ArmoryVault Companion $VERSION" \
-              --notes "### ArmoryVault Companion $VERSION (Build $VERSION_CODE)
-
-Production release of the ArmoryVault Companion mobile app for Android.
-
-- **Package**: \`com.armoryvault.companion\`
-- **Version Name**: \`$VERSION\`
-- **Native VersionCode**: \`$VERSION_CODE\`
-- **Target Architectures**: Universal (\`arm64-v8a\`, \`armeabi-v7a\`, \`x86_64\`)
-- **Security & Architecture**: 100% Zero-Cloud, local-first encrypted storage with biometric authentication."
+              --generate-notes
           fi
           echo "✅ Release $VERSION published successfully with $RELEASE_ASSET on the Release tab!"
