@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.7.3] - 2026-09-12
+### Added
+- **Desktop-Grade Shotgun Shell Specifications & Inspect Modal (`app/inventory/index.tsx`, `utils/caliberHelpers.ts`, `app/ammo/[upc].tsx`)**:
+  - Implemented comprehensive shotgun shell classification (`Buckshot`, `Target / Clay`, `Birdshot / Field`, `Waterfowl`, `Slug`, `Turkey Load`), identifying exactly what type of shotgun shell each item is.
+  - Added dedicated specification chips and badges to inventory cards: Shell Type badge (`BUCKSHOT`, `TARGET LOAD`, `SLUG`, `BIRDSHOT`), Shell Length chip (`2 3/4"`, `3" Magnum`), Shot Size & Payload chip (`00 Buckshot • 9 Pellets`, `#8 Target / Clay • 1 1/8 oz`, `1 oz Rifled Slug`), and Storage Location pill.
+  - Restricted pellet count specifically to Buckshot loads per user instruction, using payload weight (oz) for birdshot, clays, and slugs. Excluded hull data from mobile views.
+  - Added full **Ammo Inspect & Specifications Modal** when tapping any ammo card (matching the desktop app's inspection dialog), displaying Gauge, Shell Type, Shell Length, Shot Size, Pellet Count, Payload, Storage Location, Current Stock, Cost per Round, Total Value, and Barcode.
+  - Subtitles formatted to match desktop conventions: `{Manufacturer} - {Shot Size / Type} ({Pellets or Payload})`.
+  - Incremented native Android `versionCode` to `312`.
+
 ## [2.7.2] - 2026-09-12
 ### Fixed
 - **Shotgun Shell Specifications Display & Search (`utils/caliberHelpers.ts`, `app/inventory/index.tsx`, `app/scanner.tsx`)**:

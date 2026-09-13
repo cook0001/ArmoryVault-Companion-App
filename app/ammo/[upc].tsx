@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
-import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
+import { formatAmmoSubtitle, formatShotgunSpecs, isShotgunAmmo } from '../../utils/caliberHelpers';
 
 export default function AmmoScreen() {
   const { upc } = useLocalSearchParams();
@@ -78,21 +78,53 @@ export default function AmmoScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      {matchedAmmo ? (
-        <View style={styles.card}>
-          <Text style={styles.ammoTitle}>
-            {matchedAmmo.manufacturer || ''} {matchedAmmo.caliber || ''}
-          </Text>
-          <Text style={styles.ammoSubtitle}>
-            {formatAmmoSubtitle(matchedAmmo)}
-          </Text>
-          {matchedAmmo.count !== undefined && (
-            <View style={styles.stockBadge}>
-              <Text style={styles.stockBadgeText}>Current Stock: {matchedAmmo.count} rds</Text>
-            </View>
-          )}
-        </View>
-      ) : (
+      {matchedAmmo ? (() => {
+        const isShotgun = isShotgunAmmo(matchedAmmo);
+        const shotgunSpecs = isShotgun ? formatShotgunSpecs(matchedAmmo) : null;
+        return (
+          <View style={styles.card}>
+            <Text style={styles.ammoTitle}>
+              {matchedAmmo.manufacturer || ''} {matchedAmmo.caliber || ''}
+            </Text>
+            <Text style={styles.ammoSubtitle}>
+              {formatAmmoSubtitle(matchedAmmo)}
+            </Text>
+
+            {isShotgun && shotgunSpecs && (
+              <View style={styles.specChipsRow}>
+                <View style={styles.specTypeBadge}>
+                  <Text style={styles.specTypeBadgeText}>{shotgunSpecs.badgeText}</Text>
+                </View>
+                {shotgunSpecs.shellLength ? (
+                  <View style={styles.specChip}>
+                    <Text style={styles.specChipText}>{shotgunSpecs.shellLength}</Text>
+                  </View>
+                ) : null}
+                {shotgunSpecs.shotSize ? (
+                  <View style={styles.specChip}>
+                    <Text style={styles.specChipText}>{shotgunSpecs.shotSize}</Text>
+                  </View>
+                ) : null}
+                {shotgunSpecs.shotType === 'Buckshot' && shotgunSpecs.pelletCount ? (
+                  <View style={styles.specChip}>
+                    <Text style={styles.specChipText}>{shotgunSpecs.pelletCount}</Text>
+                  </View>
+                ) : shotgunSpecs.payload ? (
+                  <View style={styles.specChip}>
+                    <Text style={styles.specChipText}>{shotgunSpecs.payload}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {matchedAmmo.count !== undefined && (
+              <View style={styles.stockBadge}>
+                <Text style={styles.stockBadgeText}>Current Stock: {matchedAmmo.count} rds</Text>
+              </View>
+            )}
+          </View>
+        );
+      })() : (
         <Text style={styles.title}>Ammo UPC/ID: {upc}</Text>
       )}
       
@@ -263,5 +295,39 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-  }
+  },
+  specChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  specTypeBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: '#f59e0b',
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  specTypeBadgeText: {
+    color: '#f59e0b',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  specChip: {
+    backgroundColor: '#0f172a',
+    borderColor: '#334155',
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  specChipText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });

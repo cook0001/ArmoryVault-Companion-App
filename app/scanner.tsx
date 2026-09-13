@@ -36,7 +36,7 @@ import {
   CartridgesIcon,
   GunpowderIcon,
 } from './components/CustomMobileIcons';
-import { formatAmmoSubtitle, isShotgunAmmo } from '../utils/caliberHelpers';
+import { formatAmmoSubtitle, formatShotgunSpecs, isShotgunAmmo } from '../utils/caliberHelpers';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -293,8 +293,10 @@ export default function ScannerScreen() {
         if (cachedInventory && cachedInventory.ammo) {
           const found = cachedInventory.ammo.find((a: any) => String(a.id) === id);
           if (found) {
-            const sub = formatAmmoSubtitle(found);
-            matchTitle = `${found.manufacturer || ''} ${found.caliber || ''} ${sub}`.trim();
+            const isShotgun = isShotgunAmmo(found);
+            const shotgunSpecs = isShotgun ? formatShotgunSpecs(found) : null;
+            const sub = isShotgun && shotgunSpecs ? shotgunSpecs.summary : formatAmmoSubtitle(found);
+            matchTitle = `${found.manufacturer ? `${found.manufacturer} ` : ''}${found.caliber || ''}${sub ? ` • ${sub}` : ''}`.trim();
             stockCount = found.count;
             caliber = found.caliber;
           }
@@ -354,8 +356,10 @@ export default function ScannerScreen() {
         if (cachedInventory.ammo) {
           const foundAmmo = cachedInventory.ammo.find((a: any) => String(a.id) === data || a.upc_code === data);
           if (foundAmmo) {
-            const sub = formatAmmoSubtitle(foundAmmo);
-            matchTitle = `${foundAmmo.manufacturer || ''} ${foundAmmo.caliber || ''} ${sub}`.trim();
+            const isShotgun = isShotgunAmmo(foundAmmo);
+            const shotgunSpecs = isShotgun ? formatShotgunSpecs(foundAmmo) : null;
+            const sub = isShotgun && shotgunSpecs ? shotgunSpecs.summary : formatAmmoSubtitle(foundAmmo);
+            matchTitle = `${foundAmmo.manufacturer ? `${foundAmmo.manufacturer} ` : ''}${foundAmmo.caliber || ''}${sub ? ` • ${sub}` : ''}`.trim();
             stockCount = foundAmmo.count;
             caliber = foundAmmo.caliber;
             matchedType = 'ammo_adjustment';
@@ -447,12 +451,14 @@ export default function ScannerScreen() {
       const shotFields = `${a.shot_size || ''} ${a.shell_length || ''} ${a.oz_payload || ''}`;
       const matchStr = `${a.manufacturer || ''} ${a.caliber || ''} ${a.projectile || ''} ${shotFields} ${a.upc_code || ''}`.toLowerCase();
       if (matchStr.includes(q)) {
-        const sub = formatAmmoSubtitle(a);
+        const isShotgun = isShotgunAmmo(a);
+        const shotgunSpecs = isShotgun ? formatShotgunSpecs(a) : null;
+        const sub = isShotgun && shotgunSpecs ? shotgunSpecs.summary : formatAmmoSubtitle(a);
         results.push({
           type: 'ammo',
           id: a.id,
-          title: `${a.manufacturer || ''} ${a.caliber || ''} ${sub}`.trim(),
-          subtitle: `In Vault: ${a.count} rds • UPC: ${a.upc_code || 'N/A'}`,
+          title: `${a.manufacturer ? `${a.manufacturer} ` : ''}${a.caliber || ''}`.trim(),
+          subtitle: `${sub ? `${sub} • ` : ''}In Vault: ${a.count} rds • UPC: ${a.upc_code || 'N/A'}`,
           stock: a.count,
           caliber: a.caliber
         });
