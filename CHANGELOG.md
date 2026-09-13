@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.9] - 2026-09-12
+### Added & Fixed
+- **GitHub Actions CI/CD Quality Gates & Dependency Fix (`.github/workflows/ci.yml`, `.github/workflows/eas-update.yml`)**:
+  - Introduced a dedicated continuous integration workflow (`.github/workflows/ci.yml`) triggered on pull requests and pushes to `main`, `master`, and `stable` to automatically run unit tests (`npm test`), TypeScript verification (`npx tsc --noEmit`), and pre-flight validation (`bash preflight.sh`).
+  - Fixed npm peer dependency resolution in `eas-update.yml` with `--legacy-peer-deps` fallback to resolve strict peer dependency failures under Node 24 (`typescript@6.0.3` vs `ts-jest@29.4.12`).
+  - Added pre-deployment verification gates (`npm test` and `npx tsc --noEmit`) to `eas-update.yml` before publishing to ensure OTA updates are never released if tests fail or compilation errors exist.
+  - Synchronized `VERSION_COMPATIBILITY.md` and website deployment matrix with Desktop `v2.8.2` and Mobile `v2.7.9`.
+  - Strictly incremented native Android `versionCode` to `318`.
+
 ## [2.7.8] - 2026-09-12
 ### Fixed & Enhanced
 - **Filter Chips & Layout Clipping Resolution Below Search Bar (`app/inventory/index.tsx`)**:

@@ -29,7 +29,13 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      - name: 🧪 Run Unit Tests
+        run: npm test
+
+      - name: 🔎 TypeScript Verification
+        run: npx tsc --noEmit
 
       - name: 🚀 Publish Update
         run: eas update --branch main --message "Automated update via GitHub Actions (${{ github.sha }})"
