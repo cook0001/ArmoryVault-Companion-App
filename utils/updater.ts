@@ -22,7 +22,7 @@ export interface CheckUpdateOptions {
  * Gets the current installed version string.
  */
 export function getCurrentAppVersion(): string {
-  return (Application.nativeApplicationVersion || '2.7.9').replace(/^v/, '');
+  return (Application.nativeApplicationVersion || '2.7.10').replace(/^v/, '');
 }
 
 /**

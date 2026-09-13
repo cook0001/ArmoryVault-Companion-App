@@ -6,9 +6,9 @@ ArmoryVault Companion maintains active security updates and patch support for th
 
 | Version | Android versionCode | Status | Security Support |
 | :--- | :--- | :--- | :---: |
-| **`v2.7.9`** | `318` | Current Stable Production | Supported |
-| **`v2.7.8`** | `317` | Previous Production Release | Supported |
-| **`<= v2.7.7`** | `< 317` | Legacy Releases | EOL (Upgrade Required) |
+| **`v2.7.10`** | `319` | Current Stable Production | Supported |
+| **`v2.7.9`** | `318` | Previous Production Release | Supported |
+| **`<= v2.7.8`** | `< 318` | Legacy Releases | EOL (Upgrade Required) |
 
 ---
 
