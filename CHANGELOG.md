@@ -7,6 +7,9 @@
   - Resolved Gradle build failure (`:react-native-reanimated:assertWorkletsVersionTask FAILED`) in `.github/workflows/android-build.yml`.
   - Resolved EAS Update packaging dependency resolution error (`peer react-native-worklets@"0.10.x" from react-native-reanimated@4.5.1`) in `.github/workflows/eas-update.yml`.
   - Strictly incremented native Android `versionCode` to `319` and bumped version to `2.7.10`.
+- **Release Automation & Documentation (`.github/workflows/android-build.yml`, `GOOGLE_PLAY_PUBLISHING_GUIDE.md`)**:
+  - Enhanced workflow to upload both versioned `ArmoryVault-Companion-v<VERSION>.apk` and canonical `app-release.apk` with dual cryptographic SHA256 checksums to guarantee perpetual URL compatibility for website QR code scans.
+  - Added comprehensive `GOOGLE_PLAY_PUBLISHING_GUIDE.md` detailing Google Play Developer Console policies, account types, 20-tester closed testing guidelines, and firearms/weapons compliance disclaimers.
 
 ## [2.7.9] - 2026-09-12
 ### Added & Fixed
