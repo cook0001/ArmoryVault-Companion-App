@@ -30,15 +30,18 @@
     "react": "19.2.8",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.5",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "react-native-worklets": "^0.12.2"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/react": "~19.2.18",
-    "jest": "^30.4.2",
+    "jest": "^30.5.1",
     "ts-jest": "^29.4.12",
     "typescript": "~6.0.3"
   },
