@@ -2,11 +2,6 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-    inputs:
-      publish_release:
-        description: 'Publish APK to GitHub Releases tab'
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -81,7 +76,6 @@ jobs:
           retention-days: 14
 
       - name: 🚀 Publish Release & APK to GitHub Releases Tab
-        if: inputs.publish_release != false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
