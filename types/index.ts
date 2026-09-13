@@ -59,6 +59,8 @@ export interface Ammo {
   notes?: string;
   upc_code?: string;
   isPlusP?: boolean;
+  roundsPerBox?: number;
+  boxCount?: number;
   storageLocationId?: number;
 }
 
