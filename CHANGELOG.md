@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.7] - 2026-09-12
+### Fixed & Enhanced
+- **+P / +P+ Overpressure Ammunition Tag Detection & Mobile Cache Synchronization (`utils/caliberHelpers.ts`, `app/inventory/index.tsx`, `app/ammo/[upc].tsx`, `app/scanner.tsx`)**:
+  - Upgraded `isPlusPAmmo` and `getPlusPBadgeText` to inspect a comprehensive text corpus (`caliber`, `projectile`, `notes`, `upc_code`, `upc`, `manufacturer`, `bullet_manufacturer`, `name`, `description`).
+  - Fixed regex word boundary matching (`/\+p(?![a-z])/i`) so barcodes and product codes directly adjacent to grain weight numbers (e.g. `45ACP+P200GD20-NI`) are immediately detected as `+P`.
+  - Added domain heuristics for standard high-pressure cartridges such as `.45 Colt` *"Ruger only load"* or *"Ruger & T/C only"*.
+  - Added robust evaluation of explicit flags supporting booleans, integers (`1`), and truthy strings.
+  - Subscribed `app/inventory/index.tsx` and `app/scanner.tsx` to `lastCacheTime` from `useSync()` and added automatic background cache refreshing on screen focus when connected, ensuring desktop sync cache updates (`isPlusP`) populate immediately on mobile without requiring a manual swipe.
+  - Added an interactive **1-Tap Pressure Rating Toggle** in the mobile Ammo Inspect Modal (`app/inventory/index.tsx`) allowing users to toggle an ammo lot's `+P` rating on or off directly on mobile, updating local state, writing to `inventory_cache`, and queuing an `ammo_adjustment` sync event to the desktop vault.
+  - Updated desktop `SyncInbox.tsx` to accept and persist `isPlusP` changes when approving mobile `ammo_adjustment` sync items.
+  - Removed duplicate redundant `+P` chips inside `specChipsRow` on inventory and UPC cards while keeping prominent tags in card headers.
+  - Mapped `isPlusP` in `app/ammo/[upc].tsx` SKU fallback matching.
+  - Strictly incremented native Android `versionCode` to `316`.
+
 ## [2.7.6] - 2026-09-12
 ### Fixed
 - **Firearm Add/Edit Form Layout & Bottom Menu Overlap (`app/components/BottomTabBar.tsx`, `app/firearms/form.tsx`)**:

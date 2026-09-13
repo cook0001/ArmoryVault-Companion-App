@@ -486,20 +486,52 @@ export const formatAmmoSubtitle = (ammo?: Partial<Ammo> | null, defaultFallback 
  * Detects whether an ammunition lot is rated +P or +P+ (High Pressure).
  */
 export const isPlusPAmmo = (ammo?: Partial<Ammo> | null): boolean => {
-  if (!ammo) return false;
-  if (ammo.isPlusP) return true;
-  const text = `${ammo.caliber || ''} ${ammo.projectile || ''} ${ammo.notes || ''}`;
-  return /\+p\+?/i.test(text) || /\bplus\s*p\b/i.test(text);
+  return getPlusPBadgeText(ammo) !== null;
 };
 
 /**
  * Returns the exact badge text (+P or +P+) if the ammo is high pressure rated, or null otherwise.
+ * Inspects explicit flags, caliber, projectile, notes, UPC, manufacturer, and domain heuristics.
  */
 export const getPlusPBadgeText = (ammo?: Partial<Ammo> | null): '+P+' | '+P' | null => {
   if (!ammo) return null;
-  const text = `${ammo.caliber || ''} ${ammo.projectile || ''} ${ammo.notes || ''}`;
-  if (/\+p\+/i.test(text)) return '+P+';
-  if (ammo.isPlusP || /\+p\b/i.test(text) || /\bplus\s*p\b/i.test(text)) return '+P';
+
+  const isPlusPExplicit =
+    ammo.isPlusP === true ||
+    (ammo.isPlusP as any) === 1 ||
+    String(ammo.isPlusP).toLowerCase() === 'true' ||
+    String(ammo.isPlusP) === '1';
+
+  const textCorpus = [
+    ammo.caliber,
+    ammo.projectile,
+    ammo.notes,
+    ammo.upc_code,
+    (ammo as any).upc,
+    ammo.manufacturer,
+    ammo.bullet_manufacturer,
+    (ammo as any).name,
+    (ammo as any).description,
+    (ammo as any).title,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  // 1. +P+ Check (Very High Pressure)
+  if (/\+p\+/i.test(textCorpus) || /\bplus[- ]*p\+/i.test(textCorpus)) {
+    return '+P+';
+  }
+
+  // 2. +P Check (Explicit flag, regex, or standard high-pressure domain designations)
+  if (
+    isPlusPExplicit ||
+    /\+p(?![a-z])/i.test(textCorpus) ||
+    /\bplus[- ]*p\b/i.test(textCorpus) ||
+    /\b(ruger\s*only|ruger\s*&\s*t\/?c\s*only)\b/i.test(textCorpus)
+  ) {
+    return '+P';
+  }
+
   return null;
 };
 
