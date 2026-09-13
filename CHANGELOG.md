@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.10] - 2026-09-12
+### Fixed
+- **Worklets & Reanimated Dependency Compatibility Fix (`package.json`, `package-lock.json`)**:
+  - Pinned `react-native-worklets` to exact `0.10.4` to satisfy `react-native-reanimated@4.5.1` peer requirements.
+  - Resolved Gradle build failure (`:react-native-reanimated:assertWorkletsVersionTask FAILED`) in `.github/workflows/android-build.yml`.
+  - Resolved EAS Update packaging dependency resolution error (`peer react-native-worklets@"0.10.x" from react-native-reanimated@4.5.1`) in `.github/workflows/eas-update.yml`.
+  - Strictly incremented native Android `versionCode` to `319` and bumped version to `2.7.10`.
+
 ## [2.7.9] - 2026-09-12
 ### Added & Fixed
 - **GitHub Actions CI/CD Quality Gates & Dependency Fix (`.github/workflows/ci.yml`, `.github/workflows/eas-update.yml`)**:
