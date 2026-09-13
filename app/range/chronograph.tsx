@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
+import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
 
 export default function ChronographScreen() {
   const router = useRouter();
@@ -104,7 +105,9 @@ export default function ChronographScreen() {
         ammoLabel: selectedAmmoId
           ? (() => {
               const a = ammoList.find(am => am.id === selectedAmmoId);
-              return a ? `${a.manufacturer || ''} ${a.caliber} ${a.grain ? a.grain + 'gr' : ''}`.trim() : '';
+              if (!a) return '';
+              const sub = formatAmmoSubtitle(a);
+              return `${a.manufacturer || ''} ${a.caliber} ${sub}`.trim();
             })()
           : undefined,
         shotVelocities: velocities,
@@ -195,7 +198,7 @@ export default function ChronographScreen() {
               onPress={() => setSelectedAmmoId(a.id)}
             >
               <Text style={[styles.selectorTitle, selectedAmmoId === a.id && { color: '#fff' }]}>
-                {a.manufacturer || ''} {a.grain ? `${a.grain}gr` : ''} {a.projectile || ''}
+                {a.manufacturer ? `${a.manufacturer} ` : ''}{formatAmmoSubtitle(a)}
               </Text>
               <Text style={styles.selectorSub}>{a.count} rds</Text>
             </Pressable>

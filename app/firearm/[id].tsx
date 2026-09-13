@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
 import { calculateFirearmWear } from '../../utils/maintenanceManager';
+import { formatAmmoSubtitle } from '../../utils/caliberHelpers';
 
 export default function FirearmScreen() {
   const { id } = useLocalSearchParams();
@@ -294,17 +295,20 @@ export default function FirearmScreen() {
                     No Deduction
                   </Text>
                 </Pressable>
-                {availableAmmo.map(a => (
-                  <Pressable
-                    key={a.id}
-                    style={[styles.ammoChip, selectedAmmoId === a.id && styles.ammoChipActive]}
-                    onPress={() => setSelectedAmmoId(a.id)}
-                  >
-                    <Text style={[styles.ammoChipText, selectedAmmoId === a.id && styles.ammoChipTextActive]}>
-                      {a.manufacturer || ''} {a.grain ? `${a.grain}gr` : ''} ({a.count} rds)
-                    </Text>
-                  </Pressable>
-                ))}
+                {availableAmmo.map(a => {
+                  const sub = formatAmmoSubtitle(a);
+                  return (
+                    <Pressable
+                      key={a.id}
+                      style={[styles.ammoChip, selectedAmmoId === a.id && styles.ammoChipActive]}
+                      onPress={() => setSelectedAmmoId(a.id)}
+                    >
+                      <Text style={[styles.ammoChipText, selectedAmmoId === a.id && styles.ammoChipTextActive]}>
+                        {a.manufacturer ? `${a.manufacturer} ` : ''}{sub ? `${sub} ` : ''}({a.count} rds)
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </ScrollView>
             </View>
           )}
