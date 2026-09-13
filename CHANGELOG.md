@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.6] - 2026-09-12
+### Fixed
+- **Firearm Add/Edit Form Layout & Bottom Menu Overlap (`app/components/BottomTabBar.tsx`, `app/firearms/form.tsx`)**:
+  - Added `/firearms/form` and `/firearms/add` to `deepScreens` in `BottomTabBar.tsx` so the floating bottom navigation menu automatically hides while viewing or editing a firearm, preventing it from obscuring the NFA Firearm / Item field and form actions.
+  - Increased `scrollInner` bottom padding (`paddingBottom: 100`) and NFA section spacing (`marginBottom: 48`) in `app/firearms/form.tsx` to provide ample clearance above system navigation bars, gesture indicators, and keyboards.
+  - Added `hitSlop={12}` and flexible text layout to the NFA toggle switch row.
+  - Strictly incremented native Android `versionCode` to `315`.
+
 ## [2.7.5] - 2026-09-12
 ### Fixed & Enhanced
 - **Shotgun Load Classification & Elimination of "Shotgun Shell" Tautology (`utils/caliberHelpers.ts`, `app/inventory/index.tsx`, `types/index.ts`)**:

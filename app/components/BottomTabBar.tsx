@@ -34,6 +34,9 @@ export default function BottomTabBar() {
   // Don't show on deep screens or dedicated sub-tool workflows
   const deepScreens = [
     '/firearm/',
+    '/firearms/form',
+    '/firearms/add',
+    '/firearms/bill-of-sale',
     '/ammo/',
     '/component/',
     '/voice-memos',
@@ -42,7 +45,6 @@ export default function BottomTabBar() {
     '/range/chronograph',
     '/range/ballistics',
     '/range/checklist',
-    '/firearms/bill-of-sale',
   ];
   const isDeepScreen = deepScreens.some(s => pathname.startsWith(s));
   if (isDeepScreen) return null;

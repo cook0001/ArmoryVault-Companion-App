@@ -642,15 +642,16 @@ export default function FirearmFormScreen() {
         </View>
 
         {/* NFA Classification */}
-        <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+        <View style={[styles.sectionCard, { marginBottom: 48 }]}>
           <View style={styles.switchRow}>
-            <View>
+            <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={styles.sectionTitle}>NFA Firearm / Item</Text>
               <Text style={styles.fieldSubLabel}>SBR, SBS, Suppressor, Machine Gun, AOW</Text>
             </View>
             <Pressable
               style={[styles.toggleBtn, isNfa && styles.toggleBtnActive]}
               onPress={() => setIsNfa(!isNfa)}
+              hitSlop={12}
             >
               <Ionicons
                 name={isNfa ? 'checkbox' : 'square-outline'}
@@ -726,6 +727,7 @@ const styles = StyleSheet.create({
   },
   scrollInner: {
     padding: 16,
+    paddingBottom: 100,
     gap: 16,
   },
   sectionCard: {
