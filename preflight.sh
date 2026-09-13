@@ -20,10 +20,13 @@ echo "🔍 [1/6] Checking version and versionCode consistency across files..."
 
 PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null)
 APP_VER=$(node -p "require('./app.json').expo.version" 2>/dev/null)
-GRADLE_VER=$(grep 'versionName' android/app/build.gradle 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
+GRADLE_VER=""
+GRADLE_VCODE=""
+if [ -f "android/app/build.gradle" ]; then
+  GRADLE_VER=$(grep 'versionName' android/app/build.gradle 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
+  GRADLE_VCODE=$(grep 'versionCode' android/app/build.gradle 2>/dev/null | head -1 | tr -dc '0-9')
+fi
 UPDATER_VER=$(grep "nativeApplicationVersion ||" utils/updater.ts 2>/dev/null | sed "s/.*|| '\([^']*\)'.*/\1/")
-
-GRADLE_VCODE=$(grep 'versionCode' android/app/build.gradle 2>/dev/null | head -1 | tr -dc '0-9')
 APP_VCODE=$(node -p "require('./app.json').expo.android?.versionCode || ''" 2>/dev/null)
 
 ALL_MATCH=true
@@ -45,7 +48,11 @@ if [ -n "$GRADLE_VCODE" ] && [ "$GRADLE_VCODE" -lt 300 ]; then
   echo "   ❌ CRITICAL: versionCode ($GRADLE_VCODE) is below minimum baseline (300). Android OTA updates will fail with INSTALL_FAILED_VERSION_DOWNGRADE!"
   ALL_MATCH=false
 fi
-if [ -n "$APP_VCODE" ] && [ "$APP_VCODE" != "$GRADLE_VCODE" ]; then
+if [ -n "$APP_VCODE" ] && [ "$APP_VCODE" -lt 300 ]; then
+  echo "   ❌ CRITICAL: app.json versionCode ($APP_VCODE) is below minimum baseline (300)."
+  ALL_MATCH=false
+fi
+if [ -n "$GRADLE_VCODE" ] && [ -n "$APP_VCODE" ] && [ "$APP_VCODE" != "$GRADLE_VCODE" ]; then
   echo "   ❌ app.json android.versionCode ($APP_VCODE) ≠ build.gradle versionCode ($GRADLE_VCODE)"
   ALL_MATCH=false
 fi
@@ -57,19 +64,21 @@ if command -v "$ADB_BIN" &>/dev/null; then
   DEVICE_ID=$($ADB_BIN devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -1 | awk '{print $1}')
   if [ -n "$DEVICE_ID" ]; then
     INSTALLED_VCODE=$($ADB_BIN -s "$DEVICE_ID" shell dumpsys package com.armoryvault.companion 2>/dev/null | grep 'versionCode=' | head -1 | sed 's/.*versionCode=\([0-9]*\).*/\1/')
-    if [ -n "$INSTALLED_VCODE" ] && [ -n "$GRADLE_VCODE" ]; then
-      if [ "$GRADLE_VCODE" -le "$INSTALLED_VCODE" ]; then
-        echo "   ❌ CRITICAL: Target versionCode ($GRADLE_VCODE) is <= device installed versionCode ($INSTALLED_VCODE). OTA update will be rejected by Android PackageInstaller!"
+    TARGET_VCODE="${GRADLE_VCODE:-$APP_VCODE}"
+    if [ -n "$INSTALLED_VCODE" ] && [ -n "$TARGET_VCODE" ]; then
+      if [ "$TARGET_VCODE" -le "$INSTALLED_VCODE" ]; then
+        echo "   ❌ CRITICAL: Target versionCode ($TARGET_VCODE) is <= device installed versionCode ($INSTALLED_VCODE). OTA update will be rejected by Android PackageInstaller!"
         ALL_MATCH=false
       else
-        echo "   📱 Connected Device ($DEVICE_ID): Target vCode $GRADLE_VCODE > Installed vCode $INSTALLED_VCODE (Upgrade guaranteed)"
+        echo "   📱 Connected Device ($DEVICE_ID): Target vCode $TARGET_VCODE > Installed vCode $INSTALLED_VCODE (Upgrade guaranteed)"
       fi
     fi
   fi
 fi
 
 if $ALL_MATCH; then
-  echo "   ✅ All files report v$PKG_VER (versionCode $GRADLE_VCODE)"
+  VCODE_DISPLAY="${GRADLE_VCODE:-$APP_VCODE}"
+  echo "   ✅ All files report v$PKG_VER (versionCode $VCODE_DISPLAY)"
   PASS=$((PASS + 1))
 else
   echo "   Run ./bump-version.sh to fix version mismatches."
@@ -170,31 +179,36 @@ echo ""
 # ─── 6. AndroidManifest & Native Config ──────────────────────
 echo "📋 [6/6] Validating native configuration..."
 
-NATIVE_ISSUES=0
-# Check for leftover expo-updates in the manifest
-if grep -q "expo-updates\|ExpoUpdates" android/app/src/main/AndroidManifest.xml 2>/dev/null; then
-  echo "   ⚠️  AndroidManifest.xml still references expo-updates"
-  NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
-fi
-
-# Check keystore exists
-if [ ! -f "android/app/debug.keystore" ]; then
-  echo "   ❌ debug.keystore missing — release signing will fail"
-  NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
-fi
-
-# Check splash drawables exist
-SPLASH_COUNT=$(find android/app/src/main/res -name "splashscreen_logo*" 2>/dev/null | wc -l | tr -d ' ')
-if [ "$SPLASH_COUNT" -eq 0 ]; then
-  echo "   ❌ No splash screen drawables found — app will crash on launch"
-  NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
-fi
-
-if [ "$NATIVE_ISSUES" -eq 0 ]; then
-  echo "   ✅ Native configuration looks good"
+if [ ! -d "android" ]; then
+  echo "   ℹ️  android/ directory not present (CI or Expo managed environment). Skipping native asset checks."
   PASS=$((PASS + 1))
 else
-  FAIL=$((FAIL + 1))
+  NATIVE_ISSUES=0
+  # Check for leftover expo-updates in the manifest
+  if grep -q "expo-updates\|ExpoUpdates" android/app/src/main/AndroidManifest.xml 2>/dev/null; then
+    echo "   ⚠️  AndroidManifest.xml still references expo-updates"
+    NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
+  fi
+
+  # Check keystore exists
+  if [ ! -f "android/app/debug.keystore" ]; then
+    echo "   ❌ debug.keystore missing — release signing will fail"
+    NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
+  fi
+
+  # Check splash drawables exist
+  SPLASH_COUNT=$(find android/app/src/main/res -name "splashscreen_logo*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$SPLASH_COUNT" -eq 0 ]; then
+    echo "   ❌ No splash screen drawables found — app will crash on launch"
+    NATIVE_ISSUES=$((NATIVE_ISSUES + 1))
+  fi
+
+  if [ "$NATIVE_ISSUES" -eq 0 ]; then
+    echo "   ✅ Native configuration looks good"
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1))
+  fi
 fi
 echo ""
 
