@@ -26,7 +26,7 @@
     "expo-router": "~57.0.21",
     "expo-sharing": "~57.0.19",
     "expo-status-bar": "~57.0.1",
-    "hermes-compiler": "^260318099.0.1",
+    "hermes-compiler": "^260318099.0.2",
     "react": "19.2.8",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
