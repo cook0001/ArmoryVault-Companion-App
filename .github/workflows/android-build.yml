@@ -1,15 +1,12 @@
 name: Build Android APK
 
 on:
-  push:
-    branches:
-      - main
-      - stable
-    tags:
-      - 'v*'
-    paths-ignore:
-      - '*.md'
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publish APK to GitHub Releases tab'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -84,7 +81,7 @@ jobs:
           retention-days: 14
 
       - name: 🚀 Publish Release & APK to GitHub Releases Tab
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable' || startsWith(github.ref, 'refs/tags/v')
+        if: inputs.publish_release != false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
