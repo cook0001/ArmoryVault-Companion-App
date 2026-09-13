@@ -43,7 +43,7 @@
     "@types/react": "~19.2.18",
     "jest": "^30.5.1",
     "ts-jest": "^29.4.12",
-    "typescript": "~6.0.3"
+    "typescript": "~7.0.2"
   },
   "scripts": {
     "start": "expo start",
