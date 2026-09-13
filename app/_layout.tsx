@@ -133,14 +133,6 @@ function RootLayoutContent() {
             headerTintColor: '#fff',
           }} 
         />
-        <Stack.Screen 
-          name="voice-memos" 
-          options={{ 
-            title: 'Voice Memos',
-            headerStyle: { backgroundColor: '#0f172a' },
-            headerTintColor: '#fff',
-          }} 
-        />
         <Stack.Screen name="ammo/[upc]" options={{ title: 'Ammo Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="component/[id]" options={{ title: 'Component Stock', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="range/chronograph" options={{ title: 'Chronograph', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />

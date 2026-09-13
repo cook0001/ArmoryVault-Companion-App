@@ -40,10 +40,7 @@ export default function FirearmsScreen() {
     try {
       const ip = await AsyncStorage.getItem('server_ip');
       if (ip) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${ip}/api/inventory/cache`, { signal: controller.signal });
-        clearTimeout(timeoutId);
+        const res = await fetch(`${ip}/api/inventory/cache`);
         if (res.ok) {
           const data = await res.json();
           if (data && data.success) {
@@ -53,7 +50,7 @@ export default function FirearmsScreen() {
         }
       }
     } catch (e) {
-      console.warn('Firearms cache refresh error (offline):', e);
+      console.error(e);
     }
     setRefreshing(false);
   };

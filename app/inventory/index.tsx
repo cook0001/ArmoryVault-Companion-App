@@ -1405,16 +1405,16 @@ export default function InventoryScreen() {
                   keyboardType="numeric"
                   value={adjustCount}
                   onChangeText={setAdjustCount}
-                  selectTextOnFocus
+                  autoFocus
                 />
 
                 {/* Quick Steppers */}
                 <View style={styles.stepperChipRow}>
                   {[20, 50, 100, 250, 500].map(amt => (
                     <Pressable
-                      key={val}
+                      key={amt}
                       style={styles.stepperChip}
-                      onPress={() => setAdjustCount(val)}
+                      onPress={() => setAdjustCount(String(amt))}
                     >
                       <Text style={styles.stepperChipText}>{amt}</Text>
                     </Pressable>
@@ -1655,7 +1655,6 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     flexDirection: 'row',
-    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
@@ -1675,7 +1674,7 @@ const styles = StyleSheet.create({
     color: '#38bdf8',
     fontWeight: 'bold',
   },
-  searchBar: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',

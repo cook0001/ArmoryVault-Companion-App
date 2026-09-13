@@ -3,7 +3,6 @@ import { getContentUriAsync } from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
 import { Platform, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const REPO_LATEST_URL = 'https://api.github.com/repos/cook0001/ArmoryVault-Companion-App/releases/latest';
 

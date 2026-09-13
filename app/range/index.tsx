@@ -448,12 +448,12 @@ export default function RangeSessionScreen() {
       <Text style={styles.sectionHeader}>6. Target / Session Notes</Text>
       <TextInput
         style={styles.textArea}
-        placeholder="Session notes, zero adjustments, target groupings, conditions..."
-        placeholderTextColor="#64748b"
         multiline
         numberOfLines={3}
         value={notes}
         onChangeText={setNotes}
+        placeholder="e.g. 25 yards zeroing, tight 1-inch grouping, ran flawlessly..."
+        placeholderTextColor="#64748b"
       />
 
       {/* 7. Advanced Environmental & Ballistics Details (Collapsible Drawer) */}

@@ -26,7 +26,6 @@ export default function Settings() {
   const [isTesting, setIsTesting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cacheStats, setCacheStats] = useState<{ firearms: number, ammo: number, components: number } | null>(null);
-  const [updateChannel, setUpdateChannel] = useState<UpdateChannel>('stable');
 
   useFocusEffect(
     useCallback(() => {
@@ -420,7 +419,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
     paddingHorizontal: 16,
   },
   dangerButtonText: {

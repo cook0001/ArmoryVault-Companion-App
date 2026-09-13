@@ -163,27 +163,10 @@ export default function Home() {
               : 'Range trips, stock adjustments, and scans saved locally on device.'}
           </Text>
 
-          {/* Connection Status Pill */}
-          <Pressable 
-            style={[
-              styles.heroStatusPill,
-              isVaultLocked ? styles.statusPillLocked : isOnline ? styles.statusPillOnline : styles.statusPillOffline
-            ]}
-            onPress={!syncedIp ? () => router.push('/scanner') : undefined}
-          >
-            <View style={[
-              styles.heroPillDot, 
-              { backgroundColor: isVaultLocked ? '#ef4444' : isOnline ? '#34d399' : syncedIp ? '#fbbf24' : '#64748b' }
-            ]} />
-            <Text style={styles.heroPillText}>
-              {isVaultLocked ? 'VAULT LOCKED' : isOnline ? 'CONNECTED' : syncedIp ? 'OFFLINE MODE' : 'TAP TO PAIR'}
-            </Text>
-            {isOnline && !isVaultLocked && autoSyncEnabled && (
-              <View style={{ backgroundColor: 'rgba(52,211,153,0.3)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 4 }}>
-                <Text style={{ color: '#34d399', fontSize: 8, fontWeight: '800' }}>SYNC</Text>
-              </View>
-            )}
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <Pressable style={[styles.syncActionBtn, { backgroundColor: '#334155' }]} onPress={() => router.push('/outbox')}>
+              <Text style={styles.syncActionBtnText}>Review ({offlineQueueCount})</Text>
+            </Pressable>
 
             <Pressable 
               style={[
@@ -470,18 +453,10 @@ const styles = StyleSheet.create({
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 14,
-  },
-  heroShield: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: 'rgba(52,211,153,0.1)',
+    justifyContent: 'space-between',
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#334155',
   },
   beaconDot: {
     width: 10,
@@ -533,7 +508,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
-  heroSubtitle: {
+  beaconSubText: {
     fontSize: 12,
     color: '#b0bcc9',
     marginTop: 1,
@@ -557,130 +532,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 6,
-  },
-  statusPillOnline: {
-    backgroundColor: 'rgba(52,211,153,0.1)',
-    borderColor: 'rgba(52,211,153,0.3)',
-  },
-  statusPillLocked: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.3)',
-  },
-  statusPillOffline: {
-    backgroundColor: 'rgba(100,116,139,0.1)',
-    borderColor: 'rgba(100,116,139,0.2)',
-  },
-  heroPillDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  heroPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    letterSpacing: 0.8,
-  },
-  heroDeviceText: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-
-  /* ─── Vault Stats Bar ─── */
-  statsBar: {
-    flexDirection: 'row',
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    marginVertical: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  statBlock: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 2,
-  },
-  statBlockNumber: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginTop: 2,
-  },
-  statBlockLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-  },
-  statsBarDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(100,116,139,0.2)',
-  },
-
-  remoteLockBannerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(239,68,68,0.12)',
-    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
-    marginBottom: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-
-  /* ─── Pending Sync Card ─── */
+  pairButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   syncCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#3b82f6',
   },
   syncCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 6,
   },
   pendingBadge: {
-    backgroundColor: '#0284c7',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    backgroundColor: '#ef4444',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 8,
   },
   pendingBadgeText: {
     color: '#fff',
+    fontSize: 11,
     fontWeight: 'bold',
-    fontSize: 12,
   },
   syncCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#f8fafc',
   },
   syncCardDesc: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#94a3b8',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   syncActionBtn: {
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -689,18 +589,17 @@ const styles = StyleSheet.create({
   },
   syncActionBtnText: {
     color: '#fff',
+    fontWeight: 'bold',
     fontSize: 13,
-    fontWeight: '700',
   },
-
-  /* ─── Action Grid ─── */
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
+    fontWeight: 'bold',
+    color: '#94a3b8',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 12,
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    paddingHorizontal: 2,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -709,64 +608,77 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   gridCard: {
-    backgroundColor: '#1e293b',
     width: '48%',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   iconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   gridCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 2,
   },
   gridCardSub: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
   },
-
-  /* ─── Remote Lock Modal ─── */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
+  overviewCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 22,
-    width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#334155',
     marginBottom: 16,
   },
-  modalTitle: {
-    fontSize: 18,
+  overviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  overviewTitle: {
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#f8fafc',
-    textAlign: 'center',
-    marginBottom: 8,
   },
-  modalBody: {
-    fontSize: 13,
+  cacheTimeBadge: {
+    color: '#10b981',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  statLabel: {
+    fontSize: 12,
     color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 12,
+    marginTop: 2,
   },
   statDivider: {
     width: 1,
