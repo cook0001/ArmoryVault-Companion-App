@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.1] - 2026-09-12
+### Added
+- **Bill of Sale Firearm Archival & Desktop Synchronization**:
+  - Automatically marks the firearm as **Sold** (`is_sold: true`, `sold_date`, `sold_to_name`, `sold_price`, `condition: 'Sold / Transferred'`, `sale_notes`) upon generating a Bill of Sale in `app/firearms/bill-of-sale.tsx`.
+  - Saves the generated Bill of Sale PDF permanently to device document storage (`FileSystem.documentDirectory`) and attaches the document record to `firearm.documents`.
+  - Displays a dedicated `SOLD` status badge on firearm cards in `app/firearms/index.tsx` and upgrades the action button to `Bill of Sale` for 1-tap document review.
+  - Automatically queues a `bill_of_sale_transfer` payload to `SyncContext` with Base64 PDF data, transfer ID, and buyer credentials to sync with the Desktop ArmoryVault server.
+  - Incremented native Android `versionCode` to `310`.
+
 ## [2.7.0] - 2026-09-12 (Official Unified Release)
 ### Unification & Modernization
 - **Unified Mobile Codebase**:

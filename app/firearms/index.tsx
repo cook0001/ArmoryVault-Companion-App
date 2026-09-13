@@ -241,6 +241,11 @@ export default function FirearmsScreen() {
                   <Text style={styles.typeBadgeText}>{item.type}</Text>
                 </View>
               )}
+              {item.is_sold && (
+                <View style={[styles.typeBadge, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: '#ef4444' }]}>
+                  <Text style={[styles.typeBadgeText, { color: '#f87171', fontWeight: '700' }]}>SOLD</Text>
+                </View>
+              )}
             </View>
 
             {/* Quick Action Buttons */}
@@ -282,8 +287,10 @@ export default function FirearmsScreen() {
                 style={[styles.actionBtn, { backgroundColor: '#1e293b', borderColor: '#38bdf8' }]}
                 onPress={() => router.push(`/firearms/bill-of-sale?firearmId=${item.id}`)}
               >
-                <Ionicons name="document-text-outline" size={15} color="#38bdf8" style={{ marginRight: 4 }} />
-                <Text style={[styles.actionBtnText, { color: '#38bdf8' }]}>Sale</Text>
+                <Ionicons name={item.is_sold ? "document-text" : "document-text-outline"} size={15} color="#38bdf8" style={{ marginRight: 4 }} />
+                <Text style={[styles.actionBtnText, { color: '#38bdf8' }]}>
+                  {item.is_sold ? 'Bill of Sale' : 'Sale'}
+                </Text>
               </Pressable>
             </View>
           </View>
