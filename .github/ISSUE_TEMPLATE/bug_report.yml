@@ -1,0 +1,72 @@
+name: 🐛 Bug Report
+description: Report an issue or unexpected behavior in ArmoryVault Companion
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue with **ArmoryVault Companion**! 
+        Before submitting, please check if your issue is covered in our [User Guide & Knowledge Base](https://cook0001.github.io/ArmoryVault/#docs).
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Companion App Version
+      description: Found in Settings (e.g. v2.7.10, Build 319).
+      placeholder: "e.g. v2.7.10 (Build 319)"
+    validations:
+      required: true
+
+  - type: input
+    id: device_info
+    attributes:
+      label: Device Model & Android Version
+      description: What smartphone model and Android OS version are you running?
+      placeholder: "e.g. Google Pixel 8 Pro, Android 15"
+    validations:
+      required: true
+
+  - type: input
+    id: desktop_version
+    attributes:
+      label: Paired ArmoryVault Desktop Version (if applicable)
+      description: If this relates to local Wi-Fi pairing or synchronization.
+      placeholder: "e.g. Desktop v2.8.2 (macOS / Windows / Linux)"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: Clear and concise description of what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Open 'Ammo & Supplies' tab
+        2. Tap on 9mm Luger lot
+        3. Tap 'Toggle +P'
+        4. See error or unexpected state
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy_check
+    attributes:
+      label: Zero-Cloud & Privacy Confirmation
+      options:
+        - label: I confirm that any attached screenshots or logs do NOT expose personal serial numbers, names, or private vault recovery phrases.
+          required: true

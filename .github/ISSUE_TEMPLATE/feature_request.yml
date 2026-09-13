@@ -1,0 +1,40 @@
+name: 💡 Feature Request
+description: Propose an idea, new feature, or enhancement for ArmoryVault Companion
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make **ArmoryVault Companion** better? We welcome feedback from competitive shooters, reloaders, and collectors!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement / Use Case
+      description: Is your feature request related to a specific workflow problem or need?
+      placeholder: "e.g. When at the range, I want to quickly log chrono strings without taking off my gloves..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution & UI Details
+      description: Describe what you would like to happen and how the interface should look or behave.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you have considered?
+
+  - type: checkboxes
+    id: architecture_alignment
+    attributes:
+      label: Architectural Alignment
+      options:
+        - label: This feature aligns with ArmoryVault's 100% Zero-Cloud, local-first privacy architecture (no remote telemetry or mandatory cloud accounts).
+          required: true

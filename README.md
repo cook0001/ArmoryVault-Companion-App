@@ -1,5 +1,13 @@
 # ArmoryVault Companion App
 
+[![Continuous Integration](https://github.com/cook0001/ArmoryVault-Companion-App/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cook0001/ArmoryVault-Companion-App/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/cook0001/ArmoryVault-Companion-App?style=flat-square&color=emerald&label=Release)](https://github.com/cook0001/ArmoryVault-Companion-App/releases/latest)
+[![APK Size](https://img.shields.io/badge/APK-129%20MB%20Universal-blue?style=flat-square&logo=android)](https://github.com/cook0001/ArmoryVault-Companion-App/releases/latest)
+[![Zero-Cloud Privacy](https://img.shields.io/badge/Privacy-100%25%20Zero--Cloud-brightgreen?style=flat-square)](SECURITY.md)
+[![License](https://img.shields.io/badge/License-ISC-purple?style=flat-square)](LICENSE)
+
+> 📖 **Official User Guide & Knowledge Base**: [https://cook0001.github.io/ArmoryVault/#docs](https://cook0001.github.io/ArmoryVault/#docs)
+
 The official companion app for ArmoryVault, built with React Native and Expo. 
 This mobile application connects securely over your local Wi-Fi to the ArmoryVault Desktop Electron app.
 

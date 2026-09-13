@@ -5,9 +5,26 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "jest"
+          - "ts-jest"
+          - "typescript"
+    # Prevent Dependabot from bumping React to versions incompatible with Expo SDK 57
+    ignore:
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
