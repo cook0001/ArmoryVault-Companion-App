@@ -250,10 +250,32 @@ describe('caliberHelpers', () => {
       expect(getPlusPBadgeText(ammo)).toBe('+P');
     });
 
+    it('detects +P when isPlusP is numeric 1 or string "true" or "1"', () => {
+      expect(getPlusPBadgeText({ caliber: '9mm Luger', isPlusP: 1 as any })).toBe('+P');
+      expect(getPlusPBadgeText({ caliber: '9mm Luger', isPlusP: 'true' as any })).toBe('+P');
+      expect(getPlusPBadgeText({ caliber: '9mm Luger', isPlusP: '1' as any })).toBe('+P');
+    });
+
+    it('detects +P in UPC code directly adjacent to grain weight numbers', () => {
+      const ammo = { caliber: '.45 ACP', upc_code: '45ACP+P200GD20-NI' };
+      expect(isPlusPAmmo(ammo)).toBe(true);
+      expect(getPlusPBadgeText(ammo)).toBe('+P');
+    });
+
     it('detects +P when specified in caliber string', () => {
       const ammo = { caliber: '9mm +P', isPlusP: false };
       expect(isPlusPAmmo(ammo)).toBe(true);
       expect(getPlusPBadgeText(ammo)).toBe('+P');
+    });
+
+    it('detects +P for .45 Colt Ruger-only high pressure loads', () => {
+      const ammo1 = { caliber: '.45 Colt', notes: 'Ruger only load' };
+      expect(isPlusPAmmo(ammo1)).toBe(true);
+      expect(getPlusPBadgeText(ammo1)).toBe('+P');
+
+      const ammo2 = { caliber: '.45 Colt', notes: 'Ruger & T/C only high pressure' };
+      expect(isPlusPAmmo(ammo2)).toBe(true);
+      expect(getPlusPBadgeText(ammo2)).toBe('+P');
     });
 
     it('detects +P+ when specified in projectile or notes', () => {
@@ -275,6 +297,8 @@ describe('caliberHelpers', () => {
     it('returns false/null for standard non-+P ammunition', () => {
       expect(isPlusPAmmo({ caliber: '9mm Luger' })).toBe(false);
       expect(getPlusPBadgeText({ caliber: '9mm Luger' })).toBeNull();
+      expect(getPlusPBadgeText({ caliber: '9mm Luger', isPlusP: false })).toBeNull();
+      expect(getPlusPBadgeText({ caliber: '9mm Luger', isPlusP: 0 as any })).toBeNull();
       expect(isPlusPAmmo(null)).toBe(false);
       expect(getPlusPBadgeText(null)).toBeNull();
       expect(isPlusPAmmo(undefined)).toBe(false);

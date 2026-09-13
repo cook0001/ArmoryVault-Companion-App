@@ -42,7 +42,8 @@ export default function AmmoScreen() {
             name: skuInfo.name,
             caliber: skuInfo.caliber,
             type: skuInfo.type,
-            count: skuInfo.quantity
+            count: skuInfo.quantity,
+            isPlusP: skuInfo.isPlusP,
           });
         }
       }
@@ -99,11 +100,6 @@ export default function AmmoScreen() {
             </Text>
 
             <View style={styles.specChipsRow}>
-              {plusPText ? (
-                <View style={styles.plusPBadge}>
-                  <Text style={styles.plusPBadgeText}>{plusPText}</Text>
-                </View>
-              ) : null}
               {isShotgun && shotgunSpecs && (
                 <>
                   <View style={styles.specTypeBadge}>

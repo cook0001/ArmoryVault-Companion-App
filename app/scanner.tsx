@@ -43,7 +43,7 @@ export default function ScannerScreen() {
   const router = useRouter();
   const { type: expectedType } = useLocalSearchParams<{type: string}>();
   
-  const { addToQueue, setServerIp, removeFromQueue, offlineQueue, storageLocations } = useSync();
+  const { addToQueue, setServerIp, removeFromQueue, offlineQueue, storageLocations, lastCacheTime } = useSync();
   const { showSuccess, showError, showToast } = useDialog();
 
   const [scanned, setScanned] = useState(false);
@@ -63,6 +63,12 @@ export default function ScannerScreen() {
   const [pendingScan, setPendingScan] = useState<{type: string, id: string, caliber?: string} | null>(null);
   const [itemMatchInfo, setItemMatchInfo] = useState<{ title: string; subtitle?: string; stock?: number; caliber?: string } | null>(null);
   const [scanAction, setScanAction] = useState<'add' | 'remove'>('add');
+  const [notes, setNotes] = useState('');
+  const [selectedStorageId, setSelectedStorageId] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadCachedInventory();
+  }, [lastCacheTime]);
 
   // Package multiplier inputs (Boxes * Rounds per Box)
   const [boxCount, setBoxCount] = useState('1');

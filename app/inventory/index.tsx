@@ -57,7 +57,7 @@ const SHOTGUN_PRESETS = [
 export default function InventoryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ storageId?: string }>();
-  const { addToQueue, refreshCache, storageLocations } = useSync();
+  const { addToQueue, refreshCache, storageLocations, lastCacheTime, isOnline } = useSync();
   const { showToast, showError, showConfirm, showSuccess } = useDialog();
 
   const [activeTab, setActiveTab] = useState<'ammo' | 'components' | 'recipes'>('ammo');
@@ -103,8 +103,17 @@ export default function InventoryScreen() {
       }
       loadCachedInventory();
       loadRecipes();
-    }, [params.storageId])
+      if (isOnline) {
+        refreshCache(true)
+          .then(() => loadCachedInventory())
+          .catch(() => {});
+      }
+    }, [params.storageId, isOnline, refreshCache])
   );
+
+  useEffect(() => {
+    loadCachedInventory();
+  }, [lastCacheTime]);
 
   const loadCachedInventory = async () => {
     try {
@@ -193,6 +202,52 @@ export default function InventoryScreen() {
     }, `Updated to ${preset.label}`);
 
     showToast(`Updated to ${preset.label}`);
+  };
+
+  const handleTogglePlusP = async (ammo: any) => {
+    if (!ammo) return;
+    const currentPlusP = Boolean(ammo.isPlusP);
+    const nextPlusP = !currentPlusP;
+    const updatedAmmo = {
+      ...ammo,
+      isPlusP: nextPlusP,
+    };
+    setInspectingAmmo(updatedAmmo);
+
+    // Update in local state
+    setAmmoList(prev => prev.map(a => (a.id === ammo.id ? updatedAmmo : a)));
+
+    // Persist to AsyncStorage inventory_cache
+    try {
+      const cacheStr = await AsyncStorage.getItem('inventory_cache');
+      if (cacheStr) {
+        const cache = JSON.parse(cacheStr);
+        if (cache.ammo) {
+          cache.ammo = cache.ammo.map((a: any) => (a.id === ammo.id ? updatedAmmo : a));
+          await AsyncStorage.setItem('inventory_cache', JSON.stringify(cache));
+        }
+      }
+    } catch (e) {
+      console.error('Error saving +P toggle to cache', e);
+    }
+
+    // Queue sync to desktop
+    addToQueue({
+      type: 'ammo_adjustment',
+      upcOrId: String(ammo.id),
+      action: 'add',
+      count: 0,
+      timestamp: new Date().toISOString(),
+      data: {
+        id: ammo.id,
+        isPlusP: nextPlusP,
+      },
+    } as any, `Updated ${ammo.caliber} rating to ${nextPlusP ? '+P' : 'Standard'}`);
+
+    showToast({
+      message: `Set ${ammo.caliber} to ${nextPlusP ? '+P High Pressure' : 'Standard Pressure'}`,
+      type: 'success',
+    });
   };
 
   const openNewRecipeModal = () => {
@@ -816,11 +871,6 @@ export default function InventoryScreen() {
 
                 {/* Shotgun & Specification Chips Row */}
                 <View style={styles.specChipsRow}>
-                  {plusPText ? (
-                    <View style={styles.plusPBadge}>
-                      <Text style={styles.plusPBadgeText}>{plusPText}</Text>
-                    </View>
-                  ) : null}
                   {isShotgun && shotgunSpecs && (
                     <>
                       <View style={styles.specTypeBadge}>
@@ -1240,6 +1290,26 @@ export default function InventoryScreen() {
                         </Text>
                       </View>
                     ) : null}
+                    <Pressable
+                      style={styles.specRow}
+                      onPress={() => handleTogglePlusP(inspectingAmmo)}
+                    >
+                      <Text style={styles.specRowLabel}>Pressure Rating:</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {plusPText ? (
+                          <View style={[styles.plusPBadge, { paddingHorizontal: 6, paddingVertical: 1 }]}>
+                            <Text style={styles.plusPBadgeText}>{plusPText} High Pressure</Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.specRowVal, { color: '#94a3b8' }]}>Standard Pressure</Text>
+                        )}
+                        <Ionicons
+                          name={inspectingAmmo.isPlusP ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={inspectingAmmo.isPlusP ? '#ef4444' : '#64748b'}
+                        />
+                      </View>
+                    </Pressable>
                     {inspectingAmmo.notes ? (
                       <View style={[styles.specRow, { borderBottomWidth: 0, flexDirection: 'column', alignItems: 'flex-start', gap: 2 }]}>
                         <Text style={styles.specRowLabel}>Notes:</Text>
