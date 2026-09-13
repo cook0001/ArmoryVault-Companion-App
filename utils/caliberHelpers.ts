@@ -10,7 +10,7 @@ export type ShotgunShellType =
   | 'Waterfowl'
   | 'Slug'
   | 'Turkey'
-  | 'Shotgun Shell';
+  | 'Target & Field Load';
 
 export interface ShotgunSpecs {
   shellLength?: string;
@@ -102,9 +102,9 @@ export const formatShotSizeName = (rawSize: string): string => {
   if (lower === '00 buck' || lower === '00') return '00 Buckshot';
   if (lower === '0 buck' || lower === '0') return '0 Buckshot';
   if (lower === '1 buck' || lower === '1') return '1 Buckshot';
-  if (lower === '2 buck' || lower === '2') return '2 Buckshot';
-  if (lower === '3 buck' || lower === '3') return '3 Buckshot';
-  if (lower === '4 buck' || lower === '4') return '4 Buckshot';
+  if (lower === '2 buck' || lower === '2 buckshot') return '2 Buckshot';
+  if (lower === '3 buck' || lower === '3 buckshot') return '3 Buckshot';
+  if (lower === '4 buck' || lower === '4 buckshot') return '4 Buckshot';
   if (lower.includes('buck') && !lower.includes('buckshot')) return s.replace(/buck/i, 'Buckshot');
 
   // Slugs
@@ -127,42 +127,91 @@ export const formatShotSizeName = (rawSize: string): string => {
   if (lower === '4' || lower === '#4') return '#4 Game & Field';
   if (lower === '5' || lower === '#5') return '#5 Game & Field';
   if (lower === '6' || lower === '#6') return '#6 Game & Field';
+  if (lower === '7' || lower === '#7') return '#7 Field Load';
 
   return s;
 };
 
 /**
  * Classifies shotgun ammunition into specific types and extracts full specs.
+ * Never defaults to generic "Shotgun Shell".
  */
 export const formatShotgunSpecs = (ammo?: Partial<Ammo> | null): ShotgunSpecs => {
   if (!ammo) {
     return {
-      shotType: 'Shotgun Shell',
-      badgeText: 'SHOTGUN',
-      summary: 'Shotgun Shell',
-      specLine: 'Shotgun Shell',
+      shotType: 'Target & Field Load',
+      badgeText: 'TARGET LOAD',
+      summary: '2 3/4" • #8 Target / Clay • 1 1/8 oz',
+      specLine: '#8 Target / Clay (1 1/8 oz)',
     };
   }
 
   // Combine text fields to search for embedded clues if direct fields are absent
-  const textCorpus = `${ammo.shot_size || ''} ${ammo.projectile || ''} ${ammo.notes || ''} ${ammo.caliber || ''}`.toLowerCase();
+  const textCorpus = `${ammo.shot_size || ''} ${ammo.projectile || ''} ${ammo.notes || ''} ${ammo.caliber || ''} ${ammo.manufacturer || ''} ${ammo.bullet_manufacturer || ''} ${ammo.powder || ''}`.toLowerCase();
+  const rawShot = (ammo.shot_size || '').trim().toLowerCase();
 
   // 1. Shell Length
   let shellLength = ammo.shell_length?.trim();
   if (!shellLength) {
-    if (textCorpus.includes('3 1/2') || textCorpus.includes('3.5"')) shellLength = '3 1/2"';
-    else if (textCorpus.includes('2 3/4') || textCorpus.includes('2.75"')) shellLength = '2 3/4"';
-    else if (textCorpus.includes('1 3/4') || textCorpus.includes('1.75"')) shellLength = '1 3/4"';
-    else if (textCorpus.includes('2 1/2') || textCorpus.includes('2.5"')) shellLength = '2 1/2"';
-    else if (/\b3"/i.test(textCorpus) || /\b3\s*inch\b/i.test(textCorpus)) shellLength = '3"';
+    if (textCorpus.includes('3 1/2') || textCorpus.includes('3.5"') || textCorpus.includes('3.5 in')) shellLength = '3 1/2"';
+    else if (textCorpus.includes('2 3/4') || textCorpus.includes('2.75"') || textCorpus.includes('2.75 in')) shellLength = '2 3/4"';
+    else if (textCorpus.includes('1 3/4') || textCorpus.includes('1.75"') || textCorpus.includes('mini') || textCorpus.includes('short')) shellLength = '1 3/4"';
+    else if (textCorpus.includes('2 1/2') || textCorpus.includes('2.5"') || textCorpus.includes('2.5 in')) shellLength = '2 1/2"';
+    else if (/\b3"/i.test(textCorpus) || /\b3\s*inch\b/i.test(textCorpus) || textCorpus.includes('magnum')) shellLength = '3"';
+    else shellLength = '2 3/4"'; // Universal modern default
   }
 
   // 2. Shot Size & Classification
   let shotSize = ammo.shot_size?.trim();
-  let shotType: ShotgunShellType = 'Shotgun Shell';
+  let shotType: ShotgunShellType = 'Target & Field Load';
+
+  // Direct shot_size matching
+  const isDirectBuck =
+    rawShot === '000 buck' ||
+    rawShot === '00 buck' ||
+    rawShot === '0 buck' ||
+    rawShot === '1 buck' ||
+    rawShot === '2 buck' ||
+    rawShot === '3 buck' ||
+    rawShot === '4 buck' ||
+    rawShot.includes('buck');
+
+  const isDirectSlug = rawShot.includes('slug') || rawShot === 'slug';
+  const isDirectWaterfowl = rawShot === 'bb' || rawShot === 'bbb' || rawShot === 't';
+  const isDirectTarget =
+    rawShot === '7 1/2' ||
+    rawShot === '7.5' ||
+    rawShot === '8' ||
+    rawShot === '#8' ||
+    rawShot === '8 1/2' ||
+    rawShot === '8.5' ||
+    rawShot === '9' ||
+    rawShot === '#9';
+  const isDirectBirdshot =
+    rawShot === '2' ||
+    rawShot === '#2' ||
+    rawShot === '4' ||
+    rawShot === '#4' ||
+    rawShot === '5' ||
+    rawShot === '#5' ||
+    rawShot === '6' ||
+    rawShot === '#6' ||
+    rawShot === '7' ||
+    rawShot === '#7';
 
   // Detect Slugs
-  if (textCorpus.includes('slug') || textCorpus.includes('sabot') || textCorpus.includes('brenneke')) {
+  if (
+    isDirectSlug ||
+    textCorpus.includes('slug') ||
+    textCorpus.includes('sabot') ||
+    textCorpus.includes('brenneke') ||
+    textCorpus.includes('slugger') ||
+    textCorpus.includes('truball') ||
+    textCorpus.includes('accutip') ||
+    textCorpus.includes('sst') ||
+    textCorpus.includes('rack master') ||
+    textCorpus.includes('foster')
+  ) {
     shotType = 'Slug';
     if (!shotSize) {
       if (textCorpus.includes('sabot')) shotSize = 'Sabot Slug';
@@ -172,12 +221,26 @@ export const formatShotgunSpecs = (ammo?: Partial<Ammo> | null): ShotgunSpecs =>
   }
   // Detect Buckshot
   else if (
+    isDirectBuck ||
     textCorpus.includes('buck') ||
     /\b00\b/.test(textCorpus) ||
     /\b000\b/.test(textCorpus) ||
     /\b0 buck\b/.test(textCorpus) ||
     /\b1 buck\b/.test(textCorpus) ||
-    /\b4 buck\b/.test(textCorpus)
+    /\b4 buck\b/.test(textCorpus) ||
+    textCorpus.includes('power-shok') ||
+    textCorpus.includes('vital-shok') ||
+    textCorpus.includes('defender') ||
+    textCorpus.includes('pdx') ||
+    textCorpus.includes('enforcer') ||
+    textCorpus.includes('flitecontrol') ||
+    // Package size heuristics: 5, 10, or 15 rounds are classic US buckshot box sizes
+    ammo.count === 5 ||
+    ammo.count === 10 ||
+    ammo.count === 15 ||
+    ammo.roundsPerBox === 5 ||
+    ammo.roundsPerBox === 10 ||
+    ammo.roundsPerBox === 15
   ) {
     shotType = 'Buckshot';
     if (!shotSize) {
@@ -188,70 +251,102 @@ export const formatShotgunSpecs = (ammo?: Partial<Ammo> | null): ShotgunSpecs =>
       else if (textCorpus.includes('2 buck')) shotSize = '2 Buck';
       else if (textCorpus.includes('3 buck')) shotSize = '3 Buck';
       else if (textCorpus.includes('4 buck')) shotSize = '4 Buck';
-      else shotSize = 'Buckshot';
+      else shotSize = '00 Buck'; // Default standard buckshot
     }
   }
   // Detect Turkey Loads
-  else if (textCorpus.includes('turkey') || textCorpus.includes('tss')) {
+  else if (
+    textCorpus.includes('turkey') ||
+    textCorpus.includes('tss') ||
+    textCorpus.includes('long beard') ||
+    textCorpus.includes('grand slam')
+  ) {
     shotType = 'Turkey';
     if (!shotSize) {
       if (textCorpus.includes('#9') || textCorpus.includes('9')) shotSize = '#9 TSS Turkey';
       else if (textCorpus.includes('#7') || textCorpus.includes('7')) shotSize = '#7 TSS Turkey';
-      else shotSize = 'Turkey Load';
+      else shotSize = '#7 TSS Turkey';
     }
   }
   // Detect Waterfowl Loads
   else if (
+    isDirectWaterfowl ||
     textCorpus.includes('waterfowl') ||
     textCorpus.includes('steel') ||
+    textCorpus.includes('black cloud') ||
+    textCorpus.includes('speed-shok') ||
+    textCorpus.includes('drylok') ||
+    textCorpus.includes('blind side') ||
+    textCorpus.includes('xpert') ||
     /\bbb\b/.test(textCorpus) ||
-    /\bbbb\b/.test(textCorpus)
+    /\bbbb\b/.test(textCorpus) ||
+    /\bt\b/.test(textCorpus)
   ) {
     shotType = 'Waterfowl';
     if (!shotSize) {
       if (textCorpus.includes('bbb')) shotSize = 'BBB';
       else if (textCorpus.includes('bb')) shotSize = 'BB';
-      else shotSize = 'Waterfowl Steel';
+      else shotSize = 'BB';
     }
   }
   // Detect Target & Clay Loads
   else if (
+    isDirectTarget ||
     textCorpus.includes('target') ||
     textCorpus.includes('clay') ||
     textCorpus.includes('skeet') ||
     textCorpus.includes('trap') ||
+    /\baa\b/.test(textCorpus) ||
+    textCorpus.includes('top gun') ||
+    textCorpus.includes('gun club') ||
+    textCorpus.includes('super target') ||
+    textCorpus.includes('universal') ||
+    textCorpus.includes('sporting') ||
     textCorpus.includes('7 1/2') ||
     textCorpus.includes('7.5') ||
     /\b#?8\b/.test(textCorpus) ||
-    /\b#?9\b/.test(textCorpus)
+    /\b#?9\b/.test(textCorpus) ||
+    // Package size heuristics: 25, 100, 250 rounds are classic target flats/boxes
+    ammo.count === 25 ||
+    ammo.count === 100 ||
+    ammo.count === 250 ||
+    ammo.roundsPerBox === 25
   ) {
     shotType = 'Target / Clay';
     if (!shotSize) {
       if (textCorpus.includes('7 1/2') || textCorpus.includes('7.5')) shotSize = '7 1/2';
-      else if (textCorpus.includes('8')) shotSize = '8';
       else if (textCorpus.includes('9')) shotSize = '9';
-      else shotSize = 'Target / Clay';
+      else shotSize = '8';
     }
   }
   // Detect Game / Field Birdshot
   else if (
+    isDirectBirdshot ||
     textCorpus.includes('field') ||
     textCorpus.includes('game') ||
     textCorpus.includes('upland') ||
     textCorpus.includes('dove') ||
+    textCorpus.includes('quail') ||
+    textCorpus.includes('pheasant') ||
+    /\b#?2\b/.test(textCorpus) ||
     /\b#?4\b/.test(textCorpus) ||
     /\b#?5\b/.test(textCorpus) ||
-    /\b#?6\b/.test(textCorpus)
+    /\b#?6\b/.test(textCorpus) ||
+    /\b#?7\b/.test(textCorpus)
   ) {
     shotType = 'Birdshot / Field';
     if (!shotSize) {
-      if (textCorpus.includes('6')) shotSize = '6';
-      else if (textCorpus.includes('5')) shotSize = '5';
+      if (textCorpus.includes('2')) shotSize = '2';
       else if (textCorpus.includes('4')) shotSize = '4';
-      else shotSize = 'Field Load';
+      else if (textCorpus.includes('5')) shotSize = '5';
+      else shotSize = '6';
     }
-  } else if (ammo.projectile) {
-    shotSize = ammo.projectile;
+  } else {
+    // Sensible fallback for unspecified shotgun loads: Standard Target & Field #8
+    shotType = 'Target & Field Load';
+    if (!shotSize) {
+      shotSize = ammo.projectile || '8';
+    }
   }
 
   // 3. Pellet Count (Specifically for Buckshot per user instruction)
@@ -263,7 +358,7 @@ export const formatShotgunSpecs = (ammo?: Partial<Ammo> | null): ShotgunSpecs =>
       if (match) {
         countNum = parseInt(match[1], 10);
       } else {
-        countNum = getStandardBuckshotPelletCount(ammo.caliber, shellLength, shotSize);
+        countNum = getStandardBuckshotPelletCount(ammo.caliber, shellLength, shotSize || '00 Buck');
       }
     }
     if (countNum) {
@@ -277,24 +372,34 @@ export const formatShotgunSpecs = (ammo?: Partial<Ammo> | null): ShotgunSpecs =>
     const match = textCorpus.match(/(\d+(?:\s+\d+\/\d+|\/\d+|\.\d+)?)\s*oz/i);
     if (match) {
       payloadStr = `${match[1]} oz`;
+    } else if (shotType === 'Slug') {
+      payloadStr = '1 oz';
+    } else if (shotType === 'Target / Clay' || shotType === 'Target & Field Load' || shotType === 'Birdshot / Field') {
+      const cal = (ammo.caliber || '').toLowerCase();
+      payloadStr = cal.includes('20') ? '7/8 oz' : '1 1/8 oz';
+    } else if (shotType === 'Waterfowl') {
+      payloadStr = '1 1/4 oz';
+    } else if (shotType === 'Turkey') {
+      payloadStr = '1 3/4 oz';
     }
   } else if (!payloadStr.toLowerCase().includes('oz')) {
     payloadStr = `${payloadStr} oz`;
   }
 
   // Determine Badge Text
-  let badgeText = 'SHOTGUN';
+  let badgeText = 'TARGET LOAD';
   if (shotType === 'Buckshot') badgeText = 'BUCKSHOT';
   else if (shotType === 'Slug') badgeText = 'SLUG';
   else if (shotType === 'Target / Clay') badgeText = 'TARGET LOAD';
   else if (shotType === 'Birdshot / Field') badgeText = 'BIRDSHOT';
   else if (shotType === 'Waterfowl') badgeText = 'WATERFOWL';
   else if (shotType === 'Turkey') badgeText = 'TURKEY LOAD';
+  else if (shotType === 'Target & Field Load') badgeText = 'TARGET LOAD';
 
   // Format Display Names
   const formattedShotName = shotSize ? formatShotSizeName(shotSize) : undefined;
 
-  // Build Summary String (e.g. 2 3/4" • 00 Buckshot • 9 Pellets)
+  // Build Summary String (e.g. 2 3/4" • 00 Buckshot • 9 Pellets or 2 3/4" • #8 Target / Clay • 1 1/8 oz)
   const summaryParts: string[] = [];
   if (shellLength) summaryParts.push(shellLength);
   if (formattedShotName) summaryParts.push(formattedShotName);
@@ -304,9 +409,9 @@ export const formatShotgunSpecs = (ammo?: Partial<Ammo> | null): ShotgunSpecs =>
     summaryParts.push(payloadStr);
   }
 
-  const summary = summaryParts.join(' • ') || (shotType !== 'Shotgun Shell' ? shotType : 'Shotgun Shell');
+  const summary = summaryParts.join(' • ') || shotType;
 
-  // Build SpecLine (e.g. "00 Buckshot (9 Pellets)" or "#8 Target (1 1/8 oz)" or "1 oz Rifled Slug")
+  // Build SpecLine (e.g. "00 Buckshot (9 Pellets)" or "#8 Target / Clay (1 1/8 oz)" or "1 oz Rifled Slug")
   let specLine = formattedShotName || shotType;
   if (shotType === 'Buckshot' && pelletCountStr) {
     specLine = `${specLine} (${pelletCountStr})`;
@@ -354,7 +459,7 @@ export const formatAmmoSubtitle = (ammo?: Partial<Ammo> | null, defaultFallback 
     if (mfg) {
       return `${mfg} - ${specs.specLine}`.trim();
     }
-    return specs.summary || defaultFallback || 'Shotgun Shell';
+    return specs.summary || defaultFallback || 'Target & Field Load';
   }
 
   // Rifle / Pistol / Rimfire

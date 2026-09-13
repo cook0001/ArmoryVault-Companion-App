@@ -57,6 +57,7 @@ describe('caliberHelpers', () => {
       expect(formatShotSizeName('8')).toBe('#8 Target / Clay');
       expect(formatShotSizeName('7 1/2')).toBe('#7 1/2 Target');
       expect(formatShotSizeName('9')).toBe('#9 Skeet');
+      expect(formatShotSizeName('2')).toBe('#2 Game & Field');
       expect(formatShotSizeName('6')).toBe('#6 Game & Field');
       expect(formatShotSizeName('BB')).toBe('BB Shot');
     });
@@ -140,6 +141,38 @@ describe('caliberHelpers', () => {
       expect(specs.shotType).toBe('Slug');
       expect(specs.payload).toBe('1 oz');
       expect(specs.specLine).toBe('1 oz Rifled Slug');
+    });
+
+    it('classifies 15-round packaging as Buckshot and 25-round packaging as Target / Clay', () => {
+      const buckSpecs = formatShotgunSpecs({
+        caliber: '12 Gauge',
+        manufacturer: 'Federal',
+        count: 15,
+      });
+      expect(buckSpecs.shotType).toBe('Buckshot');
+      expect(buckSpecs.badgeText).toBe('BUCKSHOT');
+      expect(buckSpecs.shotSize).toBe('00 Buckshot');
+      expect(buckSpecs.pelletCount).toBe('9 Pellets');
+
+      const targetSpecs = formatShotgunSpecs({
+        caliber: '12 Gauge',
+        manufacturer: 'Winchester',
+        count: 25,
+      });
+      expect(targetSpecs.shotType).toBe('Target / Clay');
+      expect(targetSpecs.badgeText).toBe('TARGET LOAD');
+      expect(targetSpecs.shotSize).toBe('#8 Target / Clay');
+      expect(targetSpecs.payload).toBe('1 1/8 oz');
+    });
+
+    it('never defaults to "Shotgun Shell" for completely unspecified shotgun ammo', () => {
+      const specs = formatShotgunSpecs({
+        caliber: '12 Gauge',
+      });
+      expect(specs.shotType).not.toBe('Shotgun Shell');
+      expect(specs.shotType).toBe('Target & Field Load');
+      expect(specs.badgeText).toBe('TARGET LOAD');
+      expect(specs.specLine).not.toContain('Shotgun Shell');
     });
   });
 

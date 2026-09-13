@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.7.5] - 2026-09-12
+### Fixed & Enhanced
+- **Shotgun Load Classification & Elimination of "Shotgun Shell" Tautology (`utils/caliberHelpers.ts`, `app/inventory/index.tsx`, `types/index.ts`)**:
+  - Completely eliminated the generic and redundant `'Shotgun Shell'` fallback across all mobile screens, modals, badges, chips, and subtitles.
+  - Upgraded `formatShotgunSpecs` classification heuristics to identify specific shotgun load types (`Buckshot`, `Target / Clay`, `Birdshot / Field`, `Waterfowl`, `Slug`, `Turkey`, or `Target & Field Load`) using manufacturer lines (`AA`, `Top Gun`, `Gun Club`, `Super Target`, `Universal`, `Power-Shok`, `Vital-Shok`, `Defender`, `PDX`, `Slugger`, `Black Cloud`, `Long Beard`), shot sizes (`2`, `#2`, `4`, `5`, `6`, `7`, `7 1/2`, `8`, `9`, `00 Buck`, `Slug`, `BB`), and standard packaging counts (5, 10, 15 rds -> Buckshot; 25, 100, 250 rds -> Target / Clay).
+  - Unspecified shotgun lots default to `'Target & Field Load'` (`#8 Target / Clay`, `1 1/8 oz`, `2 3/4"`) with badge `'TARGET LOAD'` instead of generic `'SHOTGUN'`.
+  - Added **1-Tap Quick Load Presets** directly inside the Ammo Inspect Modal (`app/inventory/index.tsx`) allowing users to instantly select and assign standard shotgun loads (`00 Buck (9 Pellets)`, `#8 Target (1 1/8 oz)`, `#7 1/2 Clay`, `1 oz Rifled Slug`, `#4 Birdshot`, `#6 Game Load`, `BB Waterfowl`). Tapping immediately updates local state, writes to `inventory_cache` in AsyncStorage, and queues an `ammo_adjustment` sync event to the desktop vault.
+  - Added `roundsPerBox` and `boxCount` to the mobile `Ammo` interface.
+  - Strictly incremented native Android `versionCode` to `314`.
+
 ## [2.7.4] - 2026-09-12
 ### Added
 - **Overpressure (+P / +P+) Visual Badges & Pressure Rating Specifications**:

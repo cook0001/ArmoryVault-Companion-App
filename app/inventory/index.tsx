@@ -44,6 +44,16 @@ export interface ReloadingRecipe {
   createdAt: string;
 }
 
+const SHOTGUN_PRESETS = [
+  { label: '00 Buck (9 Pellets)', shotType: 'Buckshot', shot_size: '00 Buck', pellet_count: 9, shell_length: '2 3/4"', oz_payload: undefined },
+  { label: '#8 Target (1 1/8 oz)', shotType: 'Target / Clay', shot_size: '8', oz_payload: '1 1/8 oz', shell_length: '2 3/4"', pellet_count: undefined },
+  { label: '#7 1/2 Clay (1 1/8 oz)', shotType: 'Target / Clay', shot_size: '7 1/2', oz_payload: '1 1/8 oz', shell_length: '2 3/4"', pellet_count: undefined },
+  { label: '1 oz Rifled Slug', shotType: 'Slug', shot_size: 'Slug', oz_payload: '1 oz', shell_length: '2 3/4"', pellet_count: undefined },
+  { label: '#4 Birdshot (1 1/4 oz)', shotType: 'Birdshot / Field', shot_size: '4', oz_payload: '1 1/4 oz', shell_length: '2 3/4"', pellet_count: undefined },
+  { label: '#6 Game Load (1 oz)', shotType: 'Birdshot / Field', shot_size: '6', oz_payload: '1 oz', shell_length: '2 3/4"', pellet_count: undefined },
+  { label: 'BB Waterfowl (3")', shotType: 'Waterfowl', shot_size: 'BB', oz_payload: '1 1/4 oz', shell_length: '3"', pellet_count: undefined },
+];
+
 export default function InventoryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ storageId?: string }>();
@@ -137,6 +147,52 @@ export default function InventoryScreen() {
     await refreshCache(true);
     await loadCachedInventory();
     setRefreshing(false);
+  };
+
+  const handleApplyShotgunPreset = async (preset: (typeof SHOTGUN_PRESETS)[0]) => {
+    if (!inspectingAmmo) return;
+    const updatedAmmo = {
+      ...inspectingAmmo,
+      shot_size: preset.shot_size,
+      shell_length: preset.shell_length,
+      oz_payload: preset.oz_payload,
+      pellet_count: preset.pellet_count,
+    };
+    setInspectingAmmo(updatedAmmo);
+
+    // Update in local state
+    setAmmoList(prev => prev.map(a => (a.id === inspectingAmmo.id ? updatedAmmo : a)));
+
+    // Persist to AsyncStorage inventory_cache
+    try {
+      const cacheStr = await AsyncStorage.getItem('inventory_cache');
+      if (cacheStr) {
+        const cache = JSON.parse(cacheStr);
+        if (cache.ammo) {
+          cache.ammo = cache.ammo.map((a: any) => (a.id === inspectingAmmo.id ? updatedAmmo : a));
+          await AsyncStorage.setItem('inventory_cache', JSON.stringify(cache));
+        }
+      }
+    } catch (e) {
+      console.error('Error saving preset to cache', e);
+    }
+
+    // Queue sync to desktop
+    addToQueue({
+      type: 'ammo_adjustment',
+      itemId: inspectingAmmo.id,
+      timestamp: new Date().toISOString(),
+      data: {
+        id: inspectingAmmo.id,
+        caliber: inspectingAmmo.caliber,
+        shot_size: preset.shot_size,
+        shell_length: preset.shell_length,
+        oz_payload: preset.oz_payload,
+        pellet_count: preset.pellet_count,
+      },
+    }, `Updated to ${preset.label}`);
+
+    showToast(`Updated to ${preset.label}`);
   };
 
   const openNewRecipeModal = () => {
@@ -1058,7 +1114,7 @@ export default function InventoryScreen() {
                     ) : null}
                     <View style={[styles.specTypeBadge, { backgroundColor: isShotgun ? 'rgba(245, 158, 11, 0.15)' : 'rgba(56, 189, 248, 0.15)', borderColor: isShotgun ? '#f59e0b' : '#38bdf8' }]}>
                       <Text style={[styles.specTypeBadgeText, { color: isShotgun ? '#f59e0b' : '#38bdf8' }]}>
-                        {isShotgun ? (shotgunSpecs?.badgeText || 'SHOTGUN') : (inspectingAmmo.type === 'handload' ? 'HANDLOAD' : 'FACTORY AMMO')}
+                        {isShotgun ? (shotgunSpecs?.badgeText || 'TARGET LOAD') : (inspectingAmmo.type === 'handload' ? 'HANDLOAD' : 'FACTORY AMMO')}
                       </Text>
                     </View>
                     {isShotgun && shotgunSpecs?.shellLength ? (
@@ -1108,20 +1164,20 @@ export default function InventoryScreen() {
                       <>
                         <View style={styles.specRow}>
                           <Text style={styles.specRowLabel}>Shell Type:</Text>
-                          <Text style={styles.specRowVal}>{shotgunSpecs.shotType}</Text>
+                          <Text style={[styles.specRowVal, { color: '#38bdf8', fontWeight: 'bold' }]}>
+                            {shotgunSpecs.shotType}
+                          </Text>
                         </View>
-                        {shotgunSpecs.shellLength ? (
-                          <View style={styles.specRow}>
-                            <Text style={styles.specRowLabel}>Shell Length:</Text>
-                            <Text style={styles.specRowVal}>{shotgunSpecs.shellLength}</Text>
-                          </View>
-                        ) : null}
-                        {shotgunSpecs.shotSize ? (
-                          <View style={styles.specRow}>
-                            <Text style={styles.specRowLabel}>Shot Size:</Text>
-                            <Text style={styles.specRowVal}>{shotgunSpecs.shotSize}</Text>
-                          </View>
-                        ) : null}
+                        <View style={styles.specRow}>
+                          <Text style={styles.specRowLabel}>Shell Length:</Text>
+                          <Text style={styles.specRowVal}>{shotgunSpecs.shellLength || '2 3/4"'}</Text>
+                        </View>
+                        <View style={styles.specRow}>
+                          <Text style={styles.specRowLabel}>Shot Size:</Text>
+                          <Text style={styles.specRowVal}>
+                            {shotgunSpecs.shotSize || (shotgunSpecs.shotType === 'Buckshot' ? '00 Buckshot' : '#8 Target / Clay')}
+                          </Text>
+                        </View>
                         {shotgunSpecs.shotType === 'Buckshot' && shotgunSpecs.pelletCount ? (
                           <View style={styles.specRow}>
                             <Text style={styles.specRowLabel}>Pellet Count:</Text>
@@ -1191,6 +1247,33 @@ export default function InventoryScreen() {
                       </View>
                     ) : null}
                   </View>
+
+                  {/* Quick Load Presets for Shotgun */}
+                  {isShotgun && (
+                    <View style={styles.presetSection}>
+                      <Text style={styles.modalSectionHeading}>LOAD TYPE PRESETS (1-TAP SET)</Text>
+                      <View style={styles.presetGrid}>
+                        {SHOTGUN_PRESETS.map((preset) => {
+                          const isActive =
+                            (inspectingAmmo.shot_size === preset.shot_size ||
+                              shotgunSpecs?.shotSize?.toLowerCase().includes(preset.shot_size.toLowerCase())) &&
+                            (inspectingAmmo.shell_length === preset.shell_length ||
+                              shotgunSpecs?.shellLength === preset.shell_length);
+                          return (
+                            <Pressable
+                              key={preset.label}
+                              style={[styles.presetChip, isActive && styles.presetChipActive]}
+                              onPress={() => handleApplyShotgunPreset(preset)}
+                            >
+                              <Text style={[styles.presetChipText, isActive && styles.presetChipTextActive]}>
+                                {preset.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
 
                   {/* Actions */}
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
@@ -2071,5 +2154,34 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 12,
     fontWeight: '600',
+  },
+  presetSection: {
+    marginTop: 12,
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  presetChip: {
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  presetChipActive: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  presetChipText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  presetChipTextActive: {
+    color: '#38bdf8',
+    fontWeight: '700',
   },
 });
