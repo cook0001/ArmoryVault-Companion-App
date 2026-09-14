@@ -2,9 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useDialog } from './DialogContext';
-import type { SyncQueueItem, StorageLocation, DashboardStats } from '../types';
+import type { SyncQueueItem, StorageLocation, DashboardStats, OpticItem } from '../types';
 
-export type { DashboardStats } from '../types';
+export type { DashboardStats, OpticItem } from '../types';
 
 interface SyncContextType {
   syncedIp: string | null;
@@ -20,6 +20,7 @@ interface SyncContextType {
   autoSyncEnabled: boolean;
   dashboardStats: DashboardStats | null;
   storageLocations: StorageLocation[];
+  optics: OpticItem[];
   
   // Actions
   loadStatus: () => Promise<void>;
@@ -59,6 +60,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [autoSyncEnabled, setAutoSyncEnabledState] = useState<boolean>(true);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+  const [optics, setOptics] = useState<OpticItem[]>([]);
 
   // Pairing token for authenticated API calls
   const pairingTokenRef = useRef<string | null>(null);
@@ -175,6 +177,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch {}
       }
 
+      const cachedOptics = await AsyncStorage.getItem('optics_cache');
+      if (cachedOptics) {
+        try {
+          setOptics(JSON.parse(cachedOptics));
+        } catch {}
+      }
+
       const syncTime = await AsyncStorage.getItem('last_sync_time');
       if (syncTime) setLastSyncTime(syncTime);
 
@@ -235,6 +244,11 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       components: data.components?.length || prev?.components || 0,
                       skus: skuCount
                     }));
+
+                    if (data.optics) {
+                      setOptics(data.optics);
+                      AsyncStorage.setItem('optics_cache', JSON.stringify(data.optics));
+                    }
 
                     if (data.storageLocations) {
                       setStorageLocations(data.storageLocations);
@@ -544,6 +558,11 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             skus: skuCount
           });
 
+          if (data.optics) {
+            setOptics(data.optics);
+            await AsyncStorage.setItem('optics_cache', JSON.stringify(data.optics));
+          }
+
           if (data.storageLocations) {
             setStorageLocations(data.storageLocations);
             await AsyncStorage.setItem('storage_locations_cache', JSON.stringify(data.storageLocations));
@@ -703,6 +722,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         autoSyncEnabled,
         dashboardStats,
         storageLocations,
+        optics,
         loadStatus,
         triggerSync,
         addToQueue,

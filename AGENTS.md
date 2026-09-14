@@ -2,11 +2,11 @@
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
-# Version Control and Changelog
+# Package-Centric Version Control and Changelog
 
-After making any bug fixes or changes, ALWAYS automatically bump the version in `package.json`, `app.json`, and `android/app/build.gradle` (incrementing both `versionName` and strictly incrementing `versionCode` which must NEVER drop below 300) according to the versioning rules specified in `VersionControl`, and document the changes in `CHANGELOG.md`.
-
-Additionally, EVERY TIME before pushing to GitHub, you MUST ensure that the `CHANGELOG.md`, `README.md`, and `.gitignore` files are properly updated to reflect the new changes, scripts, or build artifacts.
+- **Lock Versions During Active Development**: During feature development and iterative bug fixing, NEVER bump the version or increment `versionCode`. Versions in `package.json`, `app.json`, and `android/app/build.gradle` remain strictly LOCKED in development. Changes MUST be accumulated and documented in `CHANGELOG.md` under an `[Unreleased]` or in-progress release header.
+- **Atomic Final Release Bumping**: The version and native `versionCode` are ONLY bumped when the user explicitly requests to finalize and package the release. At that time, determine the bump according to the rules in `VersionControl` (Major.Minor.Patch), increment `versionName`, strictly increment `versionCode` (which must NEVER drop below 300 / current baseline >= 309), and finalize `CHANGELOG.md`.
+- **Pre-Push Integrity**: EVERY TIME before pushing to GitHub or publishing, you MUST ensure that the `CHANGELOG.md`, `README.md`, and `.gitignore` files are properly updated to reflect the new changes, scripts, or build artifacts.
 
 # 8. Android Native VersionCode Monotonic Increase (Strict)
 - **Strict VersionCode Increment**: In `android/app/build.gradle` and `app.json`, `versionCode` MUST strictly increment with every build and NEVER be decremented, reset, or set below the established production baseline (currently `>= 309`). Setting a `versionCode` lower than or equal to an installed build causes Android PackageInstaller and the in-app OTA updater to immediately reject APK installations with `INSTALL_FAILED_VERSION_DOWNGRADE` ("App not installed / Update not installed").

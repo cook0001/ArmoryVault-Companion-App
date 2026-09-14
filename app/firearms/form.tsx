@@ -74,6 +74,52 @@ const ACTION_TYPES = [
 
 const CONDITIONS = ['New', 'Excellent', 'Very Good', 'Good', 'Fair', 'Poor', 'C&R Collectible'];
 
+export type StudioAngleKey = 'left' | 'right' | 'serial' | 'proof' | 'extra';
+
+export interface StudioPhotoItem {
+  uri: string;
+  base64?: string;
+  isExisting?: boolean;
+  angle: StudioAngleKey;
+}
+
+const STUDIO_SLOTS: {
+  key: StudioAngleKey;
+  label: string;
+  badge: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  {
+    key: 'left',
+    label: 'Left Profile',
+    badge: 'Slot 1',
+    subtitle: 'Full left-side view (receiver, barrel, stock/grip)',
+    icon: 'camera-outline',
+  },
+  {
+    key: 'right',
+    label: 'Right Profile',
+    badge: 'Slot 2',
+    subtitle: 'Full right-side view (ejection port & action)',
+    icon: 'camera-outline',
+  },
+  {
+    key: 'serial',
+    label: 'Rollmark & Serial',
+    badge: 'Slot 3',
+    subtitle: 'Clear macro shot of serial number & manufacturer stamp',
+    icon: 'barcode-outline',
+  },
+  {
+    key: 'proof',
+    label: 'Proofs & Bore',
+    badge: 'Slot 4',
+    subtitle: 'Proof marks, acceptance stamps, or bore condition',
+    icon: 'shield-checkmark-outline',
+  },
+];
+
 export default function FirearmFormScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -100,8 +146,8 @@ export default function FirearmFormScreen() {
   const [isNfa, setIsNfa] = useState(false);
   const [nfaType, setNfaType] = useState('');
 
-  // Photos State
-  const [photos, setPhotos] = useState<{ uri: string; base64?: string; isExisting?: boolean }[]>([]);
+  // Photos State - Standardized Studio Angles
+  const [photos, setPhotos] = useState<StudioPhotoItem[]>([]);
 
   // Metadata State
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
@@ -149,14 +195,16 @@ export default function FirearmFormScreen() {
             setIsNfa(!!found.is_nfa);
             setNfaType(found.nfa_type || '');
 
-            // Load existing photos
-            const existingPhotos: { uri: string; isExisting: boolean }[] = [];
+            // Load existing photos with standardized angle assignments
+            const existingPhotos: StudioPhotoItem[] = [];
             if (found.photos && Array.isArray(found.photos)) {
-              found.photos.forEach((p: string) => {
-                existingPhotos.push({ uri: p, isExisting: true });
+              found.photos.forEach((p: string, idx: number) => {
+                const angle: StudioAngleKey =
+                  idx === 0 ? 'left' : idx === 1 ? 'right' : idx === 2 ? 'serial' : idx === 3 ? 'proof' : 'extra';
+                existingPhotos.push({ uri: p, isExisting: true, angle });
               });
             } else if (found.image_path) {
-              existingPhotos.push({ uri: found.image_path, isExisting: true });
+              existingPhotos.push({ uri: found.image_path, isExisting: true, angle: 'left' });
             }
             setPhotos(existingPhotos);
           }
@@ -168,60 +216,66 @@ export default function FirearmFormScreen() {
     setIsLoading(false);
   };
 
-  const handlePickImage = async () => {
+  const captureAnglePhoto = async (angle: StudioAngleKey, mode: 'camera' | 'library') => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        showError('Permission Required', 'Access to photos is required to attach images.');
-        return;
-      }
+      if (mode === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          showError('Permission Required', 'Camera permission is required to capture photos.');
+          return;
+        }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 0.7,
-        base64: true,
-      });
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          quality: 0.75,
+          base64: true,
+        });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined;
-        setPhotos(prev => [...prev, { uri: asset.uri, base64: base64Data, isExisting: false }]);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          const asset = result.assets[0];
+          const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined;
+          setPhotos(prev => {
+            const filtered = prev.filter(p => p.angle !== angle || angle === 'extra');
+            return [...filtered, { uri: asset.uri, base64: base64Data, isExisting: false, angle }];
+          });
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          showError('Permission Required', 'Access to photos is required to attach images.');
+          return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          quality: 0.75,
+          base64: true,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          const asset = result.assets[0];
+          const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined;
+          setPhotos(prev => {
+            const filtered = prev.filter(p => p.angle !== angle || angle === 'extra');
+            return [...filtered, { uri: asset.uri, base64: base64Data, isExisting: false, angle }];
+          });
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
     } catch (e) {
-      console.error('Error picking image:', e);
+      console.error('Error capturing studio photo:', e);
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        showError('Permission Required', 'Camera permission is required to capture photos.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 0.7,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined;
-        setPhotos(prev => [...prev, { uri: asset.uri, base64: base64Data, isExisting: false }]);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } catch (e) {
-      console.error('Error taking photo:', e);
+  const removeAnglePhoto = (angle: StudioAngleKey, uri?: string) => {
+    if (angle === 'extra' && uri) {
+      setPhotos(prev => prev.filter(p => p.uri !== uri));
+    } else {
+      setPhotos(prev => prev.filter(p => p.angle !== angle));
     }
-  };
-
-  const handleRemovePhoto = (index: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
@@ -240,8 +294,18 @@ export default function FirearmFormScreen() {
     try {
       const numericPrice = purchasePrice.trim() ? parseFloat(purchasePrice.replace(/[^0-9.]/g, '')) : null;
 
+      // Arrange photos in standard order: Left -> Right -> Serial -> Proof -> Extras
+      const orderedPhotos: StudioPhotoItem[] = [];
+      const standardKeys: StudioAngleKey[] = ['left', 'right', 'serial', 'proof'];
+      for (const key of standardKeys) {
+        const p = photos.find(item => item.angle === key);
+        if (p) orderedPhotos.push(p);
+      }
+      const extras = photos.filter(item => item.angle === 'extra');
+      orderedPhotos.push(...extras);
+
       // Extract new base64 photos for sync
-      const newBase64Photos = photos.filter(p => !p.isExisting && p.base64).map(p => p.base64 as string);
+      const newBase64Photos = orderedPhotos.filter(p => !p.isExisting && p.base64).map(p => p.base64 as string);
       const primaryPhotoBase64 = newBase64Photos.length > 0 ? newBase64Photos[0] : undefined;
 
       const payload: NewFirearmPayload = {
@@ -384,33 +448,140 @@ export default function FirearmFormScreen() {
       </View>
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner}>
-        {/* Photo Gallery Section */}
+        {/* Firearm Studio Photo Documentation */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Firearm Photos</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoList}>
-            {photos.map((item, idx) => (
-              <View key={idx} style={styles.photoThumbContainer}>
-                <Image source={{ uri: item.uri }} style={styles.photoThumb} />
+          <View style={styles.studioHeaderRow}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.sectionTitle}>Firearm Studio Photos</Text>
+              <Text style={styles.studioSubtitle}>
+                Standard 4-angle vault documentation for provenance, insurance, and grading.
+              </Text>
+            </View>
+            <View style={styles.studioCountBadge}>
+              <Text style={styles.studioCountText}>
+                {['left', 'right', 'serial', 'proof'].filter(k => photos.some(p => p.angle === k)).length}/4 Standard
+              </Text>
+            </View>
+          </View>
+
+          {/* 4 Guided Angle Slots */}
+          <View style={styles.studioGrid}>
+            {STUDIO_SLOTS.map(slot => {
+              const existing = photos.find(p => p.angle === slot.key);
+              return (
+                <View key={slot.key} style={[styles.studioSlotCard, existing ? styles.studioSlotCardFilled : null]}>
+                  <View style={styles.slotTopRow}>
+                    <View style={styles.slotLabelGroup}>
+                      <View style={styles.slotTag}>
+                        <Text style={styles.slotTagText}>{slot.badge}</Text>
+                      </View>
+                      <Text style={styles.slotTitle}>{slot.label}</Text>
+                    </View>
+                    {existing ? (
+                      <View style={styles.slotStatusBadgeSuccess}>
+                        <Ionicons name="checkmark-circle" size={13} color="#10b981" />
+                        <Text style={styles.slotStatusTextSuccess}>Captured</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.slotStatusBadgePending}>
+                        <Ionicons name="ellipse-outline" size={11} color="#64748b" />
+                        <Text style={styles.slotStatusTextPending}>Empty</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.slotSubtitle} numberOfLines={2}>{slot.subtitle}</Text>
+
+                  {existing ? (
+                    <View style={styles.slotPreviewContainer}>
+                      <Image source={{ uri: existing.uri }} style={styles.slotPreviewImage} />
+                      <View style={styles.slotActionRow}>
+                        <Pressable
+                          style={styles.slotActionBtn}
+                          onPress={() => captureAnglePhoto(slot.key, 'camera')}
+                        >
+                          <Ionicons name="camera" size={13} color="#38bdf8" />
+                          <Text style={styles.slotActionBtnText}>Retake</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.slotActionBtn}
+                          onPress={() => captureAnglePhoto(slot.key, 'library')}
+                        >
+                          <Ionicons name="images" size={13} color="#94a3b8" />
+                          <Text style={styles.slotActionBtnText}>Library</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.slotActionBtn, styles.slotDeleteBtn]}
+                          onPress={() => removeAnglePhoto(slot.key)}
+                        >
+                          <Ionicons name="trash-outline" size={13} color="#ef4444" />
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.slotEmptyActions}>
+                      <Pressable
+                        style={styles.slotEmptyPrimaryBtn}
+                        onPress={() => captureAnglePhoto(slot.key, 'camera')}
+                      >
+                        <Ionicons name="camera" size={16} color="#38bdf8" />
+                        <Text style={styles.slotEmptyPrimaryText}>Camera</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.slotEmptySecondaryBtn}
+                        onPress={() => captureAnglePhoto(slot.key, 'library')}
+                      >
+                        <Ionicons name="images-outline" size={15} color="#94a3b8" />
+                        <Text style={styles.slotEmptySecondaryText}>Gallery</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Additional Photos / Accessories */}
+          <View style={styles.extraPhotosContainer}>
+            <View style={styles.extraPhotosHeader}>
+              <Text style={styles.extraPhotosTitle}>Additional Photos / Accessories</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
                 <Pressable
-                  style={styles.photoRemoveBtn}
-                  onPress={() => handleRemovePhoto(idx)}
-                  hitSlop={6}
+                  style={styles.addExtraBtn}
+                  onPress={() => captureAnglePhoto('extra', 'camera')}
                 >
-                  <Ionicons name="close-circle" size={20} color="#ef4444" />
+                  <Ionicons name="camera" size={13} color="#38bdf8" />
+                  <Text style={styles.addExtraBtnText}>+ Camera</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.addExtraBtn}
+                  onPress={() => captureAnglePhoto('extra', 'library')}
+                >
+                  <Ionicons name="images" size={13} color="#38bdf8" />
+                  <Text style={styles.addExtraBtnText}>+ Gallery</Text>
                 </Pressable>
               </View>
-            ))}
+            </View>
 
-            <Pressable style={styles.addPhotoBtn} onPress={handleTakePhoto}>
-              <Ionicons name="camera" size={24} color="#3b82f6" />
-              <Text style={styles.addPhotoText}>Camera</Text>
-            </Pressable>
-
-            <Pressable style={styles.addPhotoBtn} onPress={handlePickImage}>
-              <Ionicons name="images" size={24} color="#3b82f6" />
-              <Text style={styles.addPhotoText}>Gallery</Text>
-            </Pressable>
-          </ScrollView>
+            {photos.filter(p => p.angle === 'extra').length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoList}>
+                {photos.filter(p => p.angle === 'extra').map((item, idx) => (
+                  <View key={idx} style={styles.photoThumbContainer}>
+                    <Image source={{ uri: item.uri }} style={styles.photoThumb} />
+                    <Pressable
+                      style={styles.photoRemoveBtn}
+                      onPress={() => removeAnglePhoto('extra', item.uri)}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#ef4444" />
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.noExtraPhotosText}>No additional accessory or condition photos added.</Text>
+            )}
+          </View>
         </View>
 
         {/* Primary Identification */}
@@ -847,6 +1018,219 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontWeight: '600',
     marginTop: 4,
+  },
+  studioHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  studioSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  studioCountBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    alignSelf: 'flex-start',
+  },
+  studioCountText: {
+    fontSize: 11,
+    color: '#38bdf8',
+    fontWeight: '700',
+  },
+  studioGrid: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  studioSlotCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  studioSlotCardFilled: {
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    backgroundColor: '#0a1320',
+  },
+  slotTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  slotLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slotTag: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  slotTagText: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  slotTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  slotSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    marginBottom: 10,
+  },
+  slotStatusBadgeSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  slotStatusTextSuccess: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  slotStatusBadgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  slotStatusTextPending: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  slotPreviewContainer: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#020617',
+  },
+  slotPreviewImage: {
+    width: '100%',
+    height: 140,
+    resizeMode: 'cover',
+  },
+  slotActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: '#0f172a',
+    gap: 8,
+  },
+  slotActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  slotActionBtnText: {
+    fontSize: 11,
+    color: '#f1f5f9',
+    fontWeight: '600',
+  },
+  slotDeleteBtn: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  slotEmptyActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  slotEmptyPrimaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  slotEmptyPrimaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38bdf8',
+  },
+  slotEmptySecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  slotEmptySecondaryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  extraPhotosContainer: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+  },
+  extraPhotosHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  extraPhotosTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  addExtraBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  addExtraBtnText: {
+    fontSize: 11,
+    color: '#38bdf8',
+    fontWeight: '700',
+  },
+  noExtraPhotosText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
   },
   switchRow: {
     flexDirection: 'row',

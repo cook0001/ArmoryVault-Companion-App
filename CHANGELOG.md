@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.7.12] - 2026-09-13
+### Added & Enhanced
+- **Proactive Maintenance Wear Alerts in Mobile Rapid Scanner & Range Logger (`app/components/RapidAmmoDepleteModal.tsx`, `app/range/index.tsx`)**:
+  - Integrated `calculateFirearmWear` from `utils/maintenanceManager.ts` directly into live round depletion selectors in both the rapid barcode scanner modal and the range session logger.
+  - Dynamically projects cumulative round counts based on user-selected shot counts, evaluating firearm cleaning thresholds (default 500 rds) and component wear intervals (recoil spring, striker/firing pin, extractor).
+  - Displays high-visibility, color-coded tactical warning banners (`Maintenance Due: Clean & Lube Required` / `Maintenance Approaching: Service Recommended Soon`) and "Service Due" badges within firearm accordions before rounds are even dispatched.
+  - Displays real-time round progression and threshold status cards in the range session logger, warning users before firing pushes the weapon past maintenance thresholds.
+  - Fully adheres to Rule 7 (vector icons from `@expo/vector-icons` / Ionicons, zero emojis).
+- **Standardized Multi-Angle Firearm Studio (`app/firearms/form.tsx`)**:
+  - Implemented 4-slot guided photo studio: Slot 1 (Left Profile), Slot 2 (Right Profile), Slot 3 (Rollmark & Serial Number), and Slot 4 (Proofs & Bore Condition), plus expandable Additional Photos section for custom accessories and targets.
+  - Added slot validation badges, direct camera and photo gallery action triggers, retake and delete controls, and standardized serial ordering (`orderedPhotos`) ensuring consistent authentication and grading documentation when synchronizing to ArmoryVault Desktop.
+  - Maintained complete backward compatibility with existing single-photo and multi-photo sync payloads.
+- **Two-Way Range Telemetry Sync & Optics Vault Integration (`context/SyncContext.tsx`, `types/index.ts`, `app/inventory/index.tsx`, `app/range/grouping-calculator.tsx`, `app/components/CustomMobileIcons.tsx`)**:
+  - Added `OpticItem` interface mirroring desktop's `OpticProfile` schema from the new `optics` extension module.
+  - Added `optics` state and `optics_cache` offline persistence in `SyncContext.tsx`, automatically fetching and synchronizing optical devices from Desktop's `/api/inventory/cache`.
+  - Added vector `ScopeIcon` SVG component to `app/components/CustomMobileIcons.tsx` adhering to strict zero-emoji UI standards.
+  - Added dedicated 4th tab **Optics** to mobile inventory (`app/inventory/index.tsx`) displaying scopes, red dots, zeros, click values, reticles, tube dimensions, torque specs, battery models, and mounted firearm status offline.
+  - Integrated optic profiles and turret click adjustments into Target Grouping Calculator (`app/range/grouping-calculator.tsx`), allowing shooters to pair an optic profile (auto-populating click values like 0.1 MRAD, 1/4 MOA, 1/2 MOA) and receive real-time elevation & windage dial corrections.
+  - Added **Queue Target Analysis to Desktop Vault** action in `grouping-calculator.tsx`, transmitting structured telemetry (`type: 'target_analysis'`) to Desktop's upgraded `SyncInbox.tsx` for review, approval, and long-term storage.
+- **Mobile Rapid Barcode / QR Scanner for Ammo Depletion (`app/components/RapidAmmoDepleteModal.tsx`, `app/inventory/index.tsx`, `utils/ammoDepletion.ts`)**:
+  - Added floating **"Scan & Deplete"** action button in Mobile Ammunition inventory view with dedicated optical scanner modal.
+  - Features real-time optical scanning of commercial ammo UPC-A / EAN-13 barcodes, ArmoryVault QR codes (`AV-AMMO-<id>`, `armoryvault://ammo/<id>`), and custom SKU labels with continuous multi-box scan mode and torch controls.
+  - Instant stock resolution with quick-decrement presets (`-20`, `-50`, `-100`, `-200`, `Custom`), remaining vault count calculations, and warning banners for over-depletion.
+  - Integrated firearm dispatch selector auto-prioritizing firearms matching the ammunition's caliber, calculating firearm round count progression (`current + fired`), immediately persisting local cache, and enqueuing structured `ammo_adjustment` sync items with linked firearm telemetry.
+  - Added pure depletion resolution helpers and unit test suite (`utils/ammoDepletion.test.ts`) with 100% test coverage (66/66 Jest tests passing).
+- **Verified Shooting Range Finder & Session Location Auto-Fill (`app/components/RangeFinderModal.tsx`, `app/range/index.tsx`)**:
+  - Integrated a dedicated mobile range discovery modal querying 2,539 verified shooting facilities across all 50 states.
+  - Search by 5-digit ZIP code or tap state selector chips (`TX`, `PA`, `OH`, `FL`, `CA`, `NC`, etc.) with real-time amenity filters (1,000+ yd, tactical bays, steel targets, chrono, rental counters).
+  - Facility action shortcuts for 1-tap phone calls (`tel:`) and GPS map navigation (`maps:` / Apple / Google Maps).
+  - Integrated directly into Range Session logging (`app/range/index.tsx`) via "Browse Facilities" action, displaying the selected facility card with lane fees and auto-populating `location` and `cost` in the live sync queue.
+  - Strictly adheres to Rule 7 (vector `Compass` and `Ionicons` icons with zero emojis).
+- **Interactive Tactical Reticle Holdover HUD (`app/components/ReticleHoldoverModal.tsx`, `app/range/grouping-calculator.tsx`)**:
+  - Added full tactical scope reticle simulation modal featuring G1 standard trajectory drop & crosswind deflection modeling.
+  - Dynamic optical viewfinder with high-contrast subtension hash marks (-8 to +8 scale in MRAD or MOA), center zero point, and real-time bullet impact point with distance and wind adjustment steppers (50yd to 1,000yd; 0 to 30 MPH wind).
+  - Seamlessly pairs with cached optical profiles from the Optics tab, auto-syncing turret click values (`0.1 MRAD`, `1/4 MOA`) and zero distances.
+  - Telemetry HUD display with click dial counts, drop in inches, wind deflection, remaining velocity (fps), kinetic energy (ft-lb), and flight time.
+  - Integrated directly into Target Grouping Calculator (`app/range/grouping-calculator.tsx`) results via dedicated action trigger.
+
 ## [2.7.11] - 2026-09-13
 ### Changed
 - **Script Reorganization & Build Script Standardization (`scripts/`, `package.json`, `.github/workflows/ci.yml`)**:

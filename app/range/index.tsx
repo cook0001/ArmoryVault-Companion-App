@@ -14,6 +14,8 @@ import {
   GunpowderIcon,
 } from '../components/CustomMobileIcons';
 import { formatAmmoSubtitle, getPlusPBadgeText } from '../../utils/caliberHelpers';
+import { RangeFinderModal, ShootingRangeItem } from '../components/RangeFinderModal';
+import { calculateFirearmWear } from '../../utils/maintenanceManager';
 
 export default function RangeSessionScreen() {
   const router = useRouter();
@@ -32,6 +34,8 @@ export default function RangeSessionScreen() {
   const [notes, setNotes] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [moaMetrics, setMoaMetrics] = useState<any | null>(null);
+  const [isRangeFinderOpen, setIsRangeFinderOpen] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState<ShootingRangeItem | null>(null);
 
   // Environmental & Advanced Details (Collapsible for advanced users)
   const [showAdvancedEnv, setShowAdvancedEnv] = useState(false);
@@ -173,6 +177,8 @@ export default function RangeSessionScreen() {
         ammo_id: selectedAmmoId || undefined,
         rounds_fired: rounds,
         date: new Date().toISOString().split('T')[0],
+        location: selectedFacility ? selectedFacility.name : undefined,
+        cost: selectedFacility?.lane_fee ? Number(selectedFacility.lane_fee) : undefined,
         notes: notes.trim(),
         photoBase64: photo,
         group_metrics: moaMetrics || undefined,
@@ -334,8 +340,95 @@ export default function RangeSessionScreen() {
         ))}
       </View>
 
+      {/* Firearm Round Progression & Proactive Wear Alert */}
+      {selectedFirearm && parsedRounds > 0 && (() => {
+        const currentCount = Number(selectedFirearm.round_count) || 0;
+        const projectedCount = currentCount + parsedRounds;
+        const wear = calculateFirearmWear(projectedCount);
+        const isOverdue = wear.deepClean.status === 'overdue' || wear.recoilSpring.status === 'overdue';
+        const isWarning = wear.deepClean.status === 'warning' || wear.recoilSpring.status === 'warning';
+
+        return (
+          <View style={{ marginTop: 8, gap: 6 }}>
+            <View style={styles.roundProgressionBox}>
+              <Ionicons name="speedometer-outline" size={15} color="#34d399" />
+              <Text style={styles.roundProgressionText}>
+                {selectedFirearm.make} {selectedFirearm.model}: {currentCount} rds ➔ {projectedCount} rds (+{parsedRounds})
+              </Text>
+            </View>
+
+            {(isOverdue || isWarning) && (
+              <View
+                style={[
+                  styles.wearAlertBox,
+                  isOverdue ? styles.wearAlertOverdue : styles.wearAlertWarning,
+                ]}
+              >
+                <Ionicons
+                  name={isOverdue ? 'warning' : 'construct-outline'}
+                  size={15}
+                  color={isOverdue ? '#f87171' : '#fbbf24'}
+                />
+                <Text
+                  style={[
+                    styles.wearAlertText,
+                    { color: isOverdue ? '#fca5a5' : '#fde68a' },
+                  ]}
+                >
+                  {isOverdue
+                    ? `Maintenance Due: ${
+                        wear.deepClean.status === 'overdue'
+                          ? 'Clean & Lube Required'
+                          : 'Recoil Spring Overdue'
+                      } (${projectedCount} rds)`
+                    : `Maintenance Approaching: ${wear.deepClean.currentRounds}/${wear.deepClean.thresholdRounds} rds until service`}
+                </Text>
+              </View>
+            )}
+          </View>
+        );
+      })()}
+
+      {/* Range Facility Selection */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 14 }}>
+        <Text style={styles.sectionHeader}>Shooting Range / Facility</Text>
+        <Pressable
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+          onPress={() => setIsRangeFinderOpen(true)}
+        >
+          <Ionicons name="search-outline" size={13} color="#38bdf8" />
+          <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: '600' }}>
+            {selectedFacility ? 'Change' : 'Browse Facilities'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {selectedFacility ? (
+        <View style={styles.selectedFacilityCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.selectedFacilityName}>{selectedFacility.name}</Text>
+              <Text style={styles.selectedFacilitySub}>
+                {selectedFacility.city}, {selectedFacility.state} {selectedFacility.lane_fee ? `• $${selectedFacility.lane_fee} Fee` : ''}
+              </Text>
+            </View>
+            <Pressable onPress={() => setSelectedFacility(null)}>
+              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          style={styles.selectFacilityBtn}
+          onPress={() => setIsRangeFinderOpen(true)}
+        >
+          <Ionicons name="location-outline" size={16} color="#38bdf8" />
+          <Text style={styles.selectFacilityBtnText}>Select Shooting Facility (2,539 Directory)</Text>
+        </Pressable>
+      )}
+
       {/* 4. Malfunction & Reliability Diagnostics */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 14 }}>
         <Text style={styles.sectionHeader}>4. Reliability & Stoppages</Text>
         {totalMalfunctions > 0 && (
           <View style={[styles.malfunctionPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
@@ -529,6 +622,15 @@ export default function RangeSessionScreen() {
           Queue Range Session ({roundsFired || 0} rds)
         </Text>
       </Pressable>
+
+      {/* Shooting Range Facility Finder Modal */}
+      <RangeFinderModal
+        visible={isRangeFinderOpen}
+        onClose={() => setIsRangeFinderOpen(false)}
+        onSelectRange={(facility) => {
+          setSelectedFacility(facility);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -944,5 +1046,79 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  selectFacilityBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginBottom: 6,
+  },
+  selectFacilityBtnText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  selectedFacilityCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    padding: 12,
+    marginBottom: 6,
+  },
+  selectedFacilityName: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  selectedFacilitySub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  roundProgressionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(52, 211, 153, 0.1)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  roundProgressionText: {
+    color: '#34d399',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  wearAlertBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  wearAlertOverdue: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  wearAlertWarning: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  wearAlertText: {
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
   },
 });

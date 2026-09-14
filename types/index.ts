@@ -30,6 +30,7 @@ export interface Firearm {
   storageLocationId?: number;
   is_nfa?: boolean;
   nfa_type?: string;
+  round_count?: number;
 }
 
 export interface Ammo {
@@ -104,6 +105,30 @@ export interface Accessory {
   upc_code?: string;
   storageLocationId?: number;
   is_nfa?: boolean;
+}
+
+export interface OpticItem {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  serialNumber?: string;
+  type: 'Rifle Scope' | 'Red Dot' | 'Holographic' | 'Prism' | 'LPVO' | 'Iron Sights' | string;
+  focalPlane?: 'FFP (First)' | 'SFP (Second)' | 'N/A' | string;
+  magnification?: string;
+  objectiveLens?: string;
+  tubeDiameter?: string;
+  reticle: string;
+  clickValue: '0.1 MRAD' | '1/4 MOA' | '1/2 MOA' | '1 MOA' | 'Custom' | string;
+  zeroDistance: number;
+  zeroStop: boolean;
+  mountedOnFirearm?: string;
+  ringTorque?: string;
+  baseTorque?: string;
+  batteryType: 'CR2032' | 'CR123A' | 'CR2' | 'AAA' | 'Solar / Integrated' | 'None' | string;
+  batteryReplacedDate?: string;
+  notes?: string;
+  updatedAt?: string;
 }
 
 export interface MaintenanceScheduleItem {
@@ -200,4 +225,36 @@ export interface BillOfSaleSyncItem extends SyncQueueItem {
   notes?: string;
   pdf_base64?: string;
   pdf_filename?: string;
+}
+
+export interface RangeSessionSyncItem extends SyncQueueItem {
+  type: 'range_session';
+  firearm_id: number;
+  firearm_name?: string;
+  ammo_id?: number;
+  ammo_name?: string;
+  rounds_fired: number;
+  date: string;
+  location?: string;
+  cost?: number;
+  notes?: string;
+  distance_yards?: number;
+  group_metrics?: {
+    moa: number;
+    extremeSpreadInches?: number;
+    extreme_spread_in?: number;
+    meanRadiusInches?: number;
+    mean_radius_in?: number;
+    shotCount?: number;
+    shot_count?: number;
+  };
+  target_photo_path?: string;
+  photo_path?: string;
+  chrono_data?: {
+    avg?: number;
+    sd?: number;
+    es?: number;
+    shots?: number[];
+  };
+  optic_name?: string;
 }

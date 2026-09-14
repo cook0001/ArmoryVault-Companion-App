@@ -13,6 +13,11 @@ This mobile application connects securely over your local Wi-Fi to the ArmoryVau
 
 ## Features
 - **Automatic Background Sync:** Transmits pending range sessions, scans, and inventory audits automatically when connected to your desktop over Wi-Fi.
+- **Standardized Multi-Angle Firearm Studio:** 4-slot guided photo studio (Left Profile, Right Profile, Rollmark & Serial, Proofs & Bore) ensuring professional condition documentation.
+- **Mobile Rapid Barcode & QR Ammo Depletion:** Real-time optical scanner reading commercial UPCs, ArmoryVault QR codes, and custom SKUs with quick decrement presets, caliber-aware firearm dispatch, and live stock updates.
+- **Verified Shooting Range Finder:** Search 2,539 verified shooting facilities across all 50 states with amenity filters (1,000+ yd, tactical bays, chrono), 1-tap phone dialer, GPS map navigation, and range session auto-fill.
+- **Tactical Reticle Holdover HUD:** Optical simulation HUD with G1 trajectory drop & crosswind deflection modeling, MRAD/MOA hash marks, and real-time turret dial telemetry.
+- **Proactive Maintenance & Wear Alerts:** Real-time round progression alerts warning before firing pushes weapons past cleaning or component wear thresholds.
 - **Target MOA Grouping Analyzer & Scope Zeroing:** Scale target photos with 1" grids or coins, plot bullet holes (POI), and calculate Extreme Spread, Mean Radius, MOA, and scope turret click adjustments.
 - **Range Bag Packing Checklist ("Range Prep"):** Select guns -> auto-aggregates matching ammunition lots, magazines, and discipline gear presets (CCW, Precision, Steel Challenge).
 - **Maintenance Lifecycle Milestones & Wear Gauges:** Track recoil springs, extractor, and deep cleaning with 1-tap service resets and malfunction root-cause diagnostics.

@@ -14,6 +14,7 @@ import {
   CabinetIcon,
   GunCaseIcon,
   VehicleVaultIcon,
+  ScopeIcon,
 } from '../components/CustomMobileIcons';
 import {
   getStorageCapacityUtilization,
@@ -22,6 +23,8 @@ import {
 import { formatAmmoSubtitle, formatShotgunSpecs, getPlusPBadgeText, isShotgunAmmo } from '../../utils/caliberHelpers';
 import { useSync } from '../../context/SyncContext';
 import { useDialog } from '../../context/DialogContext';
+import type { OpticItem } from '../../types';
+import { RapidAmmoDepleteModal } from '../components/RapidAmmoDepleteModal';
 
 export interface ReloadingRecipe {
   id: string;
@@ -57,13 +60,14 @@ const SHOTGUN_PRESETS = [
 export default function InventoryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ storageId?: string }>();
-  const { addToQueue, refreshCache, storageLocations, lastCacheTime, isOnline } = useSync();
+  const { addToQueue, refreshCache, storageLocations, lastCacheTime, isOnline, optics } = useSync();
   const { showToast, showError, showConfirm, showSuccess } = useDialog();
 
-  const [activeTab, setActiveTab] = useState<'ammo' | 'components' | 'recipes'>('ammo');
+  const [activeTab, setActiveTab] = useState<'ammo' | 'components' | 'recipes' | 'optics'>('ammo');
   const [ammoList, setAmmoList] = useState<any[]>([]);
   const [componentsList, setComponentsList] = useState<any[]>([]);
   const [recipesList, setRecipesList] = useState<ReloadingRecipe[]>([]);
+  const [opticsList, setOpticsList] = useState<OpticItem[]>([]);
   const [componentFilter, setComponentFilter] = useState<'All' | 'Powder' | 'Primer' | 'Case' | 'Bullet'>('All');
   const [selectedStorageId, setSelectedStorageId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,6 +83,7 @@ export default function InventoryScreen() {
   const [adjustItem, setAdjustItem] = useState<{ item: any, isAmmo: boolean } | null>(null);
   const [adjustAction, setAdjustAction] = useState<'add' | 'remove'>('add');
   const [adjustCount, setAdjustCount] = useState('50');
+  const [rapidDepleteModalVisible, setRapidDepleteModalVisible] = useState(false);
 
   // New Recipe Modal State
   const [isRecipeModalVisible, setIsRecipeModalVisible] = useState(false);
@@ -122,6 +127,13 @@ export default function InventoryScreen() {
         const cache = JSON.parse(cacheStr);
         setAmmoList(cache.ammo || []);
         setComponentsList(cache.components || []);
+        if (cache.optics && Array.isArray(cache.optics)) {
+          setOpticsList(cache.optics);
+        }
+      }
+      const optStr = await AsyncStorage.getItem('optics_cache');
+      if (optStr) {
+        setOpticsList(JSON.parse(optStr));
       }
     } catch (e) {
       console.error('Error loading inventory cache', e);
@@ -601,6 +613,22 @@ export default function InventoryScreen() {
     });
   }, [recipesList, searchQuery]);
 
+  const filteredOptics = useMemo(() => {
+    const list = opticsList.length > 0 ? opticsList : (optics || []);
+    return list.filter((o: OpticItem) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (o.name && o.name.toLowerCase().includes(q)) ||
+        (o.manufacturer && o.manufacturer.toLowerCase().includes(q)) ||
+        (o.model && o.model.toLowerCase().includes(q)) ||
+        (o.type && o.type.toLowerCase().includes(q)) ||
+        (o.reticle && o.reticle.toLowerCase().includes(q)) ||
+        (o.mountedOnFirearm && o.mountedOnFirearm.toLowerCase().includes(q))
+      );
+    });
+  }, [opticsList, optics, searchQuery]);
+
   return (
     <View style={styles.container}>
       {/* Header Summary Banner with Vault Financial Valuation Toggle */}
@@ -654,9 +682,19 @@ export default function InventoryScreen() {
           style={[styles.tab, activeTab === 'recipes' && styles.activeTab]}
           onPress={() => setActiveTab('recipes')}
         >
-          <Ionicons name="receipt-outline" size={15} color={activeTab === 'recipes' ? '#fff' : '#94a3b8'} style={{ marginRight: 5 }} />
+          <Ionicons name="receipt-outline" size={14} color={activeTab === 'recipes' ? '#fff' : '#94a3b8'} style={{ marginRight: 4 }} />
           <Text style={[styles.tabText, activeTab === 'recipes' && styles.activeTabText]}>
             Recipes ({recipesList.length})
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.tab, activeTab === 'optics' && styles.activeTab]}
+          onPress={() => setActiveTab('optics')}
+        >
+          <ScopeIcon size={14} color={activeTab === 'optics' ? '#fff' : '#94a3b8'} style={{ marginRight: 4 }} />
+          <Text style={[styles.tabText, activeTab === 'optics' && styles.activeTabText]}>
+            Optics ({filteredOptics.length})
           </Text>
         </Pressable>
       </View>
@@ -671,7 +709,9 @@ export default function InventoryScreen() {
               ? 'Search caliber, brand, bullet type...'
               : activeTab === 'components'
               ? 'Search powders, primers, brass, bullets...'
-              : 'Search recipes, calibers, lot #...'
+              : activeTab === 'recipes'
+              ? 'Search recipes, calibers, lot #...'
+              : 'Search optics, scopes, reticles, zeros...'
           }
           placeholderTextColor="#64748b"
           value={searchQuery}
@@ -1098,6 +1138,142 @@ export default function InventoryScreen() {
                 <Ionicons name="receipt-outline" size={44} color="#475569" style={{ marginBottom: 8 }} />
                 <Text style={styles.emptyTitle}>No Handload Recipes Yet</Text>
                 <Text style={styles.emptySubtitle}>Tap above to log custom powder charges, bullet seatings, and generate printable batch box labels.</Text>
+              </View>
+            }
+          />
+        </View>
+      )}
+
+      {activeTab === 'optics' && (
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={filteredOptics}
+            style={{ flex: 1 }}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingBottom: 110 }}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <ScopeIcon size={16} color="#38bdf8" />
+                      <Text style={styles.itemTitle}>{item.name || `${item.manufacturer} ${item.model}`}</Text>
+                    </View>
+                    <Text style={[styles.itemSubtitle, { marginTop: 2 }]}>
+                      {item.manufacturer} • {item.model}
+                    </Text>
+                  </View>
+                  <View style={[styles.caliberBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8' }]}>
+                    <Text style={[styles.caliberBadgeText, { color: '#38bdf8' }]}>{item.type}</Text>
+                  </View>
+                </View>
+
+                {/* Badges Row */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 }}>
+                  {item.focalPlane && item.focalPlane !== 'N/A' && (
+                    <View style={[styles.lotBadge, { backgroundColor: 'rgba(168, 85, 247, 0.15)', borderColor: 'rgba(168, 85, 247, 0.4)' }]}>
+                      <Text style={[styles.lotBadgeText, { color: '#c084fc' }]}>{item.focalPlane.split(' ')[0]}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.lotBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}>
+                    <Text style={[styles.lotBadgeText, { color: '#fbbf24' }]}>{item.clickValue}</Text>
+                  </View>
+                  <View style={[styles.lotBadge, { backgroundColor: 'rgba(52, 211, 153, 0.15)', borderColor: 'rgba(52, 211, 153, 0.4)' }]}>
+                    <Text style={[styles.lotBadgeText, { color: '#34d399' }]}>{item.zeroDistance}y Zero</Text>
+                  </View>
+                  {item.zeroStop && (
+                    <View style={[styles.lotBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)' }]}>
+                      <Text style={[styles.lotBadgeText, { color: '#38bdf8' }]}>Zero Stop</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Mounted Info */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: item.mountedOnFirearm ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255, 255, 255, 0.04)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  marginBottom: 8,
+                }}>
+                  <Ionicons
+                    name={item.mountedOnFirearm ? "link-outline" : "file-tray-outline"}
+                    size={14}
+                    color={item.mountedOnFirearm ? "#38bdf8" : "#94a3b8"}
+                  />
+                  <Text style={{ fontSize: 12, color: item.mountedOnFirearm ? '#38bdf8' : '#94a3b8', fontWeight: '500' }}>
+                    {item.mountedOnFirearm ? `Mounted on: ${item.mountedOnFirearm}` : 'Unmounted (In Vault / Case)'}
+                  </Text>
+                </View>
+
+                {/* Specs Grid */}
+                <View style={styles.recipeSpecsGrid}>
+                  <View style={styles.recipeSpec}>
+                    <Text style={styles.recipeSpecLabel}>Reticle</Text>
+                    <Text style={styles.recipeSpecValue} numberOfLines={1}>{item.reticle || 'Standard'}</Text>
+                  </View>
+                  {(item.magnification || item.objectiveLens) ? (
+                    <View style={styles.recipeSpec}>
+                      <Text style={styles.recipeSpecLabel}>Optics</Text>
+                      <Text style={styles.recipeSpecValue}>{item.magnification || ''}{item.objectiveLens ? ` ${item.objectiveLens}` : ''}</Text>
+                    </View>
+                  ) : null}
+                  {item.tubeDiameter ? (
+                    <View style={styles.recipeSpec}>
+                      <Text style={styles.recipeSpecLabel}>Tube</Text>
+                      <Text style={styles.recipeSpecValue}>{item.tubeDiameter}</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.recipeSpec}>
+                    <Text style={styles.recipeSpecLabel}>Battery</Text>
+                    <Text style={styles.recipeSpecValue}>{item.batteryType || 'None'}</Text>
+                  </View>
+                </View>
+
+                {/* Torque / Maintenance Specs */}
+                {(item.ringTorque || item.baseTorque || item.batteryReplacedDate) ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {item.ringTorque && (
+                      <View style={[styles.metricPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                        <Ionicons name="construct-outline" size={11} color="#60a5fa" />
+                        <Text style={{ color: '#94a3b8', fontSize: 11 }}>Rings: {item.ringTorque}</Text>
+                      </View>
+                    )}
+                    {item.baseTorque && (
+                      <View style={[styles.metricPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                        <Ionicons name="construct-outline" size={11} color="#60a5fa" />
+                        <Text style={{ color: '#94a3b8', fontSize: 11 }}>Base: {item.baseTorque}</Text>
+                      </View>
+                    )}
+                    {item.batteryReplacedDate && (
+                      <View style={[styles.metricPill, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                        <Ionicons name="battery-charging-outline" size={11} color="#34d399" />
+                        <Text style={{ color: '#94a3b8', fontSize: 11 }}>Batt: {item.batteryReplacedDate}</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : null}
+
+                {item.notes ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                    <Ionicons name="document-text-outline" size={12} color="#64748b" />
+                    <Text style={styles.recipeNotesText} numberOfLines={2}>
+                      {item.notes}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <ScopeIcon size={44} color="#475569" style={{ marginBottom: 8 }} />
+                <Text style={styles.emptyTitle}>No Optics Found</Text>
+                <Text style={styles.emptySubtitle}>
+                  Manage riflescopes, red dots, zeros, and click values in Desktop's Optics & Zero Vault module, then sync to access them offline at the range.
+                </Text>
               </View>
             }
           />
@@ -1597,6 +1773,31 @@ export default function InventoryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Floating "Scan & Deplete" Action Button */}
+      {activeTab === 'ammo' && (
+        <Pressable
+          style={styles.rapidDepleteFab}
+          onPress={() => setRapidDepleteModalVisible(true)}
+          accessibilityLabel="Scan and Deplete Ammo"
+        >
+          <View style={styles.fabInner}>
+            <Ionicons name="barcode-outline" size={18} color="#fff" />
+            <Text style={styles.fabText}>Scan & Deplete</Text>
+          </View>
+        </Pressable>
+      )}
+
+      {/* Rapid Ammo Depletion Modal */}
+      <RapidAmmoDepleteModal
+        visible={rapidDepleteModalVisible}
+        onClose={() => setRapidDepleteModalVisible(false)}
+        onDepleted={(updatedAmmo) => {
+          setAmmoList((prev) =>
+            prev.map((a) => (a.id === updatedAmmo.id ? updatedAmmo : a))
+          );
+        }}
+      />
     </View>
   );
 }
@@ -1658,6 +1859,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
+    paddingHorizontal: 2,
     borderRadius: 6,
   },
   activeTab: {
@@ -1668,7 +1870,7 @@ const styles = StyleSheet.create({
   tabText: {
     color: '#94a3b8',
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 11,
   },
   activeTabText: {
     color: '#38bdf8',
@@ -2286,5 +2488,33 @@ const styles = StyleSheet.create({
   presetChipTextActive: {
     color: '#38bdf8',
     fontWeight: '700',
+  },
+  rapidDepleteFab: {
+    position: 'absolute',
+    bottom: 80,
+    right: 16,
+    borderRadius: 24,
+    backgroundColor: '#0284c7',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.5)',
+    zIndex: 99,
+  },
+  fabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  fabText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
 });

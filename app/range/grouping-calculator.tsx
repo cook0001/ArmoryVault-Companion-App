@@ -24,6 +24,9 @@ import {
   getDistance,
 } from '../../utils/moaCalculator';
 import { useDialog } from '../../context/DialogContext';
+import { useSync } from '../../context/SyncContext';
+import { ScopeIcon } from '../components/CustomMobileIcons';
+import { ReticleHoldoverModal } from '../components/ReticleHoldoverModal';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CANVAS_WIDTH = SCREEN_WIDTH - 32;
@@ -35,10 +38,13 @@ export default function GroupingCalculatorScreen() {
     distanceYards: string;
   }>();
   const { showToast } = useDialog();
+  const { addToQueue, optics, syncedIp } = useSync();
 
   const [activeStep, setActiveStep] = useState<'calibrate' | 'poa' | 'shots' | 'results'>('calibrate');
   const [distanceYards, setDistanceYards] = useState(initialDist ? String(initialDist) : '100');
   const [turretType, setTurretType] = useState<'1/4_moa' | '1/2_moa' | '1/8_moa' | '0.1_mil'>('1/4_moa');
+  const [selectedOpticId, setSelectedOpticId] = useState<string | null>(null);
+  const [showReticleModal, setShowReticleModal] = useState(false);
 
   // Dynamic canvas height to match exact photo aspect ratio (no letterboxing)
   const [canvasHeight, setCanvasHeight] = useState(Math.round(CANVAS_WIDTH * 1.2));
@@ -202,6 +208,51 @@ export default function GroupingCalculatorScreen() {
     } catch (e) {
       console.error('Error saving MOA analysis:', e);
     }
+  };
+
+  const handleSyncToVault = async () => {
+    if (!metrics || activeShots.length === 0) {
+      showToast({ message: 'Place at least one active shot on the target', type: 'warning' });
+      return;
+    }
+
+    const optic = optics.find((o) => o.id === selectedOpticId);
+    const opticName = optic ? `${optic.manufacturer} ${optic.model}` : undefined;
+    const distYards = parseFloat(distanceYards) || 100;
+
+    const analysisPayload = {
+      type: 'target_analysis',
+      target_analysis: {
+        distance_yards: distYards,
+        moa: metrics.moa,
+        extreme_spread_inches: metrics.extremeSpreadInches,
+        mean_radius_inches: metrics.meanRadiusInches,
+        shot_count: activeShots.length,
+        date: new Date().toISOString().split('T')[0],
+        optic_name: opticName,
+        notes: `Zero Bias: ${metrics.poaOffsetInches ? `${Math.abs(metrics.poaOffsetInches.elevation)}" ${metrics.poaOffsetInches.elevation >= 0 ? 'High' : 'Low'}, ${Math.abs(metrics.poaOffsetInches.windage)}" ${metrics.poaOffsetInches.windage >= 0 ? 'Right' : 'Left'}` : 'N/A'}${metrics.turretAdjustment ? ` • Dials: ${metrics.turretAdjustment.elevationClicks} clicks ${metrics.turretAdjustment.elevationDirection}, ${metrics.turretAdjustment.windageClicks} clicks ${metrics.turretAdjustment.windageDirection}` : ''}`,
+        photo_path: photoUri,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    if (syncedIp) {
+      try {
+        await fetch(`${syncedIp}/api/target-analysis`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(analysisPayload.target_analysis),
+        });
+      } catch {
+        // Will queue anyway
+      }
+    }
+
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    await addToQueue(
+      analysisPayload,
+      `Target Analysis: ${metrics.moa} MOA (${metrics.extremeSpreadInches}") • ${activeShots.length} shots`
+    );
   };
 
   return (
@@ -671,7 +722,7 @@ export default function GroupingCalculatorScreen() {
         <View style={styles.deckCard}>
           <Text style={styles.deckTitle}>Group Accuracy & Zeroing Analysis</Text>
 
-          {/* Distance Config */}
+          {/* Target Distance Config */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 }}>
             <Text style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Target Distance:</Text>
             <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -688,6 +739,52 @@ export default function GroupingCalculatorScreen() {
               ))}
             </View>
           </View>
+
+          {/* Mounted Optic Selector */}
+          {optics && optics.length > 0 && (
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <ScopeIcon size={14} color="#38bdf8" />
+                <Text style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Paired Optic Profile:</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                <Pressable
+                  style={[styles.distChip, selectedOpticId === null && styles.distChipActive]}
+                  onPress={() => setSelectedOpticId(null)}
+                >
+                  <Text style={[styles.distChipText, selectedOpticId === null && styles.distChipTextActive]}>
+                    Custom Turret
+                  </Text>
+                </Pressable>
+                {optics.map((o) => (
+                  <Pressable
+                    key={o.id}
+                    style={[styles.distChip, selectedOpticId === o.id && styles.distChipActive]}
+                    onPress={() => {
+                      setSelectedOpticId(o.id);
+                      const cv = (o.clickValue || '').toUpperCase();
+                      if (cv.includes('MRAD') || cv.includes('MIL')) {
+                        setTurretType('0.1_mil');
+                      } else if (cv.includes('1/2')) {
+                        setTurretType('1/2_moa');
+                      } else if (cv.includes('1/8')) {
+                        setTurretType('1/8_moa');
+                      } else {
+                        setTurretType('1/4_moa');
+                      }
+                      if (o.zeroDistance && !initialDist) {
+                        setDistanceYards(String(o.zeroDistance));
+                      }
+                    }}
+                  >
+                    <Text style={[styles.distChipText, selectedOpticId === o.id && styles.distChipTextActive]}>
+                      {o.name || `${o.manufacturer} ${o.model}`} ({o.clickValue})
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Turret Format Selector */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -793,13 +890,44 @@ export default function GroupingCalculatorScreen() {
             </View>
           )}
 
-          {/* Action Button */}
-          <Pressable style={styles.actionBtnPrimary} onPress={handleApplyResults}>
-            <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.actionBtnText}>Attach Group Analysis to Range Session</Text>
-          </Pressable>
+          {/* Action Buttons */}
+          <View style={{ gap: 10, marginTop: 16 }}>
+            <Pressable style={styles.actionBtnPrimary} onPress={handleApplyResults}>
+              <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.actionBtnText}>Attach Group Analysis to Range Session</Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.actionBtnPrimary,
+                { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1, borderColor: '#38bdf8' },
+              ]}
+              onPress={handleSyncToVault}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color="#38bdf8" style={{ marginRight: 6 }} />
+              <Text style={[styles.actionBtnText, { color: '#38bdf8' }]}>Queue Target Analysis to Desktop Vault</Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.actionBtnPrimary,
+                { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: '#22c55e' },
+              ]}
+              onPress={() => setShowReticleModal(true)}
+            >
+              <Ionicons name="scan-outline" size={18} color="#22c55e" style={{ marginRight: 6 }} />
+              <Text style={[styles.actionBtnText, { color: '#22c55e' }]}>View Interactive Reticle Holdover HUD</Text>
+            </Pressable>
+          </View>
         </View>
       )}
+
+      {/* Reticle Holdover HUD Modal */}
+      <ReticleHoldoverModal
+        visible={showReticleModal}
+        onClose={() => setShowReticleModal(false)}
+        initialDistance={Number(distanceYards) || 300}
+      />
     </ScrollView>
   );
 }
