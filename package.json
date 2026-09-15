@@ -13,6 +13,7 @@
     "expo-audio": "~57.0.5",
     "expo-build-properties": "~57.0.17",
     "expo-camera": "~57.0.5",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.11",
     "expo-file-system": "~57.0.4",
     "expo-font": "~57.0.1",
@@ -69,7 +70,8 @@
         "react",
         "react-native-svg",
         "hermes-compiler",
-        "typescript"
+        "typescript",
+        "react-native-worklets"
       ]
     }
   },

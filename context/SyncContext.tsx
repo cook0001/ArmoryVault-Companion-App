@@ -2,9 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useDialog } from './DialogContext';
-import type { SyncQueueItem, StorageLocation, DashboardStats, OpticItem } from '../types';
+import type {
+  SyncQueueItem,
+  StorageLocation,
+  DashboardStats,
+  OpticItem,
+  ReloadingRecipe,
+  ShootingRangeItem,
+} from '../types';
 
-export type { DashboardStats, OpticItem } from '../types';
+export type { DashboardStats, OpticItem, ReloadingRecipe, ShootingRangeItem } from '../types';
 
 interface SyncContextType {
   syncedIp: string | null;
@@ -21,6 +28,10 @@ interface SyncContextType {
   dashboardStats: DashboardStats | null;
   storageLocations: StorageLocation[];
   optics: OpticItem[];
+  installedModules: string[];
+  reloadingRecipes: ReloadingRecipe[];
+  savedRanges: ShootingRangeItem[];
+  isModuleInstalled: (moduleId: string) => boolean;
   
   // Actions
   loadStatus: () => Promise<void>;
@@ -32,7 +43,13 @@ interface SyncContextType {
   refreshCache: (silent?: boolean) => Promise<boolean>;
   remoteLockVault: () => Promise<boolean>;
   setAutoSyncEnabled: (enabled: boolean) => Promise<void>;
-  setServerIp: (ip: string | null, explicitToken?: string) => Promise<void>;
+  setServerIp: (
+    ip: string | null,
+    explicitToken?: string,
+    fallbackIps?: string[],
+    hostname?: string
+  ) => Promise<void>;
+  attemptAutoReconnect: () => Promise<string | null>;
 }
 
 const SyncContext = createContext<SyncContextType | null>(null);
@@ -62,8 +79,130 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [optics, setOptics] = useState<OpticItem[]>([]);
 
+  // Module state & tooling (empty by default when paired; standalone mode allows all modules)
+  const DEFAULT_MODULES: string[] = [];
+  const [installedModules, setInstalledModules] = useState<string[]>(DEFAULT_MODULES);
+  const [reloadingRecipes, setReloadingRecipes] = useState<ReloadingRecipe[]>([]);
+  const [savedRanges, setSavedRanges] = useState<ShootingRangeItem[]>([]);
+
   // Pairing token for authenticated API calls
   const pairingTokenRef = useRef<string | null>(null);
+
+  // Helper to check if a module is installed
+  const isModuleInstalled = useCallback(
+    (moduleId: string): boolean => {
+      // If standalone/unpaired, all modules are fully operational offline
+      if (!syncedIpRef.current) return true;
+      return installedModules.includes(moduleId);
+    },
+    [installedModules]
+  );
+
+  // Auto-healing auto-reconnect logic
+  const attemptAutoReconnect = useCallback(async (): Promise<string | null> => {
+    try {
+      // 1. Try local mDNS hostname
+      const hostname = await AsyncStorage.getItem('hostname_local');
+      if (hostname) {
+        const cleanHost = hostname.replace(/\.local$/i, '');
+        const hostUrl = `http://${cleanHost}.local:3456`;
+        try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 2000);
+          const res = await fetch(`${hostUrl}/api/ping`, { signal: controller.signal });
+          clearTimeout(tid);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'ok') {
+              console.log('[Auto-Healing] Reconnected via mDNS:', hostUrl);
+              await AsyncStorage.setItem('server_ip', hostUrl);
+              setSyncedIpState(hostUrl);
+              syncedIpRef.current = hostUrl;
+              setIsOnline(true);
+              isOnlineRef.current = true;
+              return hostUrl;
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Try stored fallback IPs
+      const fallbacksStr = await AsyncStorage.getItem('fallback_ips');
+      if (fallbacksStr) {
+        try {
+          const ips: string[] = JSON.parse(fallbacksStr);
+          for (const cand of ips) {
+            const candUrl = `http://${cand}:3456`;
+            try {
+              const controller = new AbortController();
+              const tid = setTimeout(() => controller.abort(), 1500);
+              const res = await fetch(`${candUrl}/api/ping`, { signal: controller.signal });
+              clearTimeout(tid);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'ok') {
+                  console.log('[Auto-Healing] Reconnected via Fallback IP:', candUrl);
+                  await AsyncStorage.setItem('server_ip', candUrl);
+                  setSyncedIpState(candUrl);
+                  syncedIpRef.current = candUrl;
+                  setIsOnline(true);
+                  isOnlineRef.current = true;
+                  return candUrl;
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+
+      // 3. Fast opportunistic local subnet scan around previous IP
+      const lastIp = syncedIpRef.current || (await AsyncStorage.getItem('server_ip'));
+      if (lastIp) {
+        const match = lastIp.match(/http:\/\/(\d+\.\d+\.\d+)\.(\d+):(\d+)/);
+        if (match) {
+          const prefix = match[1];
+          const hostNum = parseInt(match[2], 10);
+          const port = match[3] || '3456';
+
+          const offsets = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 10, -10];
+          const probePromises = offsets.map(async (offset) => {
+            const targetNum = hostNum + offset;
+            if (targetNum > 1 && targetNum < 255) {
+              const probeUrl = `http://${prefix}.${targetNum}:${port}`;
+              try {
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 600);
+                const res = await fetch(`${probeUrl}/api/ping`, { signal: controller.signal });
+                clearTimeout(tid);
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.status === 'ok') {
+                    return probeUrl;
+                  }
+                }
+              } catch {}
+            }
+            return null;
+          });
+
+          const results = await Promise.all(probePromises);
+          const found = results.find((r) => r !== null);
+          if (found) {
+            console.log('[Auto-Healing] Reconnected via Subnet Probe:', found);
+            await AsyncStorage.setItem('server_ip', found);
+            setSyncedIpState(found);
+            syncedIpRef.current = found;
+            setIsOnline(true);
+            isOnlineRef.current = true;
+            return found;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Auto-healing reconnect error:', e);
+    }
+    return null;
+  }, []);
 
   // Helper to build auth headers for all authenticated API calls
   const getAuthHeaders = useCallback((extra?: Record<string, string>) => {
@@ -127,7 +266,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showError('Lock Failed', 'Could not reach desktop server to execute remote lock.');
       return false;
     }
-  }, [showSuccess, showError]);
+  }, [showSuccess, showError, getAuthHeaders]);
 
   // Load Status from Storage & Server
   const loadStatus = useCallback(async () => {
@@ -184,6 +323,27 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch {}
       }
 
+      const cachedModules = await AsyncStorage.getItem('@installed_modules');
+      if (cachedModules) {
+        try {
+          setInstalledModules(JSON.parse(cachedModules));
+        } catch {}
+      }
+
+      const cachedRecipes = await AsyncStorage.getItem('reloading_recipes_cache');
+      if (cachedRecipes) {
+        try {
+          setReloadingRecipes(JSON.parse(cachedRecipes));
+        } catch {}
+      }
+
+      const cachedRanges = await AsyncStorage.getItem('saved_ranges_cache');
+      if (cachedRanges) {
+        try {
+          setSavedRanges(JSON.parse(cachedRanges));
+        } catch {}
+      }
+
       const syncTime = await AsyncStorage.getItem('last_sync_time');
       if (syncTime) setLastSyncTime(syncTime);
 
@@ -202,6 +362,11 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isOnlineRef.current = true;
             if (data.device) setDesktopDevice(data.device);
 
+            if (Array.isArray(data.installedModules)) {
+              setInstalledModules(data.installedModules);
+              AsyncStorage.setItem('@installed_modules', JSON.stringify(data.installedModules));
+            }
+
             const locked = Boolean(data.isLocked);
             setIsVaultLocked(locked);
             isVaultLockedRef.current = locked;
@@ -209,41 +374,78 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!locked) {
               // Fetch summary stats
               fetch(`${ip}/api/inventory/summary`, { headers: getAuthHeaders() })
-                .then(async res => {
+                .then(async (res) => {
                   if (!res.ok) return null;
                   const text = await res.text();
-                  try { return JSON.parse(text); } catch { return null; }
+                  try {
+                    return JSON.parse(text);
+                  } catch {
+                    return null;
+                  }
                 })
-                .then(data => {
+                .then((data) => {
                   if (data && data.success && !data.isLocked) {
-                    const stats: DashboardStats = { firearms: data.firearms, ammo: data.ammo, components: data.components };
+                    const stats: DashboardStats = {
+                      firearms: data.firearms,
+                      ammo: data.ammo,
+                      components: data.components,
+                    };
                     setDashboardStats(stats);
                     AsyncStorage.setItem('dashboard_cache', JSON.stringify(stats));
+                    if (Array.isArray(data.installedModules)) {
+                      setInstalledModules(data.installedModules);
+                      AsyncStorage.setItem('@installed_modules', JSON.stringify(data.installedModules));
+                    }
                   }
                 })
                 .catch(() => {});
 
               // Fetch inventory cache
               fetch(`${ip}/api/inventory/cache`, { headers: getAuthHeaders() })
-                .then(async res => {
+                .then(async (res) => {
                   if (!res.ok) return null;
                   const text = await res.text();
-                  try { return JSON.parse(text); } catch { return null; }
+                  try {
+                    return JSON.parse(text);
+                  } catch {
+                    return null;
+                  }
                 })
-                .then(data => {
+                .then((data) => {
                   if (data && data.success && !data.isLocked) {
                     AsyncStorage.setItem('inventory_cache', JSON.stringify(data));
-                    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const now = new Date().toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
                     setLastCacheTime(now);
                     AsyncStorage.setItem('inventory_cache_time', now);
 
                     const skuCount = data.skus ? Object.keys(data.skus).length : 0;
-                    setDashboardStats(prev => ({
+                    setDashboardStats((prev) => ({
                       firearms: data.firearms?.length || prev?.firearms || 0,
-                      ammo: (data.ammo || []).reduce((sum: number, a: any) => sum + (Number(a.count) || 0), 0),
+                      ammo: (data.ammo || []).reduce(
+                        (sum: number, a: any) => sum + (Number(a.count) || 0),
+                        0
+                      ),
                       components: data.components?.length || prev?.components || 0,
-                      skus: skuCount
+                      skus: skuCount,
                     }));
+
+                    if (Array.isArray(data.installedModules)) {
+                      setInstalledModules(data.installedModules);
+                      AsyncStorage.setItem('@installed_modules', JSON.stringify(data.installedModules));
+                    }
+
+                    if (Array.isArray(data.reloadingRecipes)) {
+                      setReloadingRecipes(data.reloadingRecipes);
+                      AsyncStorage.setItem('reloading_recipes_cache', JSON.stringify(data.reloadingRecipes));
+                    }
+
+                    if (Array.isArray(data.savedRanges)) {
+                      setSavedRanges(data.savedRanges);
+                      AsyncStorage.setItem('saved_ranges_cache', JSON.stringify(data.savedRanges));
+                    }
 
                     if (data.optics) {
                       setOptics(data.optics);
@@ -252,14 +454,20 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     if (data.storageLocations) {
                       setStorageLocations(data.storageLocations);
-                      AsyncStorage.setItem('storage_locations_cache', JSON.stringify(data.storageLocations));
+                      AsyncStorage.setItem(
+                        'storage_locations_cache',
+                        JSON.stringify(data.storageLocations)
+                      );
                     } else if (ip) {
                       fetch(`${ip}/api/storage-locations`, { headers: getAuthHeaders() })
-                        .then(r => r.json())
-                        .then(sData => {
+                        .then((r) => r.json())
+                        .then((sData) => {
                           if (sData && sData.locations) {
                             setStorageLocations(sData.locations);
-                            AsyncStorage.setItem('storage_locations_cache', JSON.stringify(sData.locations));
+                            AsyncStorage.setItem(
+                              'storage_locations_cache',
+                              JSON.stringify(sData.locations)
+                            );
                           }
                         })
                         .catch(() => {});
@@ -274,12 +482,18 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
+            const reconnected = await attemptAutoReconnect();
+            if (!reconnected) {
+              setIsOnline(false);
+              isOnlineRef.current = false;
+            }
+          }
+        } catch {
+          const reconnected = await attemptAutoReconnect();
+          if (!reconnected) {
             setIsOnline(false);
             isOnlineRef.current = false;
           }
-        } catch {
-          setIsOnline(false);
-          isOnlineRef.current = false;
         }
       } else {
         setIsOnline(false);
@@ -288,7 +502,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('SyncContext loadStatus error:', e);
     }
-  }, []);
+  }, [attemptAutoReconnect, getAuthHeaders]);
 
   // Internal Sync Worker Function
   const triggerSyncInternal = async (
@@ -558,6 +772,21 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             skus: skuCount
           });
 
+          if (Array.isArray(data.installedModules)) {
+            setInstalledModules(data.installedModules);
+            await AsyncStorage.setItem('@installed_modules', JSON.stringify(data.installedModules));
+          }
+
+          if (Array.isArray(data.reloadingRecipes)) {
+            setReloadingRecipes(data.reloadingRecipes);
+            await AsyncStorage.setItem('reloading_recipes_cache', JSON.stringify(data.reloadingRecipes));
+          }
+
+          if (Array.isArray(data.savedRanges)) {
+            setSavedRanges(data.savedRanges);
+            await AsyncStorage.setItem('saved_ranges_cache', JSON.stringify(data.savedRanges));
+          }
+
           if (data.optics) {
             setOptics(data.optics);
             await AsyncStorage.setItem('optics_cache', JSON.stringify(data.optics));
@@ -608,57 +837,79 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [offlineQueue]);
 
-  // Set Server IP Address and initiate pairing
-  const setServerIp = useCallback(async (ip: string | null, explicitToken?: string) => {
-    if (ip) {
-      await AsyncStorage.setItem('server_ip', ip);
-      setSyncedIpState(ip);
-      syncedIpRef.current = ip;
+  // Set Server IP Address and initiate pairing with fallback resilience
+  const setServerIp = useCallback(
+    async (
+      ip: string | null,
+      explicitToken?: string,
+      fallbackIps?: string[],
+      hostname?: string
+    ) => {
+      if (ip) {
+        await AsyncStorage.setItem('server_ip', ip);
+        setSyncedIpState(ip);
+        syncedIpRef.current = ip;
 
-      if (explicitToken) {
-        pairingTokenRef.current = explicitToken;
-        await AsyncStorage.setItem('pairing_token', explicitToken);
-      }
-
-      // Attempt to pair and obtain auth token
-      try {
-        const pairHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-        const activeToken = explicitToken || (await AsyncStorage.getItem('pairing_token'));
-        if (activeToken) {
-          pairHeaders['Authorization'] = `Bearer ${activeToken}`;
+        if (explicitToken) {
+          pairingTokenRef.current = explicitToken;
+          await AsyncStorage.setItem('pairing_token', explicitToken);
         }
 
-        const pairRes = await fetch(`${ip}/api/pair`, {
-          method: 'POST',
-          headers: pairHeaders,
-          body: JSON.stringify({ deviceName: 'Mobile Companion' }),
-        });
+        if (Array.isArray(fallbackIps) && fallbackIps.length > 0) {
+          await AsyncStorage.setItem('fallback_ips', JSON.stringify(fallbackIps));
+        }
 
-        if (pairRes.ok) {
-          const pairData = await pairRes.json();
-          if (pairData.pairingToken) {
-            pairingTokenRef.current = pairData.pairingToken;
-            await AsyncStorage.setItem('pairing_token', pairData.pairingToken);
+        if (hostname) {
+          await AsyncStorage.setItem('hostname_local', hostname);
+        }
+
+        // Attempt to pair and obtain auth token
+        try {
+          const pairHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          const activeToken = explicitToken || (await AsyncStorage.getItem('pairing_token'));
+          if (activeToken) {
+            pairHeaders['Authorization'] = `Bearer ${activeToken}`;
           }
-        }
-      } catch (e) {
-        console.warn('Pairing token exchange failed:', e);
-      }
 
-      loadStatus();
-    } else {
-      await AsyncStorage.removeItem('server_ip');
-      await AsyncStorage.removeItem('pairing_token');
-      pairingTokenRef.current = null;
-      setSyncedIpState(null);
-      syncedIpRef.current = null;
-      setIsOnline(false);
-      isOnlineRef.current = false;
-      setIsVaultLocked(null);
-      isVaultLockedRef.current = null;
-      setDesktopDevice(null);
-    }
-  }, [loadStatus]);
+          const pairRes = await fetch(`${ip}/api/pair`, {
+            method: 'POST',
+            headers: pairHeaders,
+            body: JSON.stringify({ deviceName: 'Mobile Companion' }),
+          });
+
+          if (pairRes.ok) {
+            const pairData = await pairRes.json();
+            if (pairData.pairingToken) {
+              pairingTokenRef.current = pairData.pairingToken;
+              await AsyncStorage.setItem('pairing_token', pairData.pairingToken);
+            }
+            if (Array.isArray(pairData.installedModules)) {
+              setInstalledModules(pairData.installedModules);
+              await AsyncStorage.setItem('@installed_modules', JSON.stringify(pairData.installedModules));
+            }
+          }
+        } catch (e) {
+          console.warn('Pairing token exchange failed:', e);
+        }
+
+        loadStatus();
+      } else {
+        await AsyncStorage.removeItem('server_ip');
+        await AsyncStorage.removeItem('pairing_token');
+        await AsyncStorage.removeItem('fallback_ips');
+        await AsyncStorage.removeItem('hostname_local');
+        pairingTokenRef.current = null;
+        setSyncedIpState(null);
+        syncedIpRef.current = null;
+        setIsOnline(false);
+        isOnlineRef.current = false;
+        setIsVaultLocked(null);
+        isVaultLockedRef.current = null;
+        setDesktopDevice(null);
+      }
+    },
+    [loadStatus]
+  );
 
   // Startup initialization and periodic heartbeat (every 18 seconds)
   useEffect(() => {
@@ -668,12 +919,17 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentIp = syncedIpRef.current;
       if (currentIp) {
         fetch(`${currentIp}/api/ping`)
-          .then(async res => {
+          .then(async (res) => {
             if (res.ok) {
               const data = await res.json();
               setIsOnline(true);
               isOnlineRef.current = true;
               if (data.device) setDesktopDevice(data.device);
+
+              if (Array.isArray(data.installedModules)) {
+                setInstalledModules(data.installedModules);
+                AsyncStorage.setItem('@installed_modules', JSON.stringify(data.installedModules));
+              }
 
               const locked = Boolean(data.isLocked);
               const wasLocked = isVaultLockedRef.current;
@@ -692,19 +948,27 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 triggerSyncInternal(currentIp, q, false);
               }
             } else {
-              setIsOnline(false);
-              isOnlineRef.current = false;
+              attemptAutoReconnect().then((reconnected) => {
+                if (!reconnected) {
+                  setIsOnline(false);
+                  isOnlineRef.current = false;
+                }
+              });
             }
           })
           .catch(() => {
-            setIsOnline(false);
-            isOnlineRef.current = false;
+            attemptAutoReconnect().then((reconnected) => {
+              if (!reconnected) {
+                setIsOnline(false);
+                isOnlineRef.current = false;
+              }
+            });
           });
       }
     }, 18000);
 
     return () => clearInterval(interval);
-  }, [loadStatus, refreshCache]);
+  }, [loadStatus, refreshCache, attemptAutoReconnect]);
 
   return (
     <SyncContext.Provider
@@ -723,6 +987,10 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dashboardStats,
         storageLocations,
         optics,
+        installedModules,
+        reloadingRecipes,
+        savedRanges,
+        isModuleInstalled,
         loadStatus,
         triggerSync,
         addToQueue,
@@ -733,6 +1001,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         remoteLockVault,
         setAutoSyncEnabled,
         setServerIp,
+        attemptAutoReconnect,
       }}
     >
       {children}

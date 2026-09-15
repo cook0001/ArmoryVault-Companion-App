@@ -227,6 +227,8 @@ export default function ScannerScreen() {
         let port: string | null = '3456';
         let token: string | null = null;
 
+        let fallbacks: string[] = [];
+        let host: string | null = null;
         try {
           // Normalize custom scheme to standard HTTP for universal WHATWG URL parsing
           const httpUrlStr = cleanData.replace(/^armoryvault:\/\/(sync|pair)\??/i, 'http://dummy.local/?');
@@ -234,19 +236,32 @@ export default function ScannerScreen() {
           ip = parsedUrl.searchParams.get('ip') || (parsedUrl.hostname !== 'dummy.local' ? parsedUrl.hostname : null);
           port = parsedUrl.searchParams.get('port') || parsedUrl.port || '3456';
           token = parsedUrl.searchParams.get('token');
+          const fallbacksParam = parsedUrl.searchParams.get('fallbacks');
+          if (fallbacksParam) {
+            fallbacks = fallbacksParam.split(',').map((s) => s.trim()).filter(Boolean);
+          }
+          host = parsedUrl.searchParams.get('host');
         } catch (e) {
           // Robust regex fallback
           const ipMatch = cleanData.match(/(?:ip=|\/\/)(1\d{2}\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|localhost|127\.0\.0\.1)/i);
           const portMatch = cleanData.match(/port=(\d+)|:(\d{4,5})/i);
           const tokenMatch = cleanData.match(/token=([a-zA-Z0-9_-]+)/i);
+          const fallbacksMatch = cleanData.match(/fallbacks=([^&]+)/i);
+          const hostMatch = cleanData.match(/host=([^&]+)/i);
           ip = ipMatch ? ipMatch[1] : null;
           port = portMatch ? (portMatch[1] || portMatch[2]) : '3456';
           token = tokenMatch ? tokenMatch[1] : null;
+          if (fallbacksMatch) {
+            fallbacks = decodeURIComponent(fallbacksMatch[1]).split(',').map((s) => s.trim()).filter(Boolean);
+          }
+          if (hostMatch) {
+            host = decodeURIComponent(hostMatch[1]);
+          }
         }
 
         if (ip) {
           const finalUrl = `http://${ip}:${port || '3456'}`;
-          await setServerIp(finalUrl, token || undefined);
+          await setServerIp(finalUrl, token || undefined, fallbacks, host || undefined);
           showSuccess('Paired with Desktop', `Successfully connected to ${ip}:${port || '3456'}`);
           router.replace('/');
           return;

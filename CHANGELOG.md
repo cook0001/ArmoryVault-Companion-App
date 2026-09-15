@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+### Added & Enhanced
+- **5-Layer Auto-Healing LAN Pairing & Subnet Discovery (`context/SyncContext.tsx`, `app/scanner.tsx`)**:
+  - Implemented multi-candidate LAN pairing parser capable of consuming primary LAN IP, fallback candidate IPs, and mDNS local hostnames (`<hostname>.local:3456`) from desktop QR codes.
+  - Added proactive 4-tier reconnection engine in `SyncContext`: first attempts connection via local mDNS hostname, falls back through alternate physical NIC IPs, and executes an opportunistic `/24` subnet discovery sweep around the last-known router subnet when IP changes occur due to dynamic DHCP renewal.
+  - Integrated 256-bit bearer token authorization across all synchronization endpoints with zero user re-pairing interruptions.
+- **Universal Mobile Module Ecosystem & Dynamic Desktop Module Detection (`context/SyncContext.tsx`, `app/index.tsx`, `app/_layout.tsx`)**:
+  - Added dynamic `installedModules` state in `SyncContext`, continuously syncing with desktop reports over `/api/ping`, `/api/pair`, `/api/inventory/summary`, and `/api/inventory/cache`.
+  - Initialized paired `DEFAULT_MODULES` state to empty `[]`, ensuring that paired mobile clients accurately reflect desktops with zero installed modules without stale or presumptive full-installation defaults.
+  - Added dedicated **Armory Modules** section to Companion Home Dashboard displaying all 8 desktop extension modules with real-time desktop installation status tags.
+  - All 8 modules remain 100% functional in offline/air-gapped mode, utilizing cached data and queuing payloads back to desktop for approval.
+- **Dedicated Mobile Module Screens & Two-Way Sync Payloads**:
+  - **FFL / C&R Electronic Bound Book (`app/boundbook.tsx`)**: Acquisition & disposition ledger, filterable by status, with integrated "Transfer / Dispose" bill-of-sale modal queuing structured `bill_of_sale_transfer` sync items to Desktop.
+  - **Armorer Maintenance Command Center (`app/maintenance.tsx`)**: Firearm round wear telemetry bars, service intervals, and "Log Armorer Service" modal queuing `firearm_maintenance` sync items.
+  - **NFA Tax Stamp & Compliance Vault (`app/nfa.tsx`)**: NFA registry for suppressors, SBRs, SBSs, and machine guns with 1-tap clipboard copy for RSO inspections.
+  - **Optics & Turret Zero Hub (`app/optics.tsx`)**: Optical registry with magnification, reticles, click units, and "Confirm / Adjust Zero" modal queuing `optic_zero_update` sync items.
+  - **Shooting Range Facility Finder (`app/ranges.tsx`)**: Directory of shooting facilities with 1-tap turn-by-turn directions, phone calling, and "Start Range Session Here" launcher.
+  - **Reloading Bench & Batch Load Calculator (`app/reloading.tsx`)**: Component balances (powder lbs/grains, primers, bullets, brass), low stock alerts, quick stock adjustments, and "Manufacture Batch" calculator queuing `component_adjustment` and `ammo_adjustment` sync items.
+  - **Label Studio & QR Tag Generator (`app/labels.tsx`)**: High-contrast printable labels for ammo cans, storage lockers, and firearms with continuous 62mm and 3"x2" presets, AirPrint integration (`expo-print`), and PDF export (`expo-sharing`).
+- **Custom Vector SVG Component Icons (`app/components/CustomMobileIcons.tsx`)**:
+  - Added custom vector SVG components: `BoundBookIcon`, `MaintenanceWrenchIcon`, `NfaTaxStampIcon`, `RangeTargetIcon`, `ReloadingScaleIcon`, `LabelPrinterIcon`, `BulletProjectileIcon`, and `BrassCaseIcon` maintaining strict zero-emoji UI standards (Rule 7).
+
 ## [2.7.12] - 2026-09-13
 ### Added & Enhanced
 - **Proactive Maintenance Wear Alerts in Mobile Rapid Scanner & Range Logger (`app/components/RapidAmmoDepleteModal.tsx`, `app/range/index.tsx`)**:

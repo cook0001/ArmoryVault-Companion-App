@@ -10,27 +10,44 @@ export interface Firearm {
   model: string;
   serial_number: string;
   caliber: string;
+  type?: string;
   barrel_length?: string;
   action_type?: string;
+  action?: string;
   finish?: string;
   notes?: string;
   purchase_price: number | null;
   purchase_date: string;
+  purchase_location?: string;
   condition: string;
   image_path: string;
   photos?: string[];
   maintenance_schedules?: MaintenanceScheduleItem[];
+  // ATF Bound Book acquisition & disposition fields
+  acquire_date?: string;
+  acquired_from_name?: string;
+  acquired_from_address?: string;
+  acquired_from_ffl?: string;
+  acquire_license_type?: string;
   is_sold: boolean;
   sold_date?: string;
   sold_to_name?: string;
+  sold_to_address?: string;
+  sold_to_ffl?: string;
   sold_price?: number | null;
   sale_notes?: string;
+  // NFA compliance fields
+  is_nfa?: boolean;
+  nfa_type?: string;
+  nfa_tax_stamp_number?: string;
+  nfa_trust_name?: string;
+  nfa_form_type?: string;
+  nfa_approval_date?: string;
   documents?: { name: string; path: string; date_added?: string; transferId?: string }[];
   logs?: MaintenanceLog[];
   storageLocationId?: number;
-  is_nfa?: boolean;
-  nfa_type?: string;
   round_count?: number;
+  total_rounds?: number;
 }
 
 export interface Ammo {
@@ -257,4 +274,136 @@ export interface RangeSessionSyncItem extends SyncQueueItem {
     shots?: number[];
   };
   optic_name?: string;
+}
+
+export type ModuleId =
+  | 'ballistics'
+  | 'boundbook'
+  | 'labels'
+  | 'maintenance'
+  | 'nfa'
+  | 'optics'
+  | 'ranges'
+  | 'reloading';
+
+export interface BoundBookRecord {
+  id?: number;
+  firearm_id?: number;
+  make: string;
+  model: string;
+  serial_number: string;
+  caliber: string;
+  type?: string;
+  action?: string;
+  acquire_date: string;
+  acquired_from_name: string;
+  acquired_from_address?: string;
+  acquired_from_ffl?: string;
+  acquire_license_type?: string;
+  is_sold: boolean;
+  sold_date?: string;
+  sold_to_name?: string;
+  sold_to_address?: string;
+  sold_to_ffl?: string;
+  sold_price?: number | null;
+  sale_notes?: string;
+}
+
+export interface NfaRecord {
+  id: string | number;
+  firearm_id?: number;
+  type: 'Suppressor' | 'SBR' | 'SBS' | 'AOW' | 'Machine Gun' | 'Destructive Device' | string;
+  make: string;
+  model: string;
+  serial_number: string;
+  caliber?: string;
+  form_type?: 'Form 1' | 'Form 4' | 'Form 20' | 'Form 5320.20' | string;
+  tax_stamp_number?: string;
+  trust_name?: string;
+  approval_date?: string;
+  submission_date?: string;
+  cleo_name?: string;
+  notes?: string;
+  status?: 'Approved' | 'Pending' | 'Draft' | string;
+}
+
+export interface ShootingRangeItem {
+  id: number;
+  name: string;
+  trade_name?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+  lane_fee?: number | null;
+  fee_type?: string;
+  amenities?: string;
+  is_public?: number | boolean;
+  distance_miles?: number;
+  latitude?: number;
+  longitude?: number;
+  is_bookmarked?: boolean;
+}
+
+export interface ReloadingRecipe {
+  id: string | number;
+  name: string;
+  caliber: string;
+  bullet_id?: number;
+  bullet_name?: string;
+  grain?: number;
+  powder_id?: number;
+  powder_name?: string;
+  powder_charge?: number;
+  primer_id?: number;
+  primer_name?: string;
+  brass_id?: number;
+  brass_name?: string;
+  ccl_oal?: number;
+  target_fps?: number;
+  notes?: string;
+  date_created?: string;
+}
+
+export interface FirearmMaintenanceSyncItem extends SyncQueueItem {
+  type: 'firearm_maintenance';
+  firearm_id: number;
+  date: string;
+  task_name: string;
+  service_type: 'Cleaning' | 'Inspection' | 'Parts Replacement' | 'Repair' | 'Other';
+  rounds_at_service: number;
+  cost?: number;
+  parts_replaced?: string;
+  notes?: string;
+}
+
+export interface OpticZeroUpdateSyncItem extends SyncQueueItem {
+  type: 'optic_zero_update';
+  optic_id?: string;
+  firearm_id?: number;
+  zero_distance: number;
+  click_unit: string;
+  date: string;
+  notes?: string;
+}
+
+export interface ComponentAdjustmentSyncItem extends SyncQueueItem {
+  type: 'component_adjustment';
+  upcOrId?: string;
+  component_id?: number;
+  count: number;
+  action: 'add' | 'remove';
+  measurement?: 'rds' | 'lbs' | 'brick' | 'grains' | string;
+  notes?: string;
+}
+
+export interface AmmoAdjustmentSyncItem extends SyncQueueItem {
+  type: 'ammo_adjustment';
+  upcOrId?: string;
+  ammo_id?: number;
+  count: number;
+  action: 'add' | 'remove';
+  measurement?: 'rds' | string;
+  notes?: string;
 }

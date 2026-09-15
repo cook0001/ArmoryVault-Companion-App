@@ -139,6 +139,13 @@ function RootLayoutContent() {
         <Stack.Screen name="range/grouping-calculator" options={{ title: 'Group Analyzer', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="range/ballistics" options={{ title: 'Ballistics Calculator', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
         <Stack.Screen name="range/checklist" options={{ title: 'Range Checklist', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="boundbook" options={{ title: 'FFL / C&R Bound Book', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="maintenance" options={{ title: 'Armorer Maintenance', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="nfa" options={{ title: 'NFA Tax Stamp Vault', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="optics" options={{ title: 'Optics & Zero Vault', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="ranges" options={{ title: 'Range Facilities', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="reloading" options={{ title: 'Reloading Workbench', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
+        <Stack.Screen name="labels" options={{ title: 'Label & QR Studio', headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#fff' }} />
       </Stack>
       <BottomTabBar />
       {(!isUnlocked && hasAuthHardware) && (

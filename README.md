@@ -12,6 +12,8 @@ The official companion app for ArmoryVault, built with React Native and Expo.
 This mobile application connects securely over your local Wi-Fi to the ArmoryVault Desktop Electron app.
 
 ## Features
+- **Auto-Healing LAN Pairing & Subnet Discovery:** Multi-candidate LAN pairing parser (mDNS `<hostname>.local:3456`, multi-NIC IPs, `/24` subnet scan) and 256-bit bearer tokens.
+- **Universal Mobile Module Ecosystem:** Dedicated mobile screens for desktop modules (FFL Bound Book, Maintenance Command Center, NFA Compliance, Optics Zero, Range Finder, Reloading Bench, Label Studio) with 100% offline functionality and two-way sync queues.
 - **Automatic Background Sync:** Transmits pending range sessions, scans, and inventory audits automatically when connected to your desktop over Wi-Fi.
 - **Standardized Multi-Angle Firearm Studio:** 4-slot guided photo studio (Left Profile, Right Profile, Rollmark & Serial, Proofs & Bore) ensuring professional condition documentation.
 - **Mobile Rapid Barcode & QR Ammo Depletion:** Real-time optical scanner reading commercial UPCs, ArmoryVault QR codes, and custom SKUs with quick decrement presets, caliber-aware firearm dispatch, and live stock updates.

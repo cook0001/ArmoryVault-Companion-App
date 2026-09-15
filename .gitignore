@@ -35,3 +35,8 @@ npm-debug.*
 web-build/
 yarn-debug.*
 yarn-error.*
+
+# AI Agent rules & configurations
+agents.md
+AGENTS.md
+.agents/

@@ -9,6 +9,13 @@ import {
   CartridgesIcon,
   GunpowderIcon,
   SafeIcon,
+  BoundBookIcon,
+  MaintenanceWrenchIcon,
+  NfaTaxStampIcon,
+  RangeTargetIcon,
+  ReloadingScaleIcon,
+  LabelPrinterIcon,
+  ScopeIcon,
 } from './components/CustomMobileIcons';
 import { useSync } from '../context/SyncContext';
 
@@ -30,6 +37,7 @@ export default function Home() {
     loadStatus,
     refreshCache,
     remoteLockVault,
+    isModuleInstalled,
   } = useSync();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -272,6 +280,170 @@ export default function Home() {
           <Text style={styles.gridCardSub}>
             {offlineQueueCount === 0 ? '0 Pending Items' : `${offlineQueueCount} Pending ${offlineQueueCount === 1 ? 'Item' : 'Items'}`}
           </Text>
+        </Pressable>
+      </View>
+
+      {/* 5. Armory Modules Section */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeader}>Armory Modules</Text>
+        {syncedIp && (
+          <View style={styles.moduleSyncBadge}>
+            <Ionicons name="desktop-outline" size={12} color="#34d399" />
+            <Text style={styles.moduleSyncBadgeText}>Desktop Linked</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.gridContainer}>
+        {/* Bound Book */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('boundbook') && styles.gridCardDisabled]}
+          onPress={() => router.push('/boundbook')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+            <BoundBookIcon size={24} color="#60a5fa" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Bound Book</Text>
+            {!isModuleInstalled('boundbook') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>ATF Acquisition & Ledger</Text>
+        </Pressable>
+
+        {/* Maintenance Hub */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('maintenance') && styles.gridCardDisabled]}
+          onPress={() => router.push('/maintenance')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+            <MaintenanceWrenchIcon size={24} color="#f59e0b" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Maintenance</Text>
+            {!isModuleInstalled('maintenance') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Round Wear & Service</Text>
+        </Pressable>
+
+        {/* NFA Compliance */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('nfa') && styles.gridCardDisabled]}
+          onPress={() => router.push('/nfa')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
+            <NfaTaxStampIcon size={24} color="#c084fc" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>NFA Vault</Text>
+            {!isModuleInstalled('nfa') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Tax Stamps & Forms</Text>
+        </Pressable>
+
+        {/* Optics & Zeroes */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('optics') && styles.gridCardDisabled]}
+          onPress={() => router.push('/optics')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(56, 189, 248, 0.2)' }]}>
+            <ScopeIcon size={24} color="#38bdf8" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Optics & Zero</Text>
+            {!isModuleInstalled('optics') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Turrets & Holdovers</Text>
+        </Pressable>
+
+        {/* Shooting Ranges */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('ranges') && styles.gridCardDisabled]}
+          onPress={() => router.push('/ranges')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+            <RangeTargetIcon size={24} color="#10b981" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Ranges</Text>
+            {!isModuleInstalled('ranges') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Facilities & Sessions</Text>
+        </Pressable>
+
+        {/* Reloading Bench */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('reloading') && styles.gridCardDisabled]}
+          onPress={() => router.push('/reloading')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(236, 72, 153, 0.2)' }]}>
+            <ReloadingScaleIcon size={24} color="#ec4899" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Reloading</Text>
+            {!isModuleInstalled('reloading') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Recipes & Batches</Text>
+        </Pressable>
+
+        {/* Label Studio */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('labels') && styles.gridCardDisabled]}
+          onPress={() => router.push('/labels')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(99, 102, 241, 0.2)' }]}>
+            <LabelPrinterIcon size={24} color="#818cf8" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Label Studio</Text>
+            {!isModuleInstalled('labels') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Ammo Cans & Tags</Text>
+        </Pressable>
+
+        {/* Ballistics DOPE */}
+        <Pressable
+          style={[styles.gridCard, !isModuleInstalled('ballistics') && styles.gridCardDisabled]}
+          onPress={() => router.push('/range/ballistics')}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+            <BallisticsTrajectoryIcon size={24} color="#ef4444" />
+          </View>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.gridCardTitle}>Ballistics</Text>
+            {!isModuleInstalled('ballistics') && (
+              <View style={styles.disabledBadge}>
+                <Text style={styles.disabledBadgeText}>Off</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.gridCardSub}>Atmospheric DOPE</Text>
         </Pressable>
       </View>
 
@@ -627,6 +799,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  moduleSyncBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(52, 211, 153, 0.1)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.25)',
+  },
+  moduleSyncBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#34d399',
+  },
+  gridCardDisabled: {
+    opacity: 0.7,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
+  disabledBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  disabledBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#f59e0b',
   },
   gridCardTitle: {
     fontSize: 15,

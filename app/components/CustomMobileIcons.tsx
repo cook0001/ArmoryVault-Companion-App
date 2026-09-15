@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Circle, Line, Path, Polygon, Rect, SvgProps } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polygon, Polyline, Rect, SvgProps } from 'react-native-svg';
 
 export interface MobileIconProps extends SvgProps {
   size?: number;
@@ -378,6 +378,208 @@ export const VehicleVaultIcon: React.FC<MobileIconProps> = ({
     <Circle cx="7.5" cy="16.5" r="1.5" />
     <Circle cx="16.5" cy="16.5" r="1.5" />
     <Circle cx="12" cy="14" r="1.5" />
+  </Svg>
+);
+
+/**
+ * Bound Book / ATF Ledger Icon
+ */
+export const BoundBookIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#38bdf8',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <Path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    <Line x1="8" y1="7" x2="16" y2="7" />
+    <Line x1="8" y1="11" x2="14" y2="11" />
+  </Svg>
+);
+
+/**
+ * Armorer Maintenance Wrench & Tool
+ */
+export const MaintenanceWrenchIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#f59e0b',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  </Svg>
+);
+
+/**
+ * NFA Tax Stamp & Compliance Badge
+ */
+export const NfaTaxStampIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#a855f7',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Rect x="4" y="3" width="16" height="18" rx="2" />
+    <Circle cx="12" cy="11" r="4" />
+    <Path d="M10 11l1.5 1.5L14 9.5" />
+    <Line x1="8" y1="17" x2="16" y2="17" />
+  </Svg>
+);
+
+/**
+ * Shooting Range Concentric Target
+ */
+export const RangeTargetIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#10b981',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Circle cx="12" cy="12" r="10" />
+    <Circle cx="12" cy="12" r="6" />
+    <Circle cx="12" cy="12" r="2" fill={color} />
+  </Svg>
+);
+
+/**
+ * Reloading Scale / Powder Workbench
+ */
+export const ReloadingScaleIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#ec4899',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Line x1="12" y1="3" x2="12" y2="21" />
+    <Line x1="4" y1="7" x2="20" y2="7" />
+    <Path d="M4 7l3 6h-6l3-6z" />
+    <Path d="M20 7l3 6h-6l3-6z" />
+    <Line x1="8" y1="21" x2="16" y2="21" />
+  </Svg>
+);
+
+/**
+ * Label & QR Studio Printer
+ */
+export const LabelPrinterIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#6366f1',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Polyline points="6 9 6 2 18 2 18 9" />
+    <Path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <Rect x="6" y="14" width="12" height="8" />
+  </Svg>
+);
+
+/**
+ * Bullet Projectile with Ogive and Cannelure
+ */
+export const BulletProjectileIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#ef4444',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Path d="M8 21 L8 12 C8 7 12 3 12 3 C12 3 16 7 16 12 L16 21 Z" />
+    <Line x1="8" y1="14" x2="16" y2="14" strokeDasharray="1 1" />
+    <Line x1="8" y1="17" x2="16" y2="17" />
+  </Svg>
+);
+
+/**
+ * Brass Cartridge Casing with Extractor Groove
+ */
+export const BrassCaseIcon: React.FC<MobileIconProps> = ({
+  size = 20,
+  color = '#eab308',
+  ...props
+}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <Path d="M9 4 L15 4 L15 7 L17 10 L17 20 L7 20 L7 10 L9 7 Z" />
+    <Line x1="7" y1="18" x2="17" y2="18" />
+    <Line x1="6" y1="21" x2="18" y2="21" />
   </Svg>
 );
 
